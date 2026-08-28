@@ -214,7 +214,7 @@ export async function generateTheme(
         schema: scheme,
         name: 'mp_style_theme',
         temperature: 0.5,
-        maxTokens: 1400,
+        maxTokens: 3200,
       })
       const candidate = assignThemeDefaults(raw as Partial<Theme>)
       lastTargetColor = candidate.tokens?.primaryColor
