@@ -27,3 +27,6 @@ playwright-report/
 test-results/
 apps/mcp-server/.preview/
 *.png.tmp
+
+# pi agent harness state
+.pi/
