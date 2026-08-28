@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`快照测试 > 固定 Markdown + 固定主题 → 固定 HTML 结构 1`] = `
-"<section style="font-family: -apple-system, BlinkMacSystemFont, " pingfang sc", "hiragino sans gb", "microsoft yahei", sans-serif; font-size: 15px; color: #1f2329; line-height: 1.75; -webkit-text-size-adjust: 100%;"><h1 style="color: #0b6bff; font-size: 1.6em; font-weight: 600; line-height: 1.35; margin: 0 0 16px; border-left: 5px solid #0b6bff; padding-left: 12px;">快照标题</h1>
+"<section style="font-family: -apple-system, BlinkMacSystemFont, " pingfang sc", "hiragino sans gb", "microsoft yahei", sans-serif; font-size: 15px; color: #1f2329; line-height: 1.75;"><h1 style="color: #0b6bff; font-size: 1.6em; font-weight: 600; line-height: 1.35; margin: 0 0 16px; border-left: 5px solid #0b6bff; padding-left: 12px;">快照标题</h1>
 <p style="color: #1f2329; font-size: 15px; line-height: 1.75; margin: 0 0 16px;">正文一段，<strong style="color: #0b6bff; font-weight: 600;">加粗</strong>。</p>
 <ul style="padding-left: 1.4em; margin: 0 0 16px; list-style: disc;">
 <li style="line-height: 1.75; margin: 0 0 6px;">项一</li>

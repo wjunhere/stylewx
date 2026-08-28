@@ -65,6 +65,6 @@ export function compileRootBaseStyle(theme: Theme): string {
   parts.push(`font-size: ${t.fontSize};`)
   parts.push(`color: ${t.textColor};`)
   parts.push(`line-height: ${t.lineHeight};`)
-  parts.push(`-webkit-text-size-adjust: 100%;`)
+  // 注意：不要添加 -webkit-text-size-adjust 等不在微信白名单内的属性，否则会被 validator 拦截。
   return parts.join(' ')
 }
