@@ -97,6 +97,20 @@ describe('publishDraft (service)', () => {
   })
 })
 
+describe('预置主题（含 WeMD 移植）渲染后都通过微信白名单校验', { timeout: 60000 }, () => {
+  it('每一套预置主题渲染出的 HTML 都通过 validator（无白名单外属性）', async () => {
+    const { themes } = listThemes()
+    expect(themes.length).toBeGreaterThanOrEqual(26)
+    const sample = '# 标题\n\n正文 **加粗** 与 [链接](https://a.com)。\n\n> 引用\n\n- 项一\n- 项二\n\n```\ncode\n```\n\n![图](https://mmbiz.qpic.cn/a.png)\n\n---\n'
+    for (const theme of themes) {
+      const r = await renderPreview(sample, theme, { includeScreenshot: false })
+      expect(r.validation.pass, `${theme.name} 渲染后应通过校验: ${JSON.stringify(r.validation.issues.slice(0, 3))}`).toBe(true)
+      expect(r.html).not.toContain('<style')
+      expect(r.html).not.toContain('class=')
+    }
+  })
+})
+
 describe('serviceError', () => {
   it('生成统一错误格式', () => {
     const e = serviceError('x', 'm', 'h')

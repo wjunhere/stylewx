@@ -32,7 +32,7 @@
 mp-style/
 ├── packages/
 │   ├── core/        # Markdown → 内联样式 HTML（unified/remark/rehype + juice），纯函数
-│   ├── theme/       # 主题 zod Schema(含 JSON Schema 导出)、微信 CSS 白名单、主题→CSS 编译器、6+ 预置主题
+│   ├── theme/       # 主题 zod Schema(含 JSON Schema 导出)、微信 CSS 白名单、主题→CSS 编译器、26 套预置主题(6 原创 + 20 WeMD 移植)
 │   ├── validator/   # 微信兼容性校验器，输出结构化报告 { pass, issues }
 │   ├── publisher/   # 微信 API：access_token/素材上传/draft.add + 外链图片搬运；不含群发
 │   ├── preview/     # Playwright 截图（iPhone 视口 390px）

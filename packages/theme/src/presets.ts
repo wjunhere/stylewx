@@ -5,6 +5,7 @@
  */
 
 import type { Theme, ThemeBlock } from './schema.js'
+import { WEMD_THEMES } from './wemd-presets.js'
 
 interface Palette {
   primaryColor: string
@@ -339,6 +340,7 @@ export const PRESET_THEMES: Theme[] = [
   govRed,
   academic,
   darkCode,
+  ...WEMD_THEMES,
 ]
 
 /** 按名字查找预置主题。 */
