@@ -1,0 +1,32 @@
+{
+  "name": "@mp-style/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "mp-style REST API: mirrors the MCP tools as HTTP endpoints, reusing the same service layer.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "dev": "node --import tsx/esm src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@mp-style/publisher": "workspace:*",
+    "@mp-style/service": "workspace:*",
+    "@mp-style/theme": "workspace:*",
+    "hono": "^4.6.0",
+    "zod": "^4.0.0"
+  }
+}

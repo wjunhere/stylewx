@@ -1,0 +1,184 @@
+# mp-style — 公众号排版 Agent 服务
+
+面向 AI Agent 的「公众号排版内核 + MCP Server + REST API」：让 Kimi Code / Claude Code / Cursor
+等 Agent 根据文章内容自动分析、生成/选择主题、渲染、校验、发布到微信公众号**草稿箱**。
+
+> 本仓库提供的是**无头排版内核**，不做面向人类的编辑器 UI（那是 doocs/md、WeMD 等已解决的），
+> 也不做文章正文写作（上游 Agent 的职责）。
+
+---
+
+## 架构
+
+```
+┌──────────── Agent（Kimi / Claude / Cursor）────────────┐
+│   list_themes · analyze_article · generate_theme         │
+│   render_preview · validate_article · publish_draft       │
+└──────────────┬──────────────────────────┬───────────────┘
+         MCP (stdio / Streamable HTTP)         REST API (/themes … /drafts)
+               │                                │
+               └────────────┬───────────────────┘
+                      @mp-style/service  （共享 service 层）
+              ┌──────────────┼───────────────┬───────────────┐
+        core 渲染内核    theme 主题系统   validator 校验器   publisher 发布   preview 截图
+```
+
+`core / theme / validator` 三个包**同构**：不依赖 DOM、不依赖 Node 独有 API，
+未来可在浏览器复用；所有微信 API 调用只出现在 `publisher`。
+
+### Monorepo 结构
+
+```
+mp-style/
+├── packages/
+│   ├── core/        # Markdown → 内联样式 HTML（unified/remark/rehype + juice），纯函数
+│   ├── theme/       # 主题 zod Schema(含 JSON Schema 导出)、微信 CSS 白名单、主题→CSS 编译器、6+ 预置主题
+│   ├── validator/   # 微信兼容性校验器，输出结构化报告 { pass, issues }
+│   ├── publisher/   # 微信 API：access_token/素材上传/draft.add + 外链图片搬运；不含群发
+│   ├── preview/     # Playwright 截图（iPhone 视口 390px）
+│   └── service/     # 共享 service 层，被 MCP 与 REST 复用
+├── apps/
+│   ├── mcp-server/  # MCP Server：stdio + Streamable HTTP 双传输
+│   └── api/         # REST API（Hono），与 MCP tools 一一对应
+├── examples/        # mcp.json / mcp-http.json 示例
+└── docs/            # 说明文档
+```
+
+---
+
+## 快速开始
+
+要求：Node.js ≥ 20，pnpm ≥ 10，Turborepo（由 pnpm 管理）。
+
+```bash
+# 1) 安装依赖
+pnpm install
+
+# 2) 全量构建
+pnpm build
+
+# 3) 全量测试
+pnpm test
+
+# 4) 安装 Chromium（render_preview 截图需要）
+pnpm --filter @mp-style/preview exec playwright install chromium
+
+# 5) 配置环境变量
+cp .env.example .env   # 填入 WECHAT_* 与 LLM_*
+```
+
+### 本地跑通 stdio MCP Server
+
+```bash
+pnpm --filter @mp-style/mcp-server build
+node apps/mcp-server/dist/index.js --transport stdio
+# 之后用任一 MCP Inspector / 客户端连接该进程
+```
+
+一键冒烟（会在 stdio 下真实启动服务并调用 6 个 tool）：
+
+```bash
+pnpm --filter @mp-style/mcp-server exec node scripts/smoke-stdio.mjs
+```
+
+### Streamable HTTP 模式
+
+```bash
+node apps/mcp-server/dist/index.js --transport http --port 3000
+# 端点：POST /mcp（也支持 GET /mcp 做 SSE）
+```
+
+### 启动 REST API
+
+```bash
+pnpm --filter @mp-style/api dev
+# http://localhost:3001  GET /themes · POST /render · POST /validate · POST /drafts · POST /themes/generate
+```
+
+---
+
+## 在 Agent 中接入
+
+### Claude Desktop
+
+把 `examples/mcp.json` 复制到 `~/Library/Application Support/Claude/claude_desktop_config.json`（macOS）
+或 `%APPDATA%\Claude\claude_desktop_config.json`（Windows），填入 `command`/`args`/`env` 后重启 Claude。
+
+### Cursor
+
+把 `examples/mcp.json` 放到项目根目录 `.cursor/mcp.json`（内容同 `mcpServers` 结构），在 Cursor 设置里启用该 MCP。
+
+### Kimi Code
+
+参考其 MCP 配置格式，将 `examples/mcp.json` 中的 `mcpServers.mp-style` 加入 `~/.kimi/…/mcp.json` 或项目级配置；
+stdio 与 http 二选一即可。
+
+### 远程 HTTP 示例
+
+```json
+{
+  "mcpServers": {
+    "mp-style": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+---
+
+## MCP Tools
+
+| Tool | 用途 | 关键输入 |
+| --- | --- | --- |
+| `list_themes` | 列出预置主题（含 description 与完整 token/block，可直接复用） | — |
+| `analyze_article` | 分析内容类型/基调/建议主题/阅读时长 | `markdown` |
+| `generate_theme` | LLM 生成主题，内置自检修复循环（最多 2 次），失败降级并标记 `fallback` | `prompt` / `article` / `baseTheme` |
+| `render_preview` | 渲染 → 内联样式 HTML + 校验报告 + iPhone(390px) 截图 | `markdown`, `theme` |
+| `validate_article` | 校验微信兼容性，输出结构化报告 | `html` |
+| `publish_draft` | 发布到**草稿箱**（搬运外链图、上传封面） | `title`, `markdown`/`html`, `theme` 等 |
+
+> `render_preview` / `publish_draft` 的 `theme` 参数支持**预置主题名**（如 `tech-minimal`）或**完整主题 JSON**。
+
+所有 tool 的错误统一为：
+
+```json
+{ "error": { "code": "invalid_theme", "message": "…", "hint": "…" } }
+```
+
+`hint` 面向 Agent，指明下一步该怎么做。缺少微信 / LLM 凭据时返回对应错误，**绝不静默失败**。
+
+---
+
+## 环境变量
+
+| 变量 | 说明 |
+| --- | --- |
+| `WECHAT_APP_ID` / `WECHAT_APP_SECRET` | 公众号凭据（`publish_draft` 必需） |
+| `WECHAT_API_BASE` | 微信 API 基地址，默认 `https://api.weixin.qq.com` |
+| `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | OpenAI 兼容接口，`generate_theme` 必需 |
+| `PORT` | REST API 端口，默认 `3001` |
+
+---
+
+## 安全边界（有意的）
+
+- 只实现 **`draft/add`（发布到草稿箱）**，**未实现**任何群发接口（`freepublish/submit`）。
+- 内容进入草稿箱后仍需人工在公众号后台确认，本项目不提供任何绕过人工确认的自动化群发能力。
+- 微信 AppSecret 与 LLM API Key 只通过环境变量注入，绝不硬编码或提交。
+
+## 校验与合规
+
+- 输出 HTML **不含 `<style>` / `<link>` / `class` 依赖**，样式全部内联（juice）。
+- 主题 CSS 必须落在**微信白名单**内（禁止 `position`/`transform`/`animation`/`float`/`box-shadow`/外部字体等）。
+- 外链图（非 `mmbiz.qpic.cn`）会被校验器提示，`publish_draft` 会自动搬运到素材库。
+
+## 许可与致谢
+
+本项目的代码为全新实现，不含参考项目源码。设计思路参考了以下开源项目（保留原作者版权声明）：
+
+- [doocs/md](https://github.com/doocs/md) — Markdown→微信 HTML 渲染 / juice 内联思路
+- [WeMD](https://github.com/mdnice/WeMD) — 包拆分与主题设计器思路
+- [caol64/wenyan-mcp](https://github.com/caol64/wenyan-mcp)（Apache-2.0）— 微信 API 封装 / MCP 远程模式
+- `gzh-design-skill` — 主题 JSON 结构与微信兼容性规则清单

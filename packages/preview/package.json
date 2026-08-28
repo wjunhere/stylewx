@@ -1,0 +1,26 @@
+{
+  "name": "@mp-style/preview",
+  "version": "0.1.0",
+  "private": true,
+  "description": "mp-style preview: render styled HTML to a PNG screenshot via Playwright (headless Chromium). iPhone-like viewport (390px) for WeChat previews.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

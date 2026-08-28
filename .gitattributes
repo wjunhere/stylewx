@@ -1,0 +1,17 @@
+# 统一换行符为 LF，避免跨平台（Windows/macOS/Linux）行尾转换造成噪音
+* text=auto eol=lf
+
+# 明确文本/二进制
+*.ts text
+*.js text
+*.mjs text
+*.json text
+*.md text
+*.yaml text
+*.yml text
+*.snap text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

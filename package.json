@@ -1,0 +1,25 @@
+{
+  "name": "mp-style",
+  "version": "0.1.0",
+  "private": true,
+  "description": "mp-style — 公众号排版 Agent 服务：无头排版内核 + MCP Server + REST API。让 AI Agent 根据文章自动选择/生成主题、渲染、校验并发布到微信公众号草稿箱。",
+  "type": "module",
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test --concurrency=2",
+    "type-check": "turbo run type-check",
+    "dev": "turbo run dev",
+    "clean": "turbo run clean && rimraf node_modules"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.0.5",
+    "turbo": "^2.5.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5",
+    "@types/node": "^22.10.5"
+  }
+}

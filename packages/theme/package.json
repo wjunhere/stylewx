@@ -1,0 +1,26 @@
+{
+  "name": "@mp-style/theme",
+  "version": "0.1.0",
+  "private": true,
+  "description": "mp-style theme package: zod theme schema (with JSON Schema export), WeChat-safe CSS whitelist, theme → CSS compiler, and preset themes. Isomorphic (no DOM / no Node-only APIs).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  }
+}

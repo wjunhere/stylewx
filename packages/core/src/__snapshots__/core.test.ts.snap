@@ -1,0 +1,14 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`快照测试 > 固定 Markdown + 固定主题 → 固定 HTML 结构 1`] = `
+"<section style="font-family: -apple-system, BlinkMacSystemFont, " pingfang sc", "hiragino sans gb", "microsoft yahei", sans-serif; font-size: 15px; color: #1f2329; line-height: 1.75; -webkit-text-size-adjust: 100%;"><h1 style="color: #0b6bff; font-size: 1.6em; font-weight: 600; line-height: 1.35; margin: 0 0 16px; border-left: 5px solid #0b6bff; padding-left: 12px;">快照标题</h1>
+<p style="color: #1f2329; font-size: 15px; line-height: 1.75; margin: 0 0 16px;">正文一段，<strong style="color: #0b6bff; font-weight: 600;">加粗</strong>。</p>
+<ul style="padding-left: 1.4em; margin: 0 0 16px; list-style: disc;">
+<li style="line-height: 1.75; margin: 0 0 6px;">项一</li>
+</ul>
+<blockquote style="border-left: 4px solid #0b6bff; background-color: #f5f9ff; color: #3a4a5a; padding: 12px 16px; margin: 0 0 16px; border-radius: 4px;">
+<p style="color: #1f2329; font-size: 15px; line-height: 1.75; margin: 0 0 16px;">引文</p>
+</blockquote>
+<pre style="background-color: #f0f4ff; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 0.88em; line-height: 1.6; font-family: Menlo, Consolas, 'Courier New', monospace; color: #3b5b9a; margin: 0 0 16px;"><code style="font-family: Menlo, Consolas, 'Courier New', monospace; font-size: 0.9em; background-color: #f0f4ff; color: #3b5b9a; padding: 2px 5px; border-radius: 4px;">code
+</code></pre></section>"
+`;

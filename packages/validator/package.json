@@ -1,0 +1,29 @@
+{
+  "name": "@mp-style/validator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "mp-style validator: WeChat compatibility checker (CSS whitelist, HTML structure, content limits). Outputs a structured report. Isomorphic (no DOM / no Node-only APIs).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@mp-style/theme": "workspace:*",
+    "rehype-parse": "^9.0.1",
+    "unified": "^11.0.5",
+    "zod": "^4.0.0"
+  }
+}

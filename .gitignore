@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+build/
+.turbo/
+
+# test / coverage
+coverage/
+*.tsbuildinfo
+
+# env / secrets — never commit credentials
+.env
+.env.local
+.env.*
+!.env.example
+!**/.env.example
+
+# logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# playwright
+playwright-report/
+test-results/
+apps/mcp-server/.preview/
+*.png.tmp
