@@ -30,3 +30,6 @@ apps/mcp-server/.preview/
 
 # pi agent harness state
 .pi/
+
+# browser evidence screenshot artifact
+packages/preview/*.png
