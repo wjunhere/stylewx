@@ -7,7 +7,7 @@ import { unified } from 'unified'
 import rehypeParse from 'rehype-parse'
 import {
   parseStyleDeclarations,
-  isCssPropertyAllowed,
+  classifyCssProperty,
   findUnsafeCssValue,
 } from '@mp-style/theme'
 import { validationReportSchema } from './report.js'
@@ -52,7 +52,7 @@ const JS_URL_SUGGESTION =
 const STYLE_TAG_SUGGESTION =
   '<style> 标签微信编辑器会丢弃，请在渲染阶段使用 juice 把样式内联到元素上，不要输出 <style>。'
 const CSS_PROP_SUGGESTION = (prop: string): string =>
-  `属性「${prop}」不在微信白名单内（position / transform / animation / float / box-shadow 等会被过滤）。请从主题中移除，或用允许的间距/颜色/字号等表达。`
+  `属性「${prop}」已被真实微信实测会过滤（如 position / filter 等），请从主题中移除，或改用微信保留的基础属性表达。`
 
 const IMAGE_SUGGESTION =
   '外链图片微信会被拦截/无法显示。请先上传到微信公众号素材库（或使用图床得到 mmbiz.qpic.cn 链接）后再发布。'
@@ -163,16 +163,33 @@ function walk(node: HastNode, location: string, state: WalkState): void {
     }
   }
 
-  // 3. 内联样式 -> CSS 白名单校验
+  // 3. 内联样式 -> CSS 三档校验（safe 放行 / gray、unknown 警告 / banned 错误）
   const styleValue = node.properties.style
   if (typeof styleValue === 'string' && styleValue.trim()) {
     for (const decl of parseStyleDeclarations(styleValue)) {
-      if (!isCssPropertyAllowed(decl.property)) {
+      const tier = classifyCssProperty(decl.property)
+      if (tier === 'banned') {
         state.issues.push({
-          rule: 'css-property-not-whitelisted',
+          rule: 'css-property-banned',
           severity: 'error',
-          message: `内联样式使用了微信不兼容的属性「${decl.property}」。`,
+          message: `内联样式使用了真实微信实测会过滤的属性「${decl.property}」。`,
           suggestion: CSS_PROP_SUGGESTION(decl.property),
+          location: `${tagLocation}@${decl.property}`,
+        })
+      } else if (tier === 'gray') {
+        state.issues.push({
+          rule: 'css-property-gray',
+          severity: 'warning',
+          message: `内联样式使用了灰色属性「${decl.property}」：微信草稿 API 实测会保留，但编辑器粘贴/读者渲染仍不确定。`,
+          suggestion: '若需在微信里稳定呈现，建议改用基础排版属性表达；否则可保留（如有问题可在编辑器里再调整）。',
+          location: `${tagLocation}@${decl.property}`,
+        })
+      } else if (tier === 'unknown') {
+        state.issues.push({
+          rule: 'css-property-unknown',
+          severity: 'warning',
+          message: `内联样式使用了未纳入已知白名单的属性「${decl.property}」，微信兼容性未确认。`,
+          suggestion: '建议确认该属性在微信端的表现；若不放心，用已验证的基础属性表达。',
           location: `${tagLocation}@${decl.property}`,
         })
       }
@@ -181,7 +198,7 @@ function walk(node: HastNode, location: string, state: WalkState): void {
         state.issues.push({
           rule: 'css-value-unsafe',
           severity: 'warning',
-          message: `属性「${decl.property}」的值包含微信不兼容/不可靠内容：${unsafe}`,
+          message: `属性「${decl.property}」的值包含微信表现不稳定的内容：${unsafe}`,
           suggestion: unsafe,
           location: `${tagLocation}@${decl.property}`,
         })

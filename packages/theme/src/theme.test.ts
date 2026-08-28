@@ -9,6 +9,7 @@ import {
   themeToJsonSchema,
   themeSchema,
   isCssPropertyAllowed,
+  classifyCssProperty,
   findUnsafeCssValue,
   hasTokenReferences,
 } from './index.js'
@@ -77,22 +78,29 @@ describe('validateTheme', () => {
     expect(r.issues).toEqual([])
   })
 
-  it('包含微信不兼容属性时失败并给出可读提示', () => {
+  it('包含真实微信会过滤的属性(position)时失败并给出可读提示', () => {
     const bad = structuredClone(validTheme)
     ;(bad.blocks.p as Record<string, string>)['position'] = 'absolute'
     const r = validateTheme(bad)
     expect(r.ok).toBe(false)
     const issue = r.issues.find((i) => i.path.includes('position'))
     expect(issue).toBeDefined()
-    expect(issue?.message).toContain('白名单')
+    expect(issue?.message).toContain('过滤')
   })
 
-  it('包含 !important 时失败', () => {
+  it('灰色属性(transform)不判主题非法，但归类为 gray', () => {
+    const ok = structuredClone(validTheme)
+    ;(ok.blocks.h1 as Record<string, string>)['transform'] = 'rotate(3deg)'
+    const r = validateTheme(ok)
+    expect(r.ok).toBe(true) // 不再硬禁止
+    expect(classifyCssProperty('transform')).toBe('gray')
+  })
+
+  it('!important 不再让主题非法（降级为 validator 层 warning）', () => {
     const bad = structuredClone(validTheme)
     ;(bad.blocks.h1 as Record<string, string>)['color'] = '{{primaryColor}} !important'
     const r = validateTheme(bad)
-    expect(r.ok).toBe(false)
-    expect(r.issues.some((i) => i.message.includes('!important'))).toBe(true)
+    expect(r.ok).toBe(true)
   })
 })
 
@@ -146,9 +154,17 @@ describe('CSS 白名单', () => {
     expect(isCssPropertyAllowed('border-radius')).toBe(true)
   })
 
-  it('黑名单属性被拒绝', () => {
-    for (const prop of ['position', 'transform', 'animation', 'float', 'box-shadow', 'transition']) {
-      expect(isCssPropertyAllowed(prop), `${prop} 应在黑名单`).toBe(false)
+  it('真实微信会过滤的属性(banned)被拒绝', () => {
+    for (const prop of ['position', 'filter', 'backdrop-filter']) {
+      expect(isCssPropertyAllowed(prop), `${prop} 应被禁止`).toBe(false)
+      expect(classifyCssProperty(prop)).toBe('banned')
+    }
+  })
+
+  it('灰色属性(allow + warning)被放行', () => {
+    for (const prop of ['transform', 'animation', 'float', 'box-shadow', 'transition', 'opacity', 'top', 'z-index']) {
+      expect(isCssPropertyAllowed(prop), `${prop} 应可放行`).toBe(true)
+      expect(classifyCssProperty(prop)).toBe('gray')
     }
   })
 

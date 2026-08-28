@@ -89,7 +89,7 @@ describe('renderMarkdownToHtml', () => {
   it('非法主题抛错', () => {
     const bad = structuredClone(theme) as Theme
     ;(bad.blocks.p as Record<string, string>)['position'] = 'absolute'
-    expect(() => renderMarkdownToHtml(sampleMarkdown, bad)).toThrow(/白名单/)
+    expect(() => renderMarkdownToHtml(sampleMarkdown, bad)).toThrow(/position|过滤/)
   })
 })
 

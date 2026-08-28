@@ -1,8 +1,5 @@
 import { z } from 'zod'
-import {
-  findUnsafeCssValue,
-  isCssPropertyAllowed,
-} from './css-whitelist.js'
+import { isCssPropertyAllowed } from './css-whitelist.js'
 import { resolveTokenReferences } from './tokens.js'
 
 /** 主题 block 允许出现的元素名（Markdown/rehype 输出中对应的标签）。 */
@@ -81,11 +78,13 @@ export const themeSchema = z
       for (const [property, rawValue] of Object.entries(block)) {
         const propPath = `blocks.${blockName}.${property}`
 
+        // 仅对「微信真实会过滤」的属性硬禁止（position/filter 等）；transform/animation/float
+        // 等为灰色属性（微信草稿 API 实测保留），不在主题层面判非法，交由 validator 提示。
         if (!isCssPropertyAllowed(property)) {
           ctx.addIssue({
             code: 'custom',
             path: [propPath],
-            message: `CSS 属性「${property}」不在微信兼容白名单内（可能被微信编辑器过滤：position / transform / animation / float 等）。请改用白名单属性。`,
+            message: `CSS 属性「${property}」已被真实微信实测会过滤（如 position / filter 等），请移除或改用微信保留的属性。`,
           })
           continue
         }
@@ -96,16 +95,6 @@ export const themeSchema = z
             code: 'custom',
             path: [propPath],
             message: `属性「${property}」的值经过 token 引用解析后为空，请检查是否引用了非法 token。`,
-          })
-          continue
-        }
-
-        const unsafe = findUnsafeCssValue(resolved)
-        if (unsafe) {
-          ctx.addIssue({
-            code: 'custom',
-            path: [propPath],
-            message: unsafe,
           })
         }
       }

@@ -42,12 +42,20 @@ MCP 与 REST 的错误统一为：
 而非 nock/msw。理由：全局 fetch 走 undici，nock 对 undici 的拦截兼容性不稳定；
 注入 fetch 完全确定、零额外依赖，同样达成了「mock 微信 API、无真实网络」的目的。
 
-## 6. 微信兼容白名单
+## 6. 微信兼容白名单（三档，基于真实微信实测校准）
 
-白名单常量在 `@mp-style/theme/src/css-whitelist.ts`，附注释说明每条依据：
-- 允许：字体/文本、盒模型、背景、边框、display/列表等基础排版属性。
-- 禁止：`position`、`top/left`、`z-index`、`float`、`transform`、`animation`、`transition`、
-  `box-shadow`、`filter`、伪类、外部 `@font-face`、`!important`、外部 `url()` 等（微信会过滤或不稳定）。
+白名单常量在 `@mp-style/theme/src/css-whitelist.ts`。我们用**真实公众号**对 `draft/add → draft/get` 做了实测：
+微信的「草稿 API」其实只过滤极少数内联样式属性，其余基本保留。据此把策略改为三档：
+
+- **SAFE**（放行，无提示）：字体/文本、盒模型、纯色背景、边框/圆角、基础 display/列表等。
+- **GRAY**（放行 + warning）：`float`、`transform`、`animation`、`transition`、`box-shadow`、`display:flex`、
+  `flex-*`、`opacity`、`top/left/z-index`、`gap`、渐变 `background-image` 等 —— 微信草稿 API 实测会保留，
+  但编辑器手动粘贴 / 读者最终渲染仍不确定，故不硬禁止，只提示。
+- **BANNED**（硬禁止 error）：`position`、`filter` 等实测会过滤的属性，以及结构层危险内容
+  （`<style>`、`<script>`、`on*` 事件、`javascript:` 链接）。
+
+> 实测边界说明：以上结论针对 **draft 草稿 API**（我们发布草稿走的路）。微信的**编辑器手动粘贴**与
+> **读者渲染**是另一套清洗逻辑，未纳入本次 API 实测，故 GRAY 属性仍以 `warning` 提示，保留谨慎。
 
 ## 7. 测试覆盖
 

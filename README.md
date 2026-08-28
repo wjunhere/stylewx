@@ -171,7 +171,7 @@ stdio 与 http 二选一即可。
 ## 校验与合规
 
 - 输出 HTML **不含 `<style>` / `<link>` / `class` 依赖**，样式全部内联（juice）。
-- 主题 CSS 必须落在**微信白名单**内（禁止 `position`/`transform`/`animation`/`float`/`box-shadow`/外部字体等）。
+- 主题 CSS 采用**三档白名单**（经真实微信草稿 API 实测校准）：`position`/`filter` 硬禁止；`transform`/`animation`/`float`/`box-shadow`/`flex`/`opacity` 等为**灰色属性**（微信保留但提示建议）；仅 `safe` 档无提示。
 - 外链图（非 `mmbiz.qpic.cn`）会被校验器提示，`publish_draft` 会自动搬运到素材库。
 
 ## 许可与致谢

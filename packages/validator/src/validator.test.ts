@@ -30,13 +30,24 @@ describe('HTML 结构校验', () => {
 })
 
 describe('CSS 白名单校验（内联样式）', () => {
-  it('白名单外属性被拒绝，并给出可执行建议', () => {
+  it('真实微信会过滤的属性(banned)被拒绝为 error', () => {
     const html = '<section><p style="position: absolute; color: red;">x</p></section>'
     const r = validateHtml(html)
-    const issues = issuesForRule(r, 'css-property-not-whitelisted')
+    const issues = issuesForRule(r, 'css-property-banned')
     expect(issues).toHaveLength(1)
+    expect(issues[0]?.severity).toBe('error')
     expect(issues[0]?.message).toContain('position')
-    expect(issues[0]?.suggestion).toContain('白名单')
+    expect(issues[0]?.suggestion).toContain('移除')
+    expect(r.pass).toBe(false)
+  })
+
+  it('灰色属性(transform)降级为 warning，不阻断 pass', () => {
+    const html = '<section><p style="transform: rotate(3deg); color: red;">x</p></section>'
+    const r = validateHtml(html)
+    const issues = issuesForRule(r, 'css-property-gray')
+    expect(issues).toHaveLength(1)
+    expect(issues[0]?.severity).toBe('warning')
+    expect(r.pass).toBe(true)
   })
 
   it('白名单内属性通过', () => {
@@ -45,11 +56,14 @@ describe('CSS 白名单校验（内联样式）', () => {
     expect(issuesForRule(r, 'css-property-not-whitelisted')).toHaveLength(0)
   })
 
-  it('!important 与外部 url() 被标记为不安全', () => {
+  it('!important 与外部 url() 被标记为 warning(css-value-unsafe)', () => {
     const html =
       '<section><p style="color: red !important; background-image: url(https://evil/a.png);">x</p></section>'
     const r = validateHtml(html)
-    expect(issuesForRule(r, 'css-value-unsafe').length).toBeGreaterThanOrEqual(2)
+    const issues = issuesForRule(r, 'css-value-unsafe')
+    expect(issues.length).toBeGreaterThanOrEqual(2)
+    expect(issues.every((i) => i.severity === 'warning')).toBe(true)
+    expect(r.pass).toBe(true)
   })
 })
 
