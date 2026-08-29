@@ -33,3 +33,6 @@ apps/mcp-server/.preview/
 
 # browser evidence screenshot artifact
 packages/preview/*.png
+
+# 本机排版输出（生成物，不提交）
+text_one_out/
