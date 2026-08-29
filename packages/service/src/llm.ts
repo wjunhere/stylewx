@@ -147,6 +147,7 @@ export class LlmClient {
             temperature,
             max_output_tokens: maxTokens,
             stream: false,
+            text: { format: { type: 'text' } },
           }
         : {
             model: this.config.model,

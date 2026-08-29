@@ -6,11 +6,25 @@ import {
   validateArticle,
   publishDraft,
   generateTheme,
+  optimizeArticle,
   serviceError,
 } from './index.js'
 import { getPresetTheme, validateTheme } from '@mp-style/theme'
 import { WeChatClient } from '@mp-style/publisher'
 import type { LlmClient, LlmMessage, LlmJsonOptions } from './index.js'
+
+describe('optimizeArticle', () => {
+  it('用桩 LLM 返回优化后的 Markdown', async () => {
+    const stub = { completeText: async () => '# 优化标题\n\n优化后的正文。' } as unknown as LlmClient
+    const r = await optimizeArticle('# 标题\n\n正文。', stub)
+    expect(r.markdown).toContain('优化标题')
+  })
+
+  it('空正文抛 missing_content', async () => {
+    const stub = { completeText: async () => '' } as unknown as LlmClient
+    await expect(optimizeArticle('   ', stub)).rejects.toMatchObject({ error: { code: 'missing_content' } })
+  })
+})
 
 describe('listThemes', () => {
   it('返回至少 6 套预置主题', () => {

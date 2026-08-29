@@ -100,6 +100,8 @@ MCP 与 REST 的错误统一为：
   - `GET /editor` —— 单页编辑器（`apps/mcp-server/editor.html`，零依赖 HTML/JS，布局参考 WeMD：左侧 Markdown 编辑、主题面板、右侧 390px 实时预览）。
   - `GET /editor/api/themes`、`POST /editor/api/render`、`/generate`、`/savetheme`、`/validate`、`/publish`、`GET /editor/api/export` 等 JSON 端点（复用同一编排与依赖注入）。
 - 交互：写 Markdown → 选/生成/保存主题 → 实时预览 → 校验 → 复制 HTML / 复制到公众号 / 一键发布草稿箱。
+- 还提供：`POST /editor/api/optimize`（AI 优化正文，需 LLM）；「图床设置」开关控制发布时是否把外链图搬运到微信素材库（`publisher.publishDraft` 的 `relocate` 参数）。
+- `LlmClient.completeText` 对 Responses 端点需带 `text: { format: { type: 'text' } }`，否则取不到 `output_text`（AI 优化也因此可跑通）。
 
 **错误可读性**
 - `asServiceError` 能识别已符合 `{ error: { code, message, hint } }` 形状的对象并原样保留，避免被 `String` 成 `[object Object]` 掩盖真实原因。

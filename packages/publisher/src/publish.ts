@@ -21,6 +21,8 @@ export interface PublishParams {
   contentSourceUrl?: string
   needOpenComment?: boolean
   onlyFansCanComment?: boolean
+  /** 发布时是否把外链图自动搬运到微信素材库。默认 true；false 则保留外链 URL。 */
+  relocate?: boolean
 }
 
 export interface PublishResult {
@@ -85,7 +87,10 @@ export async function publishDraft(
     throw new Error('缺少文章正文 content（渲染后的 HTML）。请先调用 render_preview 或渲染步骤。')
   }
 
-  const relocated = await relocateExternalImages(params.content, client)
+  const relocated =
+    params.relocate === false
+      ? { html: params.content, uploaded: [], failed: [] }
+      : await relocateExternalImages(params.content, client)
   const coverMediaId = await resolveThumbMediaId(client, params, relocated.uploaded)
 
   const article: DraftArticle = {

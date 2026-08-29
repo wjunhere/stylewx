@@ -22,6 +22,7 @@ import {
   exportTheme,
   validateArticle,
   resolveTheme,
+  optimizeArticle,
   asServiceError,
 } from '@mp-style/service'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@mp-style/publisher'
@@ -109,12 +110,12 @@ async function handleEditorApi(
       const markdown = typeof b.markdown === 'string' ? b.markdown : ''
       if (!markdown) return sendErr(res, { code: 'missing_content', message: '缺少 markdown 正文。', hint: '请提供 markdown 字段。' })
       const theme = resolveTheme(b.theme ?? 'magazine')
-      const r = await renderPreview(markdown, theme)
+      // 编辑器用轻量渲染：跳过 Chromium 截图（每次键入都截会很贵），仅返回 HTML + 校验
+      const r = await renderPreview(markdown, theme, { includeScreenshot: false })
       return sendJson(res, {
         html: r.html,
         validation: r.validation,
         theme: r.theme,
-        screenshotPng: r.screenshotPng ? r.screenshotPng.toString('base64') : undefined,
       })
     }
 
@@ -175,8 +176,17 @@ async function handleEditorApi(
         title,
         coverImage: typeof b.coverImage === 'string' ? b.coverImage : undefined,
         author: typeof b.author === 'string' ? b.author : undefined,
+        relocate: b.relocate !== false,
       })
-      return sendJson(res, { media_id: result.media_id, uploadedImages: result.uploadedImages })
+      return sendJson(res, { media_id: result.media_id, uploadedImages: result.uploadedImages, coverMediaId: result.coverMediaId })
+    }
+
+    if (path === '/editor/api/optimize' && req.method === 'POST') {
+      if (!deps.llm) return sendErr(res, { code: 'missing_llm_config', message: '需要 LLM 配置。', hint: '请配置 LLM_BASE_URL / LLM_API_KEY / LLM_MODEL 后重启服务。' })
+      const b = await readJsonBody(req)
+      const markdown = typeof b.markdown === 'string' ? b.markdown : ''
+      const r = await optimizeArticle(markdown, deps.llm)
+      return sendJson(res, { markdown: r.markdown })
     }
 
     return sendErr(res, { code: 'not_found', message: '未知 /editor/api 端点：' + path, hint: '请检查路径。' }, 404)
