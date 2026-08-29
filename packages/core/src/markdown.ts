@@ -35,11 +35,37 @@ function rehypeRemoveClassPlugin() {
 }
 
 /**
+ * 容错：把「#后直接跟非空格」的行规范成合法 ATX 标题。
+ * CommonMark 要求 `## 标题`（# 后要有空格）才算标题；但中文公众号写作常写 `##标题`（无空格），
+ * 未规范时会被当成普通段落。这里在解析前把 `#{1,6}` 后紧跟非空格的字符前补一个空格，
+ * 使其成为合法标题。跳过 ``` / ~~~ 代码围栏与缩进代码，避免误伤代码。
+ */
+export function normalizeNoSpaceAtxHeadings(markdown: string): string {
+  const lines = markdown.split(/\r?\n/)
+  let inFence = false
+  return lines
+    .map((line) => {
+      // 代码围栏（``` 或 ~~~，最多 3 空格缩进）：围栏行切换状态，围栏内原样保留
+      if (/^\s{0,3}(```|~~~)/.test(line)) {
+        inFence = !inFence
+        return line
+      }
+      if (inFence) return line
+      // 有前置空格的缩进代码 / 其它块不处理（ATX 标题不能缩进）
+      if (/^(\s|\t)/.test(line)) return line
+      // 在 `#` 与首个非空格、非#字符之间补空格 -> 合法 ATX 标题；已有空格 / 纯# / 超长#串不受影响
+      return line.replace(/^(#{1,6})([^\s#])/, '$1 $2')
+    })
+    .join('\n')
+}
+
+/**
  * 把 Markdown 字符串转换为嵌套的 HTML 片段（不含根容器）。
  * @param markdown 文章 Markdown
  * @returns HTML 字符串，例如 `<h1>…</h1><p>…</p>`
  */
 export function markdownToHtml(markdown: string): string {
+  const normalized = normalizeNoSpaceAtxHeadings(markdown)
   const file = unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -47,6 +73,6 @@ export function markdownToHtml(markdown: string): string {
     .use(rehypeRaw)
     .use(rehypeRemoveClassPlugin)
     .use(rehypeStringify)
-    .processSync(markdown)
+    .processSync(normalized)
   return String(file)
 }

@@ -54,6 +54,22 @@ describe('markdownToHtml', () => {
     const html = markdownToHtml('text <script>alert(1)</script>')
     expect(html).toContain('<script>alert(1)</script>')
   })
+
+  it('容错：`##无空格` 也识别为标题（CommonMark 需空格，这里 lenient）', () => {
+    expect(markdownToHtml('##照相')).toContain('<h2>')
+    expect(markdownToHtml('##照相')).toContain('照相')
+    // 已有空格 / 纯 # 不受影响
+    expect(markdownToHtml('## 正常')).toContain('<h2>')
+    const h6 = markdownToHtml('######深标题')
+    expect(h6).toContain('<h6>')
+  })
+
+  it('代码围栏内的 `##` 行不被误判为标题', () => {
+    const md = '```\n##not-a-heading\n```'
+    const html = markdownToHtml(md)
+    expect(html).not.toContain('<h2>')
+    expect(html).toContain('##not-a-heading')
+  })
 })
 
 describe('renderMarkdownToHtml', () => {
