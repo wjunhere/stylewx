@@ -49,13 +49,26 @@ MCP 与 REST 的错误统一为：
 
 - **SAFE**（放行，无提示）：字体/文本、盒模型、纯色背景、边框/圆角、基础 display/列表等。
 - **GRAY**（放行 + warning）：`float`、`transform`、`animation`、`transition`、`box-shadow`、`display:flex`、
-  `flex-*`、`opacity`、`top/left/z-index`、`gap`、渐变 `background-image` 等 —— 微信草稿 API 实测会保留，
-  但编辑器手动粘贴 / 读者最终渲染仍不确定，故不硬禁止，只提示。
-- **BANNED**（硬禁止 error）：`position`、`filter` 等实测会过滤的属性，以及结构层危险内容
+  `flex-*`、`opacity`、`top/left/z-index`、`gap`、渐变 `background-image` 等 —— 微信**草稿 API 实测保留**、
+  **Chromium 移动端实测可渲染**、**真实编辑器（ProseMirror）实测保留并渲染**；仅读者端最终显示需真机核对，
+  故不硬禁止，只提示。
+- **BANNED**（硬禁止 error）：`position`、`filter` 等**草稿 API 实测会过滤**的属性，以及结构层危险内容
   （`<style>`、`<script>`、`on*` 事件、`javascript:` 链接）。
 
-> 实测边界说明：以上结论针对 **draft 草稿 API**（我们发布草稿走的路）。微信的**编辑器手动粘贴**与
-> **读者渲染**是另一套清洗逻辑，未纳入本次 API 实测，故 GRAY 属性仍以 `warning` 提示，保留谨慎。
+> 三层实测证据（缺一不可，均用真实公众号 / 真实浏览器完成）：
+>
+> 1. **草稿 API**（`draft/add → draft/get`，这是我们发布草稿走的唯一路径）：
+>    保留 `float/transform/animation/box-shadow/display:flex/opacity/top/z-index/gap/!important` 等；
+>    **裁掉 `position`、`filter`**，以及 `<style>`、`<script>`、`on*` 事件、`javascript:` 链接。
+> 2. **真实图文编辑器**（kimi-webbridge 驱动 Edge 里的公众号，往 ProseMirror 正文粘贴含 `position:absolute`/`filter`/
+>    `transform`/`box-shadow` 的 HTML）——**编辑器本身极宽容**：DOM 完整保留**全部**内联样式（含 `position`、`filter`），
+>    且计算样式真实生效（`position=absolute`、`transform=matrix(...)`、`box-shadow=red 0 0 10px`、`opacity=0.5` 均读出）。
+>    **即：真正的清洗发生在草稿 API 层，不在编辑器。**
+> 3. **Chromium 移动端**（390px 视口 `getComputedStyle`）：gray 属性全部能渲染。
+>
+> 推论：对「无头排版 → 直接写草稿 API」的管线，`position/filter` 在 API 层即被裁，永远到不了读者端，
+> 列为 BANNED 是**证据驱动、正确且安全**的。（编辑器虽会显示它们，但保存后仍会被草稿 API 裁掉。）
+> 唯一未覆盖的是**读者移动端最终渲染**（需真机发布后才能核对），故 GRAY 仍以 `warning` 保留谨慎。
 
 ## 7. 测试覆盖
 
