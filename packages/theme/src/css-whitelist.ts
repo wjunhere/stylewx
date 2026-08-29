@@ -1,13 +1,25 @@
 /**
  * 微信兼容 CSS 白名单（三档，基于真实微信实测校准）。
  *
- * 我们先前的「黑名单」是社区经验；这次用真实公众号对 draft/add → draft/get 做了实测，
- * 结论是：微信的「草稿 API」只过滤极少数内联样式属性，其余基本保留。据此把策略改成三档：
+ * 我们先前的「黑名单」是社区经验；这次改用真实公众号做了三层实测，结论清晰：
  *
+ *   1) 草稿 API（draft/add → draft/get）——这是「持久化/净化」层：
+ *      保留 float/transform/animation/box-shadow/display:flex/opacity/top/z-index/gap/!important 等；
+ *      **裁掉 position / filter**，以及结构层危险内容（<style>、<script>、on* 事件、javascript: 链接）。
+ *   2) 微信图文编辑器（ProseMirror，真实浏览器实测）——这是「显示/编辑」层：
+ *      **非常宽容**，手动把含 position:absolute/filter/transform/box-shadow/… 的 HTML 粘进去，
+ *      编辑器 DOM 全部保留（含 position），且计算样式真实渲染（position=absolute、transform 生效……）。
+ *      即：编辑器本身**不裁剪**内联样式，裁剪发生在**草稿 API** 层。
+ *   3) Chromium 移动端（390px 视口 getComputedStyle 实测）——gray 属性全部能渲染。
+ *
+ * 因此对「无头排版 → 直接写草稿 API」的管线而言：position/filter 在 API 层就会被裁，不会到读者端；
+ * 编辑器虽然显示它们，但保存后仍会被 API 裁掉。故把 position/filter 列为 BANNED 是证据驱动的、正确且安全。
+ *
+ * 三档定义：
  *  - SAFE   放行，无提示：微信内联时稳定保留的基础排版属性。
- *  - GRAY   放行但提示 warning：微信草稿 API 实测**保留**，但编辑器手动粘贴 / 读者最终渲染
- *           仍不确定，故不硬禁止，只提示。
- *  - BANNED 硬禁止（error）：实测微信会过滤 / 存在明显风险的属性（position、filter 等）以及
+ *  - GRAY   放行但提示 warning：微信草稿 API 实测**保留**、Chromium 能渲染；但读者端最终显示
+ *           仍需真机核对，故不硬禁止，只提示。
+ *  - BANNED 硬禁止（error）：实测微信 API 会过滤 / 存在明显风险的属性（position、filter 等）以及
  *           结构层危险内容（style 标签、script 标签、on* 事件属性、javascript: 链接，见 validator）。
  *
  * 其余不在三个集合内的属性视为「unknown」，也**放行但提示**（证据表明微信很宽容，故不硬失败；
