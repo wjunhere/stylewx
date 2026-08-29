@@ -28,9 +28,9 @@ async function main() {
 
   const { tools } = await client.listTools()
   console.log('[smoke] 已列出 tools:', tools.map((t) => t.name).join(', '))
-  assert(tools.length === 6, `期望 6 个 tools，实际 ${tools.length}`)
+  assert(tools.length === 9, `期望 9 个 tools，实际 ${tools.length}`)
 
-  const expected = ['list_themes', 'analyze_article', 'generate_theme', 'render_preview', 'validate_article', 'publish_draft']
+  const expected = ['list_themes', 'analyze_article', 'generate_theme', 'render_preview', 'validate_article', 'publish_draft', 'list_saved_themes', 'save_theme', 'export_theme']
   for (const name of expected) assert(tools.some((t) => t.name === name), `缺少 tool: ${name}`)
 
   // analyze

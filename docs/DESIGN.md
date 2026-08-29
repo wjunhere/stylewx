@@ -86,9 +86,28 @@ MCP 与 REST 的错误统一为：
 - 只实现 `draft/add`（发布到草稿箱）；**未实现** `freepublish/submit` 群发。
 - 所有凭据只从环境读取（`.env`），已在 `.gitignore` 排除，绝不提交。
 
-## 9. 已知限制
+## 9. 本地 Web 编辑器与主题库（WeMD 风格）
+
+**主题库（复用 AI 主题）**
+- `@mp-style/service/theme-store.ts` 把自定义 / AI 生成主题持久化到用户级 `~/.mp-style/themes.json`
+  （可用环境变量 `MP_STYLE_THEMES_PATH` 覆盖）。仅允许出现在 service 层，因用到 Node fs；core/theme/validator 保持同构。
+- `list_themes` 自动合并「预置 + 已存」主题（按名去重，预置优先）；`resolveTheme` 也能按**已存主题名**解析。
+- MCP 新增工具：`save_theme`（保存主题）、`list_saved_themes`（列出已存）、`export_theme`（导出完整 JSON 复用/分享）；
+  `generate_theme` 增加 `save` 选项（AI 生成后直接存档）。
+
+**本地 Web 编辑器**
+- `mp-style --transport http` 时，除 `/mcp` 外还提供：
+  - `GET /editor` —— 单页编辑器（`apps/mcp-server/editor.html`，零依赖 HTML/JS，布局参考 WeMD：左侧 Markdown 编辑、主题面板、右侧 390px 实时预览）。
+  - `GET /editor/api/themes`、`POST /editor/api/render`、`/generate`、`/savetheme`、`/validate`、`/publish`、`GET /editor/api/export` 等 JSON 端点（复用同一编排与依赖注入）。
+- 交互：写 Markdown → 选/生成/保存主题 → 实时预览 → 校验 → 复制 HTML / 复制到公众号 / 一键发布草稿箱。
+
+**错误可读性**
+- `asServiceError` 能识别已符合 `{ error: { code, message, hint } }` 形状的对象并原样保留，避免被 `String` 成 `[object Object]` 掩盖真实原因。
+
+## 10. 已知限制
 
 - 主题内嵌代码不做逐 token 高亮（无 highlight.js / 网络依赖），由主题统一修饰 `pre/code`。
 - `render_preview` 截图依赖本机安装 Chromium：
   `pnpm --filter @mp-style/preview exec playwright install chromium`。
   未安装时服务降级为返回 HTML + 校验报告（不崩溃，可正常发布），并提示安装。
+- 微信草稿箱编辑器加载 `draft/add` 建的草稿时以简化视图显示（不完整渲染内联样式）；看点用「预览/发表」的读者端。

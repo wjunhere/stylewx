@@ -7,9 +7,24 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createMcpServer } from './server.js'
-import { loadLlmConfigFromEnv, LlmClient } from '@mp-style/service'
-import { loadConfigFromEnv, WeChatClient } from '@mp-style/publisher'
+import {
+  loadLlmConfigFromEnv,
+  LlmClient,
+  listThemes,
+  listSavedThemes,
+  renderPreview,
+  generateTheme,
+  saveTheme,
+  exportTheme,
+  validateArticle,
+  resolveTheme,
+  asServiceError,
+} from '@mp-style/service'
+import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@mp-style/publisher'
 import type { ToolDeps } from './tools.js'
 
 interface CliOptions {
@@ -53,6 +68,124 @@ function buildDeps(): ToolDeps {
   return deps
 }
 
+// ---------- 本地 Web 编辑器（/editor + /editor/api/*） ----------
+
+async function readJsonBody(req: import('node:http').IncomingMessage): Promise<Record<string, unknown>> {
+  let body = ''
+  for await (const chunk of req) body += chunk
+  if (!body) return {}
+  try {
+    return JSON.parse(body) as Record<string, unknown>
+  } catch {
+    return {}
+  }
+}
+
+function sendJson(res: import('node:http').ServerResponse, obj: unknown, status = 200): void {
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
+  res.end(JSON.stringify(obj))
+}
+
+function sendErr(res: import('node:http').ServerResponse, error: { code: string; message: string; hint: string }, status = 400): void {
+  sendJson(res, { error }, status)
+}
+
+async function handleEditorApi(
+  req: import('node:http').IncomingMessage,
+  res: import('node:http').ServerResponse,
+  path: string,
+  url: URL,
+  deps: ToolDeps,
+): Promise<void> {
+  try {
+    if (path === '/editor/api/themes' && req.method === 'GET') {
+      const savedNames = new Set(listSavedThemes().themes.map((t) => t.name))
+      const themes = listThemes().themes.map((t) => ({ ...t, origin: savedNames.has(t.name) ? 'saved' : 'preset' }))
+      return sendJson(res, { themes })
+    }
+
+    if (path === '/editor/api/render' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      const markdown = typeof b.markdown === 'string' ? b.markdown : ''
+      if (!markdown) return sendErr(res, { code: 'missing_content', message: '缺少 markdown 正文。', hint: '请提供 markdown 字段。' })
+      const theme = resolveTheme(b.theme ?? 'magazine')
+      const r = await renderPreview(markdown, theme)
+      return sendJson(res, {
+        html: r.html,
+        validation: r.validation,
+        theme: r.theme,
+        screenshotPng: r.screenshotPng ? r.screenshotPng.toString('base64') : undefined,
+      })
+    }
+
+    if (path === '/editor/api/validate' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      return sendJson(res, validateArticle(typeof b.html === 'string' ? b.html : ''))
+    }
+
+    if (path === '/editor/api/generate' && req.method === 'POST') {
+      if (!deps.llm) return sendErr(res, { code: 'missing_llm_config', message: '需要 LLM 配置。', hint: '请配置 LLM_BASE_URL / LLM_API_KEY / LLM_MODEL 后重启服务。' })
+      const b = await readJsonBody(req)
+      const result = await generateTheme(
+        {
+          prompt: typeof b.prompt === 'string' ? b.prompt : undefined,
+          article: typeof b.article === 'string' ? b.article : undefined,
+          baseTheme: typeof b.baseTheme === 'string' ? b.baseTheme : undefined,
+        },
+        deps.llm,
+      )
+      let saved = false
+      if (b.save && result.theme) {
+        saveTheme(result.theme)
+        saved = true
+      }
+      return sendJson(res, {
+        theme: result.theme ? { ...result.theme, origin: 'saved' } : undefined,
+        fallback: result.fallback,
+        repairAttempts: result.repairAttempts,
+        saved,
+        analysis: result.analysis,
+        previewPng: result.previewPng ? result.previewPng.toString('base64') : undefined,
+      })
+    }
+
+    if (path === '/editor/api/savetheme' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      if (!b.theme) return sendErr(res, { code: 'invalid_theme', message: '缺少 theme。', hint: '请提供主题 JSON 对象。' })
+      const t = saveTheme(b.theme)
+      return sendJson(res, { theme: t.theme })
+    }
+
+    if (path === '/editor/api/export' && req.method === 'GET') {
+      const name = url.searchParams.get('theme') || ''
+      const r = exportTheme(name)
+      return sendJson(res, { theme: r.theme })
+    }
+
+    if (path === '/editor/api/publish' && req.method === 'POST') {
+      if (!deps.wechat) return sendErr(res, { code: 'missing_wechat_credential', message: '需要微信凭据。', hint: '请配置 WECHAT_APP_ID / WECHAT_APP_SECRET 后重启服务。' })
+      const b = await readJsonBody(req)
+      const title = typeof b.title === 'string' && b.title.trim() ? b.title.trim() : ''
+      const markdown = typeof b.markdown === 'string' ? b.markdown : ''
+      if (!title) return sendErr(res, { code: 'missing_title', message: '缺少标题。', hint: '请提供 title。' })
+      const theme = resolveTheme(typeof b.theme === 'string' ? b.theme : 'magazine')
+      const { html } = await renderPreview(markdown, theme)
+      const result = await publisherPublishDraft(deps.wechat, {
+        content: html,
+        title,
+        coverImage: typeof b.coverImage === 'string' ? b.coverImage : undefined,
+        author: typeof b.author === 'string' ? b.author : undefined,
+      })
+      return sendJson(res, { media_id: result.media_id, uploadedImages: result.uploadedImages })
+    }
+
+    return sendErr(res, { code: 'not_found', message: '未知 /editor/api 端点：' + path, hint: '请检查路径。' }, 404)
+  } catch (error) {
+    const e = asServiceError(error)
+    return sendErr(res, e.error)
+  }
+}
+
 async function runStdio(): Promise<void> {
   const server = createMcpServer(buildDeps())
   const transport = new StdioServerTransport()
@@ -62,10 +195,23 @@ async function runStdio(): Promise<void> {
 
 async function runHttp(port: number): Promise<void> {
   const transports = new Map<string, StreamableHTTPServerTransport>()
+  const deps = buildDeps()
+  const editorHtml = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../editor.html'), 'utf8')
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
-    if (url.pathname !== '/mcp') {
+    const path = url.pathname
+    // 本地 Web 编辑器（WeMD 风格）
+    if (path === '/editor') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      res.end(editorHtml)
+      return
+    }
+    if (path.startsWith('/editor/api/')) {
+      await handleEditorApi(req, res, path, url, deps)
+      return
+    }
+    if (path !== '/mcp') {
       res.writeHead(404)
       res.end('Not Found')
       return

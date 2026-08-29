@@ -1,13 +1,18 @@
 import { PRESET_THEMES, getPresetTheme, validateTheme } from '@mp-style/theme'
 import type { Theme } from '@mp-style/theme'
 import { serviceError } from './errors.js'
+import { listSavedThemes } from './theme-store.js'
 
 /**
  * 预置主题摘要。返回完整的主题对象（含 blocks），这样 Agent 可直接把它传给
  * render_preview / publish_draft 复用，无需二次构造。
+ * 还会合并「本地已保存的自定义 / AI 主题」（同名去重，预置优先），方便复用。
  */
 export function listThemes(): { themes: Theme[] } {
-  return { themes: PRESET_THEMES.map((theme) => structuredClone(theme)) }
+  const presets = PRESET_THEMES.map((theme) => structuredClone(theme))
+  const presetNames = new Set(presets.map((t) => t.name))
+  const saved = listSavedThemes().themes.filter((t) => !presetNames.has(t.name))
+  return { themes: [...presets, ...saved] }
 }
 
 /**
@@ -16,13 +21,14 @@ export function listThemes(): { themes: Theme[] } {
  */
 export function resolveTheme(input: unknown): Theme {
   if (typeof input === 'string') {
-    const theme = getPresetTheme(input.trim())
+    const name = input.trim()
+    const theme = getPresetTheme(name) ?? listSavedThemes().themes.find((t) => t.name === name)
     if (!theme) {
       const names = PRESET_THEMES.map((t) => t.name).join('、')
       throw serviceError(
         'invalid_theme',
-        `未知预置主题「${input}」。`,
-        `请使用 list_themes 返回的主题名（可用：${names}），或传入完整主题对象。`,
+        `未知主题「${input}」。`,
+        `请使用 list_themes 返回的主题名（可用：${names}，或你已保存的自定义主题名），或传入完整主题对象。`,
       )
     }
     return theme

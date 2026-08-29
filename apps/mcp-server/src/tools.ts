@@ -9,6 +9,10 @@ import {
   analyzeArticle,
   generateTheme,
   listThemes,
+  listSavedThemes,
+  saveTheme,
+  exportTheme,
+  deleteTheme,
   publishDraft,
   renderPreview,
   resolveTheme,
@@ -80,6 +84,53 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
     }),
   )
 
+  // ---- list_saved_themes ----
+  server.registerTool(
+    'list_saved_themes',
+    {
+      title: '列出已保存主题',
+      description:
+        '列出你本地已保存的自定义 / AI 生成主题（持久化在 ~/.mp-style/themes.json）。' +
+        '这些主题来自 generate_theme(save=true) 或 save_theme，可直接按名称传给 render_preview / publish_draft 复用。',
+      inputSchema: {},
+    },
+    wrap(async () => textResult(listSavedThemes())),
+  )
+
+  // ---- save_theme ----
+  server.registerTool(
+    'save_theme',
+    {
+      title: '保存主题',
+      description:
+        '把一个主题对象保存到本地主题库（~/.mp-style/themes.json），方便以后复用。同名会覆盖。' +
+        '主题会先过 Schema + 微信白名单校验，非法会返回明确错误。通常把 generate_theme 返回的 theme 直接存进来。',
+      inputSchema: {
+        theme: themeObjSchema.describe('要保存的完整主题对象（含 name/description/tokens/blocks），来自 generate_theme 的返回。'),
+        name: z.string().optional().describe('可选：覆盖主题名；缺省用 theme.name。'),
+      },
+    },
+    wrap(async ({ theme, name }) => {
+      const t = name && typeof theme === 'object' ? { ...(theme as Record<string, unknown>), name } : theme
+      return textResult(saveTheme(t))
+    }),
+  )
+
+  // ---- export_theme ----
+  server.registerTool(
+    'export_theme',
+    {
+      title: '导出主题',
+      description:
+        '把一个主题导出为完整 JSON（含 name/description/tokens/blocks），可直接传给 render_preview / publish_draft 复用，' +
+        '或保存下来分享。支持：已保存主题名、预置主题名、或完整主题对象。',
+      inputSchema: {
+        theme: z.union([z.string(), themeObjSchema]).describe('主题名（已保存或预置）或完整主题对象。'),
+      },
+    },
+    wrap(async ({ theme }) => textResult(exportTheme(theme))),
+  )
+
   // ---- analyze_article ----
   server.registerTool(
     'analyze_article',
@@ -119,6 +170,10 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
           .string()
           .optional()
           .describe('预置主题名（可选）。以此为基础微调，例如 tech-minimal / business / magazine / gov-red / academic / dark-code。'),
+        save: z
+          .boolean()
+          .optional()
+          .describe('是否把生成的主题保存到本地主题库（~/.mp-style/themes.json），便于以后按名复用。默认 false。'),
       },
     },
     async (args) => {
@@ -134,12 +189,19 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
           { prompt: args.prompt, article: args.article, baseTheme: args.baseTheme },
           deps.llm,
         )
+        let saved = false
+        if (args.save && result.theme) {
+          saveTheme(result.theme)
+          saved = true
+        }
         const payload = {
           theme: result.theme,
           fallback: result.fallback,
           repairAttempts: result.repairAttempts,
           errorDetail: result.errorDetail,
           analysis: result.analysis,
+          saved,
+          savedLocation: saved ? '~/.mp-style/themes.json' : undefined,
         }
         const content: ToolResult['content'] = [{ type: 'text', text: jsonText(payload) }]
         if (result.previewPng) {

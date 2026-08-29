@@ -27,6 +27,11 @@ export function serviceError(code: string, message: string, hint: string): Servi
 
 /** 把任意异常包装成统一错误（尽量保留中文可读提示）。 */
 export function asServiceError(error: unknown, fallbackCode = 'internal_error'): ServiceError {
+  // 若是已符合统一格式的错误对象（{ error: { code, message, hint } }），原样保留，避免被 String 成 [object Object]
+  if (error && typeof error === 'object' && 'error' in error) {
+    const e = (error as ServiceError).error
+    if (e && typeof e.code === 'string') return { error: e }
+  }
   if (error instanceof Error) {
     return serviceError(
       codeFromMessage(error.message) ?? fallbackCode,
@@ -36,7 +41,7 @@ export function asServiceError(error: unknown, fallbackCode = 'internal_error'):
   }
   return serviceError(
     fallbackCode,
-    String(error),
+    typeof error === 'string' ? error : String(error),
     '未预期的错误，请重试或检查输入。',
   )
 }

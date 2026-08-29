@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mp-style 编辑器</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e4e7ec; --ink:#1f2329; --muted:#8a919c;
+    --brand:#0b6bff; --brand2:#0a5ad6; --ok:#12a150; --err:#e5484d; --warn:#b4690e;
+    --radius:10px; --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink)}
+  .topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .brand{font-weight:700;font-size:15px;margin-right:6px}
+  .brand small{color:var(--muted);font-weight:400;margin-left:6px}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;transition:.15s}
+  .btn:hover{background:#f0f2f5}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand2)}
+  .btn.big{font-weight:600}
+  select,input[type=text]{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;background:#fff;color:var(--ink)}
+  .grow{flex:1}
+  .layout{display:flex;height:calc(100vh - 53px)}
+  .pane{flex:1;min-width:0;display:flex;flex-direction:column}
+  .pane + .pane{border-left:1px solid var(--line)}
+  .pane-head{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+  textarea.editor{flex:1;width:100%;border:0;resize:none;padding:16px 18px;font:14px/1.7 var(--mono);background:#fff;color:var(--ink);outline:none}
+  textarea.editor::placeholder{color:#c3c8d1}
+  .preview-wrap{flex:1;overflow:auto;background:#e9ebef;padding:16px;display:flex;justify-content:center}
+  iframe.preview{width:390px;min-height:100%;border:0;background:#fff;border-radius:12px;box-shadow:0 6px 30px rgba(0,0,0,.12)}
+  .status{padding:8px 12px;background:var(--panel);border-top:1px solid var(--line);font-size:12px;color:var(--muted);white-space:pre-wrap;max-height:120px;overflow:auto}
+  .status .ok{color:var(--ok)} .status .err{color:var(--err)} .status .warn{color:var(--warn)}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+  details.aside summary{cursor:pointer;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">mp-style 编辑器<small>公众号本地排版 · WeMD 风格</small></div>
+    <label>主题
+      <select id="themeSel" style="max-width:260px"></select>
+    </label>
+    <button class="btn big" id="genBtn" title="用 AI 根据当前文章生成主题并可选保存">✨ AI 生成主题</button>
+    <button class="btn" id="saveBtn" title="把当前选中主题保存到本地主题库">💾 保存主题</button>
+    <button class="btn" id="valBtn">◉ 校验</button>
+    <button class="btn" id="copyHtmlBtn">📋 复制 HTML</button>
+    <button class="btn" id="copyWxBtn" title="复制后到公众号编辑器粘贴">📄 复制到公众号</button>
+    <span class="grow"></span>
+    <label>标题 <input type="text" id="title" placeholder="文章标题" style="width:200px"></label>
+    <button class="btn primary big" id="pubBtn">🚀 发布草稿箱</button>
+  </div>
+  <div class="layout">
+    <div class="pane">
+      <div class="pane-head">Markdown 编辑（左侧写作，自动实时预览）</div>
+      <textarea class="editor" id="md" spellcheck="false"># 示例标题
+
+在这里用 Markdown 写作。支持标题、**加粗**、*斜体*、列表、引用、表格、代码块等。
+
+## 小节一
+
+> 引用一条。
+
+- 要点一
+- 要点二
+
+| 列A | 列B |
+| --- | --- |
+| 1 | 2 |
+</textarea>
+    </div>
+    <div class="pane">
+      <div class="pane-head">预览（390px 移动端）<span class="grow"></span>
+        <details class="aside"><summary>主题库</summary>
+          <div id="themeList" style="max-height:160px;overflow:auto;font-size:12px;color:var(--muted)"></div>
+        </details>
+      </div>
+      <div class="preview-wrap"><iframe class="preview" id="pv"></iframe></div>
+      <div class="status" id="status">就绪。</div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+// ---- 状态 ----
+let currentTheme = null; // {name} 或 {theme对象}
+let lastHtml = '';
+let themesCache = [];
+
+const $ = (s) => document.querySelector(s);
+const toast = (m, ok=true) => { const t=$('#toast'); t.textContent=m; t.className='toast show'+(ok?'':' err'); setTimeout(()=>t.className='toast',2200); };
+
+async function api(path, body){
+  const opts = body ? {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body)} : {};
+  const r = await fetch(path, opts);
+  const d = await r.json().catch(()=>({error:{message:'HTTP '+r.status}}));
+  if (d.error) throw new Error(d.error.message || '请求失败');
+  return d;
+}
+
+function setStatus(lines){
+  const ok = lines.some(l=>l.kind==='ok'); const err = lines.some(l=>l.kind==='err'); const warn = lines.some(l=>l.kind==='warn');
+  $('#status').innerHTML = lines.map(l=>`<span class="${l.kind}">${l.text}</span>`).join('\n');
+  if (err) $('#status').className='status'; // 保持配色
+}
+
+// ---- 主题下拉 + 列表 ----
+async function loadThemes(select){ 
+  const d = await api('/editor/api/themes');
+  themesCache = d.themes || [];
+  const sel = $('#themeSel'); const val = sel.value || (themesCache[0] && themesCache[0].name);
+  sel.innerHTML = '';
+  const presets = themesCache.filter(t=>t.origin!=='saved');
+  const saved = themesCache.filter(t=>t.origin==='saved');
+  if (saved.length){ const og=document.createElement('optgroup'); og.label='我的主题'; saved.forEach(t=>og.appendChild(new Option(t.name,t.name))); sel.appendChild(og); }
+  const pg=document.createElement('optgroup'); pg.label='预置主题'; presets.forEach(t=>pg.appendChild(new Option(t.name,t.name))); sel.appendChild(pg);
+  if (val) sel.value = val; else if(themesCache[0]) sel.value=themesCache[0].name;
+  $('#themeList').innerHTML = saved.length ? saved.map(t=>`<div>• ${t.name}</div>`).join('') : '<div>暂无已保存主题（用「AI 生成/保存主题」加入）</div>';
+  return sel.value;
+}
+
+// ---- 渲染 ----
+let renderTimer;
+async function render(){
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(async () => {
+    const markdown = $('#md').value; const theme = $('#themeSel').value || (currentTheme && currentTheme.name) || 'magazine';
+    try {
+      const d = await api('/editor/api/render', { markdown, theme });
+      lastHtml = d.html;
+      if (!d.screenshotPng) $('#pv').srcdoc = d.html;
+      const v = d.validation || {};
+      const issues = (v.issues||[]).map(i=>`[${i.rule}] ${i.message}`);
+      setStatus([
+        {kind:'ok', text:'✓ 渲染完成 · HTML '+d.html.length+' 字 · 校验 '+(v.pass?'通过':'未通过')},
+        ...issues.map(t=>({kind:v.pass?'warn':'err', text:'  '+t})),
+      ]);
+    } catch(e){ setStatus([{kind:'err', text:'渲染失败：'+e.message}]); }
+  }, 350);
+}
+
+// ---- AI 生成主题 ----
+$('#genBtn').onclick = async () => {
+  await toast('正在生成主题（LLM），可能需数十秒…');
+  try {
+    const d = await api('/editor/api/generate', { article: $('#md').value, save: true });
+    if (d.theme && d.theme.name){ await loadThemes(); $('#themeSel').value = d.theme.name; }
+    toast('已生成'+(d.saved?'并保存':'')+'主题：'+(d.theme&&d.theme.name));
+    render();
+  } catch(e){ toast('生成失败：'+e.message, false); }
+};
+
+// ---- 保存主题 ----
+$('#saveBtn').onclick = async () => {
+  const name = $('#themeSel').value;
+  const theme = themesCache.find(t=>t.name===name);
+  if (!theme){ toast('请先选择要保存的主题', false); return; }
+  try { await api('/editor/api/savetheme', { theme }); await loadThemes(); $('#themeSel').value=name; toast('已保存主题：'+name); }
+  catch(e){ toast('保存失败：'+e.message, false); }
+};
+
+// ---- 校验 / 复制 / 发布 ----
+$('#valBtn').onclick = async () => {
+  const markdown = $('#md').value; const theme = $('#themeSel').value;
+  const d = await api('/editor/api/render', { markdown, theme });
+  const v = d.validation||{}; const issues=(v.issues||[]).map(i=>`[${i.rule}] ${i.message}`);
+  setStatus([{kind:v.pass?'ok':'err', text:(v.pass?'✓ 校验通过':'✗ 校验未通过')}, ...issues.map(t=>({kind:v.pass?'warn':'err', text:'  '+t}))]);
+  toast(v.pass?'校验通过':'校验未通过', v.pass);
+};
+async function copyText(t, msg){ try{ await navigator.clipboard.writeText(t); toast(msg); }catch(e){ toast('复制失败（浏览器可能限制）：'+e.message,false); } }
+$('#copyHtmlBtn').onclick = ()=> copyText(lastHtml||'', '已复制 HTML（可粘贴到公众号）');
+$('#copyWxBtn').onclick = ()=> { if(!lastHtml) return toast('请先渲染', false); copyText(lastHtml, '已复制排版 HTML，去公众号编辑器粘贴'); };
+$('#pubBtn').onclick = async () => {
+  const title = $('#title').value || (($('#md').value.match(/^#\s+(.+)$/m)||[])[1]||'未命名文章');
+  await toast('正在发布到草稿箱…');
+  try {
+    const d = await api('/editor/api/publish', { markdown: $('#md').value, title, theme: $('#themeSel').value });
+    toast('已发布到草稿箱，media_id='+(d.media_id||'').slice(0,24)+'…');
+    setStatus([{kind:'ok', text:'✅ 已发布草稿 media_id='+d.media_id}]);
+  } catch(e){ toast('发布失败：'+e.message, false); }
+};
+
+// ---- 主题选择切换 → 渲染 ----
+$('#themeSel').addEventListener('change', render);
+$('#md').addEventListener('input', render);
+
+// ---- 启动 ----
+(async () => { await loadThemes(); render(); })().catch(e=>{ setStatus([{kind:'err',text:'初始化失败：'+e.message}]); });
+</script>
+</body>
+</html>

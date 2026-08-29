@@ -42,11 +42,21 @@ describe('mp-style MCP Server (in-memory)', () => {
     expect(data.themes.length).toBeGreaterThanOrEqual(6)
   })
 
-  it('list 出全部 6 个 tools', async () => {
+  it('list 出全部 9 个 tools', async () => {
     const { client } = await startClient()
     const { tools } = await client.listTools()
     const names = tools.map((t) => t.name).sort()
-    expect(names).toEqual(['analyze_article', 'generate_theme', 'list_themes', 'publish_draft', 'render_preview', 'validate_article'])
+    expect(names).toEqual([
+      'analyze_article',
+      'export_theme',
+      'generate_theme',
+      'list_saved_themes',
+      'list_themes',
+      'publish_draft',
+      'render_preview',
+      'save_theme',
+      'validate_article',
+    ])
   })
 
   it('analyze_article 返回分析结论', async () => {
