@@ -207,7 +207,8 @@
 <script>
 // ---- 状态 ----
 let lastHtml=''; let themesCache=[]; let currentTitle='';
-let history=[]; // [{title, md, ts}]
+let history=[]; // [{id, title, md, ts}]
+let activeId=null; // 当前正在编辑的历史条目 id（用于更新而非重复新增）
 const $=s=>document.querySelector(s);
 const toast=(m,ok=true)=>{const t=$('#toast');t.textContent=m;t.className='toast show'+(ok?'':' err');setTimeout(()=>t.className='toast',2200);};
 
@@ -275,14 +276,36 @@ const ACTIONS={
 $('#toolbar').addEventListener('click',e=>{const a=e.target.closest('.tb-btn')?.dataset?.a;if(a&&ACTIONS[a])ACTIONS[a]();});
 
 // ---- 历史记录 (localStorage) ----
-function saveSnap(){ if(!$('#md').value.trim())return; currentTitle=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名'); const item={title:currentTitle,md:$('#md').value,ts:Date.now()}; const idx=history.findIndex(h=>h.md===item.md); if(idx>=0)history[idx]=item; else history.unshift(item); history=history.slice(0,20); localStorage.setItem('mp-history',JSON.stringify(history)); renderHistory(); $('#saveState').textContent='已自动保存'; setTimeout(()=>$('#saveState').textContent='就绪',1200); }
-function renderHistory(filter){ const list=history.filter(h=>!filter||h.title.includes(filter)||h.md.includes(filter)); $('#histList').innerHTML=list.length?list.map(h=>'<div class="hist-item" data-i="'+history.indexOf(h)+'"><div class="h-title">'+esc(h.title)+'</div><div class="h-meta">'+new Date(h.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>').join(''):'<div class="empty">暂无历史</div>'; }
+let saveTimer;
+// 若当前 activeId 能找到，则更新该条目（并移到顶部）；否则新建一条
+function saveSnap(){
+  if(!$('#md').value.trim()) return;
+  const title=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名');
+  const md=$('#md').value, ts=Date.now();
+  let i = activeId!=null ? history.findIndex(h=>h.id===activeId) : -1;
+  if(i<0){
+    const item={id:'h'+ts+Math.random().toString(36).slice(2,6), title, md, ts};
+    history.unshift(item); activeId=item.id; i=0;
+  } else {
+    history[i]={ ...history[i], title, md, ts };
+    if(i>0){ history.unshift(history.splice(i,1)[0]); } // 更新后置顶
+  }
+  history=history.slice(0,20);
+  localStorage.setItem('mp-history',JSON.stringify(history));
+  renderHistory();
+  $('#saveState').textContent='已自动保存';
+  setTimeout(()=>{ if($('#saveState').textContent==='已自动保存') $('#saveState').textContent='就绪'; },1000);
+}
+// 防抖：停止输入约 1.2s 才写历史
+function queueSave(){ clearTimeout(saveTimer); saveTimer=setTimeout(saveSnap,1200); }
+function renderHistory(filter){ const list=history.filter(h=>!filter||h.title.includes(filter)||h.md.includes(filter)); $('#histList').innerHTML=list.length?list.map(h=>'<div class="hist-item" data-id="'+h.id+'"><div class="h-title">'+esc(h.title)+'</div><div class="h-meta">'+new Date(h.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>').join(''):'<div class="empty">暂无历史</div>'; }
 function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
-$('#histList').addEventListener('click',e=>{const i=e.target.closest('.hist-item')?.dataset?.i;if(i!=null){const h=history[i];$('#md').value=h.md;$('#title').value=h.title;render();}});
+function loadHistory(){ const raw=JSON.parse(localStorage.getItem('mp-history')||'[]'); const seen=new Set(); const out=[]; for(const h of raw){ if(!h.id) h.id='h'+(h.ts||Date.now())+Math.random().toString(36).slice(2,6); if(!seen.has(h.title)){ seen.add(h.title); out.push(h); } } history=out; }
+$('#histList').addEventListener('click',e=>{const id=e.target.closest('.hist-item')?.dataset?.id; if(id){const h=history.find(x=>x.id===id); if(h){$('#md').value=h.md;$('#title').value=h.title;activeId=h.id;render();}}});
 $('#search').addEventListener('input',e=>renderHistory(e.target.value.trim()));
 
 // ---- 新建 ----
-$('#newBtn').onclick=()=>{ $('#md').value=''; $('#title').value=''; $('#pv').srcdoc=''; $('#pv').style.display='none'; $('#pvEmpty').style.display=''; setVal([{kind:'warn',text:'新建文章：开始输入 Markdown'} ]); $('#md').focus(); };
+$('#newBtn').onclick=()=>{ $('#md').value=''; $('#title').value=''; $('#pv').srcdoc=''; $('#pv').style.display='none'; $('#pvEmpty').style.display=''; activeId=null; setVal([{kind:'warn',text:'新建文章：开始输入 Markdown'} ]); $('#md').focus(); };
 
 // ---- 主题操作 ----
 $('#genBtn').onclick=async()=>{ toast('正在生成主题（LLM）…'); try{ const d=await api('/editor/api/generate',{article:$('#md').value,save:true}); if(d.theme&&d.theme.name){await loadThemes();$('#themeSel').value=d.theme.name;} toast('已生成'+(d.saved?'并保存':'')+'：'+(d.theme&&d.theme.name)); render(); }catch(e){ toast('生成失败：'+e.message,false); } };
@@ -311,14 +334,14 @@ $('#p2').onclick=()=>{ $('#p2').classList.add('active'); $('#p1').classList.remo
 
 // ---- 事件 ----
 $('#themeSel').addEventListener('change',render);
-$('#md').addEventListener('input',()=>{render();saveSnap();});
-$('#title').addEventListener('input',saveSnap);
+$('#md').addEventListener('input',()=>{render();queueSave();});
+$('#title').addEventListener('input',queueSave);
 $('#undoBtn').onclick=()=>document.execCommand('undo');
 $('#redoBtn').onclick=()=>document.execCommand('redo');
 
 // ---- 启动 ----
 (async()=>{
-  history=JSON.parse(localStorage.getItem('mp-history')||'[]'); renderHistory();
+  loadHistory(); renderHistory(); activeId=history[0]?.id ?? null;
   const saved=history[0]; if(saved){ $('#md').value=saved.md; $('#title').value=saved.title; }
   else { $('#md').value='# 示例标题\n\n在这里用 Markdown 写作。支持 **加粗**、*斜体*、==高亮==、> 引用、列表、表格、代码块等。\n\n## 小节一\n\n> 引用一条。\n\n- 要点一\n- 要点二\n\n| 列A | 列B |\n| --- | --- |\n| 1 | 2 |\n'; }
   await loadThemes(); render();
