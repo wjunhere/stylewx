@@ -1,10 +1,11 @@
 # stylewx — 公众号排版 Agent 服务
 
-面向 AI Agent 的「公众号排版内核 + MCP Server + REST API」：让 Kimi Code / Claude Code / Cursor
+面向 AI Agent 的「公众号排版内核 + MCP Server + REST API + 本地 Web 编辑器」：让 Kimi Code / Claude Code / Cursor
 等 Agent 根据文章内容自动分析、生成/选择主题、渲染、校验、发布到微信公众号**草稿箱**。
 
-> 本仓库提供的是**无头排版内核**，不做面向人类的编辑器 UI（那是 doocs/md、WeMD 等已解决的），
-> 也不做文章正文写作（上游 Agent 的职责）。
+> 核心定位是**无头排版内核**：MCP / REST 供 Agent 编排闭环，不做正文写作（那是上游 Agent 的职责）。
+> 另附一个**可选的本地 Web 编辑器**（`--transport http` 时开在 `/editor`，WeMD 风格），方便人工手动排版、
+> 生成小众主题并本地复用；不影响 Agent 走无头链路。
 
 ---
 
@@ -12,7 +13,7 @@
 
 ```
 ┌──────────── Agent（Kimi / Claude / Cursor）────────────┐
-│   list_themes · analyze_article · generate_theme         │
+│   list_themes · list_saved_themes · save_theme · export_theme · analyze_article · generate_theme │
 │   render_preview · validate_article · publish_draft       │
 └──────────────┬──────────────────────────┬───────────────┘
          MCP (stdio / Streamable HTTP)         REST API (/themes … /drafts)
@@ -75,18 +76,22 @@ node apps/mcp-server/dist/index.js --transport stdio
 # 之后用任一 MCP Inspector / 客户端连接该进程
 ```
 
-一键冒烟（会在 stdio 下真实启动服务并调用 6 个 tool）：
+一键冒烟（会在 stdio 下真实启动服务并调用全部 9 个 tool）：
 
 ```bash
 pnpm --filter @stylewx/mcp-server exec node scripts/smoke-stdio.mjs
 ```
 
-### Streamable HTTP 模式
+### Streamable HTTP 模式 + 本地 Web 编辑器
 
 ```bash
 node apps/mcp-server/dist/index.js --transport http --port 3000
 # 端点：POST /mcp（也支持 GET /mcp 做 SSE）
+# 另起一个本地 Web 编辑器：浏览器打开 http://localhost:3000/editor
 ```
+
+编辑器（WeMD 风格）提供：左侧 Markdown 编辑 + 富文本工具栏、主题选择/生成/保存、右侧 390px 实时预览、
+校验、复制 HTML/复制到公众号、一键发布草稿箱、历史记录与图床设置。编辑器的 `/editor/api/*` 复用同一 service 编排与依赖注入。
 
 ### 启动 REST API
 
@@ -132,9 +137,12 @@ stdio 与 http 二选一即可。
 
 | Tool | 用途 | 关键输入 |
 | --- | --- | --- |
-| `list_themes` | 列出预置主题（含 description 与完整 token/block，可直接复用） | — |
+| `list_themes` | 列出预置 + 已保存主题（含完整 token/block，可直接复用） | — |
+| `list_saved_themes` | 列出本地已保存的自定义/AI 主题（`~/.stylewx/themes.json`） | — |
+| `save_theme` | 把一个主题对象保存到本地主题库（过 Schema + 微信白名单校验） | `theme` / `name` |
+| `export_theme` | 导出主题为完整 JSON（已存/预置/对象）供复用或分享 | `theme` |
 | `analyze_article` | 分析内容类型/基调/建议主题/阅读时长 | `markdown` |
-| `generate_theme` | LLM 生成主题，内置自检修复循环（最多 2 次），失败降级并标记 `fallback` | `prompt` / `article` / `baseTheme` |
+| `generate_theme` | LLM 生成主题（可 `save` 存档），内置自检修复循环（最多 2 次），失败降级并标记 `fallback` | `prompt` / `article` / `baseTheme` / `save` |
 | `render_preview` | 渲染 → 内联样式 HTML + 校验报告 + iPhone(390px) 截图 | `markdown`, `theme` |
 | `validate_article` | 校验微信兼容性，输出结构化报告 | `html` |
 | `publish_draft` | 发布到**草稿箱**（搬运外链图、上传封面） | `title`, `markdown`/`html`, `theme` 等 |
@@ -174,9 +182,23 @@ stdio 与 http 二选一即可。
 - 主题 CSS 采用**三档白名单**（经真实微信草稿 API 实测校准）：`position`/`filter` 硬禁止；`transform`/`animation`/`float`/`box-shadow`/`flex`/`opacity` 等为**灰色属性**（微信保留但提示建议）；仅 `safe` 档无提示。
 - 外链图（非 `mmbiz.qpic.cn`）会被校验器提示，`publish_draft` 会自动搬运到素材库。
 
-## 许可与致谢
+## 本地示例脚本
 
-本项目的代码为全新实现，不含参考项目源码。设计思路参考了以下开源项目（保留原作者版权声明）：
+```bash
+# 排版一篇 Markdown（analyze → 生成主题 → 渲染 → 校验，输出到 <md>/typeset-out/）
+node apps/mcp-server/scripts/typeset-article.mjs 文章.md "主题提示词"
+
+# 把渲染好的 HTML 发布到公众号草稿箱（缺封面自动生成渐变封面）
+node apps/mcp-server/scripts/publish-draft.mjs out/文章.html "标题"
+```
+
+## 许可
+
+MIT License，详见 [LICENSE](./LICENSE)。
+
+## 致谢
+
+本项目的代码为全新实现（MIT），不含参考项目源码。设计思路参考了以下开源项目（保留原作者版权声明）：
 
 - [doocs/md](https://github.com/doocs/md) — Markdown→微信 HTML 渲染 / juice 内联思路
 - [WeMD](https://github.com/mdnice/WeMD) — 包拆分与主题设计器思路
