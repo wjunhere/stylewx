@@ -9,7 +9,7 @@ import {
   parseStyleDeclarations,
   classifyCssProperty,
   findUnsafeCssValue,
-} from '@mp-style/theme'
+} from '@stylewx/theme'
 import { validationReportSchema } from './report.js'
 import type { ValidationIssue, ValidationReport } from './report.js'
 

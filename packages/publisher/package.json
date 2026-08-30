@@ -1,8 +1,8 @@
 {
-  "name": "@mp-style/publisher",
+  "name": "@stylewx/publisher",
   "version": "0.1.0",
   "private": true,
-  "description": "mp-style publisher: WeChat Official Account API wrapper (access_token, image upload, draft/add) + external-image relocation. Node-only by design.",
+  "description": "stylewx publisher: WeChat Official Account API wrapper (access_token, image upload, draft/add) + external-image relocation. Node-only by design.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

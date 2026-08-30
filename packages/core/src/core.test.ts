@@ -5,8 +5,8 @@ import {
   countWords,
   estimateReadingMinutes,
 } from './index.js'
-import { getPresetTheme, compileThemeToCss } from '@mp-style/theme'
-import type { Theme } from '@mp-style/theme'
+import { getPresetTheme, compileThemeToCss } from '@stylewx/theme'
+import type { Theme } from '@stylewx/theme'
 
 const theme = getPresetTheme('tech-minimal') as Theme
 

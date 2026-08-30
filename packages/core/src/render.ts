@@ -7,8 +7,8 @@ import {
   compileRootBaseStyle,
   compileThemeToCss,
   validateTheme,
-} from '@mp-style/theme'
-import type { Theme } from '@mp-style/theme'
+} from '@stylewx/theme'
+import type { Theme } from '@stylewx/theme'
 import { markdownToHtml } from './markdown.js'
 
 export interface RenderResult {

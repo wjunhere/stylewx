@@ -1,4 +1,4 @@
-# mp-style — 公众号排版 Agent 服务
+# stylewx — 公众号排版 Agent 服务
 
 面向 AI Agent 的「公众号排版内核 + MCP Server + REST API」：让 Kimi Code / Claude Code / Cursor
 等 Agent 根据文章内容自动分析、生成/选择主题、渲染、校验、发布到微信公众号**草稿箱**。
@@ -18,7 +18,7 @@
          MCP (stdio / Streamable HTTP)         REST API (/themes … /drafts)
                │                                │
                └────────────┬───────────────────┘
-                      @mp-style/service  （共享 service 层）
+                      @stylewx/service  （共享 service 层）
               ┌──────────────┼───────────────┬───────────────┐
         core 渲染内核    theme 主题系统   validator 校验器   publisher 发布   preview 截图
 ```
@@ -29,7 +29,7 @@
 ### Monorepo 结构
 
 ```
-mp-style/
+stylewx/
 ├── packages/
 │   ├── core/        # Markdown → 内联样式 HTML（unified/remark/rehype + juice），纯函数
 │   ├── theme/       # 主题 zod Schema(含 JSON Schema 导出)、微信 CSS 白名单、主题→CSS 编译器、26 套预置主题(6 原创 + 20 WeMD 移植)
@@ -61,7 +61,7 @@ pnpm build
 pnpm test
 
 # 4) 安装 Chromium（render_preview 截图需要）
-pnpm --filter @mp-style/preview exec playwright install chromium
+pnpm --filter @stylewx/preview exec playwright install chromium
 
 # 5) 配置环境变量
 cp .env.example .env   # 填入 WECHAT_* 与 LLM_*
@@ -70,7 +70,7 @@ cp .env.example .env   # 填入 WECHAT_* 与 LLM_*
 ### 本地跑通 stdio MCP Server
 
 ```bash
-pnpm --filter @mp-style/mcp-server build
+pnpm --filter @stylewx/mcp-server build
 node apps/mcp-server/dist/index.js --transport stdio
 # 之后用任一 MCP Inspector / 客户端连接该进程
 ```
@@ -78,7 +78,7 @@ node apps/mcp-server/dist/index.js --transport stdio
 一键冒烟（会在 stdio 下真实启动服务并调用 6 个 tool）：
 
 ```bash
-pnpm --filter @mp-style/mcp-server exec node scripts/smoke-stdio.mjs
+pnpm --filter @stylewx/mcp-server exec node scripts/smoke-stdio.mjs
 ```
 
 ### Streamable HTTP 模式
@@ -91,7 +91,7 @@ node apps/mcp-server/dist/index.js --transport http --port 3000
 ### 启动 REST API
 
 ```bash
-pnpm --filter @mp-style/api dev
+pnpm --filter @stylewx/api dev
 # http://localhost:3001  GET /themes · POST /render · POST /validate · POST /drafts · POST /themes/generate
 ```
 
@@ -110,7 +110,7 @@ pnpm --filter @mp-style/api dev
 
 ### Kimi Code
 
-参考其 MCP 配置格式，将 `examples/mcp.json` 中的 `mcpServers.mp-style` 加入 `~/.kimi/…/mcp.json` 或项目级配置；
+参考其 MCP 配置格式，将 `examples/mcp.json` 中的 `mcpServers.stylewx` 加入 `~/.kimi/…/mcp.json` 或项目级配置；
 stdio 与 http 二选一即可。
 
 ### 远程 HTTP 示例
@@ -118,7 +118,7 @@ stdio 与 http 二选一即可。
 ```json
 {
   "mcpServers": {
-    "mp-style": {
+    "stylewx": {
       "type": "http",
       "url": "http://localhost:3000/mcp"
     }

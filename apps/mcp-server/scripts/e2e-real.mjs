@@ -10,7 +10,7 @@ import {
   validateArticle,
   LlmClient,
   loadLlmConfigFromEnv,
-} from '@mp-style/service'
+} from '@stylewx/service'
 
 const article = `# 一篇关于前端性能优化的思考
 

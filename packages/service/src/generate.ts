@@ -9,8 +9,8 @@ import {
   validateTheme,
   getPresetTheme,
   PRESET_THEMES,
-} from '@mp-style/theme'
-import type { Theme } from '@mp-style/theme'
+} from '@stylewx/theme'
+import type { Theme } from '@stylewx/theme'
 import { analyzeArticle } from './analyze.js'
 import { renderPreview } from './render.js'
 import type { LlmClient, LlmMessage } from './llm.js'

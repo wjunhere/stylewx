@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PRESET_THEMES } from '@mp-style/theme'
+import { PRESET_THEMES } from '@stylewx/theme'
 import { saveTheme, listSavedThemes, exportTheme, deleteTheme } from './theme-store.js'
 import { listThemes, resolveTheme } from './themes.js'
 

@@ -19,10 +19,10 @@ import {
   validateArticle,
   serviceError,
   asServiceError,
-} from '@mp-style/service'
-import type { ServiceError } from '@mp-style/service'
-import type { LlmClient } from '@mp-style/service'
-import type { WeChatClient } from '@mp-style/publisher'
+} from '@stylewx/service'
+import type { ServiceError } from '@stylewx/service'
+import type { LlmClient } from '@stylewx/service'
+import type { WeChatClient } from '@stylewx/publisher'
 
 export interface ToolDeps {
   llm?: LlmClient
@@ -90,7 +90,7 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
     {
       title: '列出已保存主题',
       description:
-        '列出你本地已保存的自定义 / AI 生成主题（持久化在 ~/.mp-style/themes.json）。' +
+        '列出你本地已保存的自定义 / AI 生成主题（持久化在 ~/.stylewx/themes.json）。' +
         '这些主题来自 generate_theme(save=true) 或 save_theme，可直接按名称传给 render_preview / publish_draft 复用。',
       inputSchema: {},
     },
@@ -103,7 +103,7 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
     {
       title: '保存主题',
       description:
-        '把一个主题对象保存到本地主题库（~/.mp-style/themes.json），方便以后复用。同名会覆盖。' +
+        '把一个主题对象保存到本地主题库（~/.stylewx/themes.json），方便以后复用。同名会覆盖。' +
         '主题会先过 Schema + 微信白名单校验，非法会返回明确错误。通常把 generate_theme 返回的 theme 直接存进来。',
       inputSchema: {
         theme: themeObjSchema.describe('要保存的完整主题对象（含 name/description/tokens/blocks），来自 generate_theme 的返回。'),
@@ -173,7 +173,7 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
         save: z
           .boolean()
           .optional()
-          .describe('是否把生成的主题保存到本地主题库（~/.mp-style/themes.json），便于以后按名复用。默认 false。'),
+          .describe('是否把生成的主题保存到本地主题库（~/.stylewx/themes.json），便于以后按名复用。默认 false。'),
       },
     },
     async (args) => {
@@ -201,7 +201,7 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
           errorDetail: result.errorDetail,
           analysis: result.analysis,
           saved,
-          savedLocation: saved ? '~/.mp-style/themes.json' : undefined,
+          savedLocation: saved ? '~/.stylewx/themes.json' : undefined,
         }
         const content: ToolResult['content'] = [{ type: 'text', text: jsonText(payload) }]
         if (result.previewPng) {

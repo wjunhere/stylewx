@@ -34,7 +34,7 @@ async function getBrowser(): Promise<Browser> {
       .catch((error: unknown) => {
         browserPromise = null
         throw new Error(
-          `无法启动 Playwright Chromium：${error instanceof Error ? error.message : String(error)}。请先运行 pnpm --filter @mp-style/preview exec playwright install chromium 安装浏览器。`,
+          `无法启动 Playwright Chromium：${error instanceof Error ? error.message : String(error)}。请先运行 pnpm --filter @stylewx/preview exec playwright install chromium 安装浏览器。`,
         )
       })
   }

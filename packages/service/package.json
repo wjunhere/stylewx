@@ -1,8 +1,8 @@
 {
-  "name": "@mp-style/service",
+  "name": "@stylewx/service",
   "version": "0.1.0",
   "private": true,
-  "description": "mp-style shared service layer: composes core/theme/validator/publisher/preview into the 6 high-level operations reused by both MCP Server and REST API.",
+  "description": "stylewx shared service layer: composes core/theme/validator/publisher/preview into the 6 high-level operations reused by both MCP Server and REST API.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,11 +21,11 @@
     "type-check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@mp-style/core": "workspace:*",
-    "@mp-style/preview": "workspace:*",
-    "@mp-style/publisher": "workspace:*",
-    "@mp-style/theme": "workspace:*",
-    "@mp-style/validator": "workspace:*",
+    "@stylewx/core": "workspace:*",
+    "@stylewx/preview": "workspace:*",
+    "@stylewx/publisher": "workspace:*",
+    "@stylewx/theme": "workspace:*",
+    "@stylewx/validator": "workspace:*",
     "zod": "^4.0.0"
   }
 }

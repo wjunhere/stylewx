@@ -1,10 +1,10 @@
 /**
  * stdio 端到端冒烟脚本：
- * 1) 以 stdio 模式启动 mp-style MCP Server 真实进程；
+ * 1) 以 stdio 模式启动 stylewx MCP Server 真实进程；
  * 2) 用官方 Client 连接，列出 tools；
  * 3) 调用 analyze_article / render_preview / validate_article / publish_draft，输出关键结果。
  *
- * 运行：`pnpm --filter @mp-style/mcp-server exec node scripts/smoke-stdio.mjs`
+ * 运行：`pnpm --filter @stylewx/mcp-server exec node scripts/smoke-stdio.mjs`
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'

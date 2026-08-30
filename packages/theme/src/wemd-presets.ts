@@ -1,6 +1,6 @@
 /**
  * WeMD 主题移植（自动生成自 tenngoxars/WeMD 的 CSS 主题）。
- * 已转换为 mp-style 的结构化 Theme（tokens + blocks），只保留微信白名单内属性。
+ * 已转换为 stylewx 的结构化 Theme（tokens + blocks），只保留微信白名单内属性。
  * 样式为近似的「视觉迁移」：无法 1:1 还原 WeMD 的 class/flex/box-shadow 等微信会过滤的特性。
  */
 import type { Theme } from './schema.js'

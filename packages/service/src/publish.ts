@@ -1,8 +1,8 @@
-import { validateHtml } from '@mp-style/validator'
-import type { ValidationReport } from '@mp-style/validator'
-import { publishDraft as publisherPublishDraft } from '@mp-style/publisher'
-import type { PublishParams, PublishResult } from '@mp-style/publisher'
-import type { WeChatClient } from '@mp-style/publisher'
+import { validateHtml } from '@stylewx/validator'
+import type { ValidationReport } from '@stylewx/validator'
+import { publishDraft as publisherPublishDraft } from '@stylewx/publisher'
+import type { PublishParams, PublishResult } from '@stylewx/publisher'
+import type { WeChatClient } from '@stylewx/publisher'
 import { asServiceError } from './errors.js'
 import type { ServiceError } from './errors.js'
 

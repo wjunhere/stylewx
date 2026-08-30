@@ -1,16 +1,16 @@
 /**
  * 主题库：把「自定义 / AI 生成」的主题持久化到本地，方便以后复用。
- * 默认存到用户级 `~/.mp-style/themes.json`（可用环境变量 MP_STYLE_THEMES_PATH 覆盖）。
+ * 默认存到用户级 `~/.stylewx/themes.json`（可用环境变量 STYLEWX_THEMES_PATH 覆盖）。
  * 注意：本模块使用 Node fs —— 只允许出现在 service 层（core/theme/validator 保持同构，不得引用）。
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
-import { validateTheme, getPresetTheme } from '@mp-style/theme'
-import type { Theme } from '@mp-style/theme'
+import { validateTheme, getPresetTheme } from '@stylewx/theme'
+import type { Theme } from '@stylewx/theme'
 import { serviceError } from './errors.js'
 
-const DEFAULT_DIR = join(homedir(), '.mp-style')
+const DEFAULT_DIR = join(homedir(), '.stylewx')
 const DEFAULT_FILE = join(DEFAULT_DIR, 'themes.json')
 
 export interface ThemeStoreOptions {
@@ -19,7 +19,7 @@ export interface ThemeStoreOptions {
 }
 
 function storeFile(opts?: ThemeStoreOptions): string {
-  return opts?.file ?? process.env.MP_STYLE_THEMES_PATH ?? DEFAULT_FILE
+  return opts?.file ?? process.env.STYLEWX_THEMES_PATH ?? DEFAULT_FILE
 }
 
 interface StoreShape {

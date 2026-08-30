@@ -1,10 +1,10 @@
 /**
- * MCP 客户端示例：用 mp-style MCP Server 排版一篇 Markdown 文章。
+ * MCP 客户端示例：用 stylewx MCP Server 排版一篇 Markdown 文章。
  * 链路：analyze_article → list_themes → generate_theme(LLM) → render_preview → validate_article。
  *
  * 用法：node scripts/typeset-article.mjs <markdown路径> [主题提示词] [输出目录]
  *  - 默认输出到 <markdown 同目录>/typeset-out/（可用第 3 参覆盖）。
- *  - 需先 `pnpm --filter @mp-style/mcp-server build`，并按文档配置 LLM 环境变量。
+ *  - 需先 `pnpm --filter @stylewx/mcp-server build`，并按文档配置 LLM 环境变量。
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
@@ -36,7 +36,7 @@ const PRESET_BY_TYPE = { literary: 'magazine', essay: 'magazine', tech: 'tech-mi
 
 async function main() {
   const transport = new StdioClientTransport({ command: process.execPath, args: [serverEntry, '--transport', 'stdio'], env: { ...process.env } })
-  const client = new Client({ name: 'mp-style-typeset', version: '1.0.0' })
+  const client = new Client({ name: 'stylewx-typeset', version: '1.0.0' })
   await client.connect(transport)
   console.log('[MCP] tools:', (await client.listTools()).tools.map((t) => t.name).join(', '))
 

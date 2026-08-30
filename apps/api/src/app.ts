@@ -1,5 +1,5 @@
 /**
- * mp-style REST API —— 与 MCP tools 一一对应，复用同一套 service 层。
+ * stylewx REST API —— 与 MCP tools 一一对应，复用同一套 service 层。
  * 端点：GET /themes、POST /themes/generate、POST /render、POST /validate、POST /drafts。
  * 所有错误返回统一格式 { error: { code, message, hint } }。
  */
@@ -16,10 +16,10 @@ import {
   validateArticle,
   serviceError,
   asServiceError,
-} from '@mp-style/service'
-import type { ServiceError } from '@mp-style/service'
-import type { LlmClient } from '@mp-style/service'
-import type { WeChatClient } from '@mp-style/publisher'
+} from '@stylewx/service'
+import type { ServiceError } from '@stylewx/service'
+import type { LlmClient } from '@stylewx/service'
+import type { WeChatClient } from '@stylewx/publisher'
 
 export interface ApiDeps {
   llm?: LlmClient

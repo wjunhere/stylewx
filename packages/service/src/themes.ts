@@ -1,5 +1,5 @@
-import { PRESET_THEMES, getPresetTheme, validateTheme } from '@mp-style/theme'
-import type { Theme } from '@mp-style/theme'
+import { PRESET_THEMES, getPresetTheme, validateTheme } from '@stylewx/theme'
+import type { Theme } from '@stylewx/theme'
 import { serviceError } from './errors.js'
 import { listSavedThemes } from './theme-store.js'
 

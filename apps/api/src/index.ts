@@ -3,8 +3,8 @@
  */
 import { serve } from '@hono/node-server'
 import { createApp } from './app.js'
-import { loadLlmConfigFromEnv, LlmClient } from '@mp-style/service'
-import { loadConfigFromEnv, WeChatClient } from '@mp-style/publisher'
+import { loadLlmConfigFromEnv, LlmClient } from '@stylewx/service'
+import { loadConfigFromEnv, WeChatClient } from '@stylewx/publisher'
 import type { ApiDeps } from './app.js'
 
 function buildDeps(): ApiDeps {
@@ -27,5 +27,5 @@ const app = createApp(buildDeps())
 
 serve({ fetch: app.fetch, port }, (info) => {
   // eslint-disable-next-line no-console
-  console.error(`[mp-style] REST API listening on http://localhost:${info.port}`)
+  console.error(`[stylewx] REST API listening on http://localhost:${info.port}`)
 })

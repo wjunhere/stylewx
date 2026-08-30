@@ -9,8 +9,8 @@ import {
   optimizeArticle,
   serviceError,
 } from './index.js'
-import { getPresetTheme, validateTheme } from '@mp-style/theme'
-import { WeChatClient } from '@mp-style/publisher'
+import { getPresetTheme, validateTheme } from '@stylewx/theme'
+import { WeChatClient } from '@stylewx/publisher'
 import type { LlmClient, LlmMessage, LlmJsonOptions } from './index.js'
 
 describe('optimizeArticle', () => {

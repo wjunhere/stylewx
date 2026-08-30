@@ -1,4 +1,4 @@
-# mp-style 设计说明
+# stylewx 设计说明
 
 本文记录关键设计决策、约束与测试覆盖情况。
 
@@ -7,7 +7,7 @@
 题目给定的结构为 `core/theme/validator/publisher/preview + apps/mcp-server/api`，
 但明确要求 MCP 与 REST「复用同一套 service 层，不重复实现逻辑」。`analyze_article`、
 `generate_theme`、`render_preview` 等是跨包编排逻辑，若在每个 app 里各写一份会重复。
-为此新增一个轻量 `@mp-style/service` 包，只做编排，不含重型依赖：
+为此新增一个轻量 `@stylewx/service` 包，只做编排，不含重型依赖：
 MCP Server 与 REST API 都只调用它，实现真正的复用。
 
 ## 2. 同构边界
@@ -21,7 +21,7 @@ MCP Server 与 REST API 都只调用它，实现真正的复用。
 
 ## 3. 微信 API 只在 publisher
 
-所有微信网络调用（`token`、`material/add_material`、`draft/add`）只出现在 `@mp-style/publisher`。
+所有微信网络调用（`token`、`material/add_material`、`draft/add`）只出现在 `@stylewx/publisher`。
 `service` 通过依赖注入拿到 `WeChatClient`/`LlmClient`，`mcp-server`/`api` 在入口从环境构建它们。
 
 ## 4. 统一错误格式
@@ -44,7 +44,7 @@ MCP 与 REST 的错误统一为：
 
 ## 6. 微信兼容白名单（三档，基于真实微信实测校准）
 
-白名单常量在 `@mp-style/theme/src/css-whitelist.ts`。我们用**真实公众号**对 `draft/add → draft/get` 做了实测：
+白名单常量在 `@stylewx/theme/src/css-whitelist.ts`。我们用**真实公众号**对 `draft/add → draft/get` 做了实测：
 微信的「草稿 API」其实只过滤极少数内联样式属性，其余基本保留。据此把策略改为三档：
 
 - **SAFE**（放行，无提示）：字体/文本、盒模型、纯色背景、边框/圆角、基础 display/列表等。
@@ -76,10 +76,10 @@ MCP 与 REST 的错误统一为：
 
 | 包 | 覆盖率 |
 | --- | --- |
-| `@mp-style/core` | 100%（lines/statements） |
-| `@mp-style/theme` | ~95% |
+| `@stylewx/core` | 100%（lines/statements） |
+| `@stylewx/theme` | ~95% |
 
-`@mp-style/validator` 实测约 85%。core / theme 的 vitest 已配置 `thresholds`（≥80%）强制约束。
+`@stylewx/validator` 实测约 85%。core / theme 的 vitest 已配置 `thresholds`（≥80%）强制约束。
 
 ## 8. 安全边界
 
@@ -89,14 +89,14 @@ MCP 与 REST 的错误统一为：
 ## 9. 本地 Web 编辑器与主题库（WeMD 风格）
 
 **主题库（复用 AI 主题）**
-- `@mp-style/service/theme-store.ts` 把自定义 / AI 生成主题持久化到用户级 `~/.mp-style/themes.json`
-  （可用环境变量 `MP_STYLE_THEMES_PATH` 覆盖）。仅允许出现在 service 层，因用到 Node fs；core/theme/validator 保持同构。
+- `@stylewx/service/theme-store.ts` 把自定义 / AI 生成主题持久化到用户级 `~/.stylewx/themes.json`
+  （可用环境变量 `STYLEWX_THEMES_PATH` 覆盖）。仅允许出现在 service 层，因用到 Node fs；core/theme/validator 保持同构。
 - `list_themes` 自动合并「预置 + 已存」主题（按名去重，预置优先）；`resolveTheme` 也能按**已存主题名**解析。
 - MCP 新增工具：`save_theme`（保存主题）、`list_saved_themes`（列出已存）、`export_theme`（导出完整 JSON 复用/分享）；
   `generate_theme` 增加 `save` 选项（AI 生成后直接存档）。
 
 **本地 Web 编辑器**
-- `mp-style --transport http` 时，除 `/mcp` 外还提供：
+- `stylewx --transport http` 时，除 `/mcp` 外还提供：
   - `GET /editor` —— 单页编辑器（`apps/mcp-server/editor.html`，零依赖 HTML/JS，布局参考 WeMD：左侧 Markdown 编辑、主题面板、右侧 390px 实时预览）。
   - `GET /editor/api/themes`、`POST /editor/api/render`、`/generate`、`/savetheme`、`/validate`、`/publish`、`GET /editor/api/export` 等 JSON 端点（复用同一编排与依赖注入）。
 - 交互：写 Markdown → 选/生成/保存主题 → 实时预览 → 校验 → 复制 HTML / 复制到公众号 / 一键发布草稿箱。
@@ -110,6 +110,6 @@ MCP 与 REST 的错误统一为：
 
 - 主题内嵌代码不做逐 token 高亮（无 highlight.js / 网络依赖），由主题统一修饰 `pre/code`。
 - `render_preview` 截图依赖本机安装 Chromium：
-  `pnpm --filter @mp-style/preview exec playwright install chromium`。
+  `pnpm --filter @stylewx/preview exec playwright install chromium`。
   未安装时服务降级为返回 HTML + 校验报告（不崩溃，可正常发布），并提示安装。
 - 微信草稿箱编辑器加载 `draft/add` 建的草稿时以简化视图显示（不完整渲染内联样式）；看点用「预览/发表」的读者端。

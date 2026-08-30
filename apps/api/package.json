@@ -1,8 +1,8 @@
 {
-  "name": "@mp-style/api",
+  "name": "@stylewx/api",
   "version": "0.1.0",
   "private": true,
-  "description": "mp-style REST API: mirrors the MCP tools as HTTP endpoints, reusing the same service layer.",
+  "description": "stylewx REST API: mirrors the MCP tools as HTTP endpoints, reusing the same service layer.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -23,9 +23,9 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
-    "@mp-style/publisher": "workspace:*",
-    "@mp-style/service": "workspace:*",
-    "@mp-style/theme": "workspace:*",
+    "@stylewx/publisher": "workspace:*",
+    "@stylewx/service": "workspace:*",
+    "@stylewx/theme": "workspace:*",
     "hono": "^4.6.0",
     "zod": "^4.0.0"
   }

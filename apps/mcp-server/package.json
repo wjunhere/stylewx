@@ -1,11 +1,11 @@
 {
-  "name": "@mp-style/mcp-server",
+  "name": "@stylewx/mcp-server",
   "version": "0.1.0",
   "private": true,
-  "description": "mp-style MCP Server: exposes styling/validate/publish capabilities to AI agents (Kimi Code / Claude Code / Cursor). stdio + Streamable HTTP.",
+  "description": "stylewx MCP Server: exposes styling/validate/publish capabilities to AI agents (Kimi Code / Claude Code / Cursor). stdio + Streamable HTTP.",
   "type": "module",
   "bin": {
-    "mp-style-mcp": "dist/index.js"
+    "stylewx-mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -25,11 +25,11 @@
     "inspector": "node dist/index.js --transport stdio"
   },
   "dependencies": {
-    "@mp-style/core": "workspace:*",
-    "@mp-style/publisher": "workspace:*",
-    "@mp-style/service": "workspace:*",
-    "@mp-style/theme": "workspace:*",
-    "@mp-style/validator": "workspace:*",
+    "@stylewx/core": "workspace:*",
+    "@stylewx/publisher": "workspace:*",
+    "@stylewx/service": "workspace:*",
+    "@stylewx/theme": "workspace:*",
+    "@stylewx/validator": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "zod": "^4.0.0"
   }

@@ -1,8 +1,8 @@
 {
-  "name": "@mp-style/preview",
+  "name": "@stylewx/preview",
   "version": "0.1.0",
   "private": true,
-  "description": "mp-style preview: render styled HTML to a PNG screenshot via Playwright (headless Chromium). iPhone-like viewport (390px) for WeChat previews.",
+  "description": "stylewx preview: render styled HTML to a PNG screenshot via Playwright (headless Chromium). iPhone-like viewport (390px) for WeChat previews.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

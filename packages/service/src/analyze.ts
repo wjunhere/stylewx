@@ -3,7 +3,7 @@
  * 推断内容类型、情绪基调、建议主题方向、估算阅读时长。
  * 该结论同时作为 generate_theme 的输入。
  */
-import { countWords, estimateReadingMinutes } from '@mp-style/core'
+import { countWords, estimateReadingMinutes } from '@stylewx/core'
 
 export type ContentType =
   | 'tech'

@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory'
 import { createMcpServer } from './server.js'
-import { getPresetTheme } from '@mp-style/theme'
-import { WeChatClient } from '@mp-style/publisher'
+import { getPresetTheme } from '@stylewx/theme'
+import { WeChatClient } from '@stylewx/publisher'
 import type { ToolDeps } from './tools.js'
-import type { LlmClient, LlmMessage, LlmJsonOptions } from '@mp-style/service'
+import type { LlmClient, LlmMessage, LlmJsonOptions } from '@stylewx/service'
 
 async function startClient(deps: ToolDeps = {}) {
   const server = createMcpServer(deps)
@@ -32,7 +32,7 @@ function fakeLlm(responses: unknown[]): LlmClient {
   return { completeJson } as unknown as LlmClient
 }
 
-describe('mp-style MCP Server (in-memory)', () => {
+describe('stylewx MCP Server (in-memory)', () => {
   it('list_themes 返回 ≥6 套主题', async () => {
     const { client } = await startClient()
     const names = await client.listTools()

@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "mp-style": {
+    "stylewx": {
       "command": "node",
       "args": [
         "<repo>/apps/mcp-server/dist/index.js",

@@ -1,5 +1,5 @@
 /**
- * mp-style MCP Server 入口。
+ * stylewx MCP Server 入口。
  * 双传输模式：--transport stdio（默认） | --transport http。
  * 依赖注入：从环境变量构造 LLM / 微信客户端；缺少时对应 tool 会返回明确错误，而非崩溃。
  */
@@ -24,8 +24,8 @@ import {
   resolveTheme,
   optimizeArticle,
   asServiceError,
-} from '@mp-style/service'
-import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@mp-style/publisher'
+} from '@stylewx/service'
+import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
 import type { ToolDeps } from './tools.js'
 
 interface CliOptions {
@@ -200,7 +200,7 @@ async function runStdio(): Promise<void> {
   const server = createMcpServer(buildDeps())
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  console.error('[mp-style] MCP server (stdio) started.')
+  console.error('[stylewx] MCP server (stdio) started.')
 }
 
 async function runHttp(port: number): Promise<void> {
@@ -263,7 +263,7 @@ async function runHttp(port: number): Promise<void> {
 
   server.listen(port, () => {
     // eslint-disable-next-line no-console
-    console.error(`[mp-style] MCP server (Streamable HTTP) listening on http://localhost:${port}/mcp`)
+    console.error(`[stylewx] MCP server (Streamable HTTP) listening on http://localhost:${port}/mcp`)
   })
 
   const shutdown = (): void => {
@@ -284,6 +284,6 @@ async function main(): Promise<void> {
 
 main().catch((error) => {
   // eslint-disable-next-line no-console
-  console.error('[mp-style] fatal:', error instanceof Error ? error.message : error)
+  console.error('[stylewx] fatal:', error instanceof Error ? error.message : error)
   process.exit(1)
 })

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { createApp } from './app.js'
-import { getPresetTheme } from '@mp-style/theme'
-import { WeChatClient } from '@mp-style/publisher'
+import { getPresetTheme } from '@stylewx/theme'
+import { WeChatClient } from '@stylewx/publisher'
 import type { ApiDeps } from './app.js'
-import type { LlmClient, LlmMessage, LlmJsonOptions } from '@mp-style/service'
+import type { LlmClient, LlmMessage, LlmJsonOptions } from '@stylewx/service'
 
 function fakeLlm(responses: unknown[]): LlmClient {
   let i = 0
@@ -20,7 +20,7 @@ async function jsonResponse(res: Response): Promise<Record<string, unknown>> {
   return (await res.json()) as Record<string, unknown>
 }
 
-describe('mp-style REST API', () => {
+describe('stylewx REST API', () => {
   it('GET /health', async () => {
     const app = createApp({})
     const res = await app.request('/health')

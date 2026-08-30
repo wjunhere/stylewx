@@ -65,7 +65,7 @@ if (!coverUrl) {
 
 async function main() {
   const transport = new StdioClientTransport({ command: process.execPath, args: [serverEntry, '--transport', 'stdio'], env: { ...process.env } })
-  const client = new Client({ name: 'mp-style-publish', version: '1.0.0' })
+  const client = new Client({ name: 'stylewx-publish', version: '1.0.0' })
   await client.connect(transport)
 
   const resp = await client.callTool(
