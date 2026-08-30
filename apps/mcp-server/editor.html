@@ -416,6 +416,12 @@ $('#pubBtn').onclick=async()=>{ const title=$('#title').value||((($('#md').value
 // ---- 侧栏导航 / 设置 / AI 优化 ----
 function nav(id){ document.querySelectorAll('.subnav button').forEach(b=>b.classList.remove('active')); var b=document.getElementById(id); if(b)b.classList.add('active'); }
 $('#navTheme').onclick=()=>{ nav('navTheme'); $('#themePanel').open=true; $('#themeSel').focus(); };
+// 点击页面其他位置关闭「主题管理」下拉；点侧栏「文章主题」或下拉内部（含 summary/菜单项）时不关闭
+document.addEventListener('click',e=>{
+  const p=$('#themePanel'); if(!p||!p.open) return;
+  if(p.contains(e.target) || (e.target.closest && e.target.closest('#navTheme'))) return;
+  p.open=false;
+});
 $('#navImgHost').onclick=()=>{ nav('navImgHost'); $('#imgHostOverlay').classList.add('show'); };
 function aiSelRange(){ const t=$('#md'); return { start:t.selectionStart, end:t.selectionEnd, text:(t.value||'').slice(t.selectionStart,t.selectionEnd) }; }
 function refreshAiSel(){ const s=aiSelRange(); const info=$('#aiSelInfo'); if(info) info.textContent = s.text.trim() ? ('· 已选 '+s.text.length+' 字') : ''; }
