@@ -4,6 +4,7 @@ import {
   renderMarkdownToHtml,
   countWords,
   estimateReadingMinutes,
+  preprocessSuperSub,
 } from './index.js'
 import { getPresetTheme, compileThemeToCss } from '@stylewx/theme'
 import type { Theme } from '@stylewx/theme'
@@ -62,6 +63,21 @@ describe('markdownToHtml', () => {
     expect(markdownToHtml('## 正常')).toContain('<h2>')
     const h6 = markdownToHtml('######深标题')
     expect(h6).toContain('<h6>')
+  })
+
+  it('上标 ^x^ 与下标 ~x~，且不动 ~~删除线~~ 与代码', () => {
+    const out = preprocessSuperSub('上标 x^2^、下标 H~2~O、删除 ~~x~~、代码 `a^b^c`')
+    expect(out).toContain('<sup>2</sup>')
+    expect(out).toContain('<sub>2</sub>')
+    expect(out).toContain('~~x~~')
+    expect(out).toContain('`a^b^c`')
+  })
+
+  it(':::type 标题 … ::: 渲染为带内联样式的警告框，内容仍走 Markdown', () => {
+    const html = markdownToHtml(':::warning 警告内容\n**别这样做**。\n:::')
+    expect(html).toContain('border-left:4px solid')
+    expect(html).toContain('警告内容')
+    expect(html).toContain('<strong>别这样做</strong>')
   })
 
   it('代码围栏内的 `##` 行不被误判为标题', () => {

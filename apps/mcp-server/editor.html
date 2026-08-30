@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>stylewx 编辑器</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%232563eb"/><text x="16" y="23" font-size="19" font-family="Arial,Helvetica,sans-serif" font-weight="700" fill="%23fff" text-anchor="middle">M</text></svg>' />
 <style>
   :root{
     --bg:#f3f4f7; --panel:#fff; --line:#e8eaee; --line2:#f0f2f5;
@@ -85,6 +86,9 @@
   .table-picker .tcell{background:#eef1f5;border-radius:3px;cursor:pointer}
   .table-picker .tcell.on{background:var(--brand)}
   .table-picker .tcell:hover{background:var(--brand);opacity:.75}
+  .tm-picker{position:fixed;z-index:70;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;display:none;min-width:158px}
+  .tm-opt{display:flex;align-items:center;gap:7px;width:100%;padding:7px 10px;border:0;background:none;border-radius:8px;color:var(--ink);font-size:12.5px;text-align:left;cursor:pointer}
+  .tm-opt:hover{background:var(--line2)}
   .tb-sep{width:1px;height:16px;background:var(--line);margin:0 5px}
   .markdown{flex:1;width:100%;border:0;resize:none;padding:22px 26px;font:14px/1.8 var(--mono);background:#fff;color:var(--ink);outline:none}
   .markdown::placeholder{color:var(--faint)}
@@ -191,20 +195,20 @@
           <button class="tb-btn" data-a="bold" title="加粗"><b>B</b></button>
           <button class="tb-btn" data-a="italic" title="斜体"><i style="font-style:italic">I</i></button>
           <button class="tb-btn" data-a="strike" title="删除线"><s>S</s></button>
-          <button class="tb-btn" data-a="h1" title="一级标题">H1</button>
-          <button class="tb-btn" data-a="h2" title="二级标题">H2</button>
-          <button class="tb-btn" data-a="h3" title="三级标题">H3</button>
+          <button class="tb-btn tm-trigger" data-a="heading" title="标题"><b>H</b></button>
           <span class="tb-sep"></span>
           <button class="tb-btn" data-a="quote" title="引用"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M9.5 4C5.9 4 3 6.9 3 10.5V20h8v-8H7c0-2.2 1.3-4 2.5-4V4zm11 0C16.9 4 14 6.9 14 10.5V20h8v-8h-4c0-2.2 1.3-4 2.5-4V4z"/></svg></button>
           <button class="tb-btn" data-a="code" title="行内代码"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></button>
-          <button class="tb-btn" data-a="ul" title="无序列表"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1.4" fill="currentColor"/><circle cx="4.5" cy="12" r="1.4" fill="currentColor"/><circle cx="4.5" cy="18" r="1.4" fill="currentColor"/></svg></button>
-          <button class="tb-btn" data-a="ol" title="有序列表"><svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M11 6h10M11 12h10M11 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><g fill="currentColor" font-size="8" font-family="Arial,sans-serif"><text x="2.5" y="9">1</text><text x="2.5" y="15">2</text><text x="2.5" y="21">3</text></g></svg></button>
+          <button class="tb-btn" data-a="sup" title="上标">x<sup>2</sup></button>
+          <button class="tb-btn" data-a="sub" title="下标">x<sub>2</sub></button>
+          <button class="tb-btn tm-trigger" data-a="list" title="列表"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1.4" fill="currentColor"/><circle cx="4.5" cy="12" r="1.4" fill="currentColor"/><circle cx="4.5" cy="18" r="1.4" fill="currentColor"/></svg></button>
           <button class="tb-btn" data-a="highlight" title="高亮"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 4.5 19.5 10 9.5 20H3.5v-6z"/><path d="M4 20h17"/></svg></button>
           <span class="tb-sep"></span>
           <button class="tb-btn" data-a="link" title="链接"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
           <button class="tb-btn" data-a="img" title="图片"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button>
           <button class="tb-btn" data-a="table" title="表格"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/></svg></button>
           <button class="tb-btn" data-a="hr" title="分隔线"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h16"/></svg></button>
+          <button class="tb-btn tm-trigger" data-a="callout" title="警告框"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg></button>
           <span class="tb-sep"></span>
           <button class="tb-btn" data-a="clear" title="清除格式"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
           <button class="tb-btn" data-a="help" title="Markdown 帮助"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
@@ -223,6 +227,7 @@
   </div>
 </div>
 <div class="table-picker" id="tablePicker"></div>
+<div class="tm-picker" id="tmPicker"></div>
 <div class="toast" id="toast"></div>
 
 <!-- 图床设置弹窗 -->
@@ -324,6 +329,7 @@ function linePrefix(p){
 const ACTIONS={
   bold:()=>wrap('**'), italic:()=>wrap('*'), strike:()=>wrap('~~'), highlight:()=>wrap('=='),
   code:()=>wrap('`'), link:()=>wrap('[','](https://)'), img:()=>wrap('![','](https://)'),
+  sup:()=>wrap('^'), sub:()=>wrap('~'),
   h1:()=>linePrefix('# '), h2:()=>linePrefix('## '), h3:()=>linePrefix('### '),
   quote:()=>linePrefix('> '), ul:()=>linePrefix('- '), ol:()=>linePrefix('1. '),
   hr:()=>{const ta=$('#md');ta.value=(ta.value+'\n\n---\n');render();},
@@ -333,6 +339,9 @@ const ACTIONS={
 $('#toolbar').addEventListener('click',e=>{
   const btn=e.target.closest('.tb-btn'); const a=btn?.dataset?.a; if(!a) return;
   if(a==='table'){ showTablePicker(btn); return; }
+  if(a==='heading'){ showTmPicker(btn, HEAD_OPTS); return; }
+  if(a==='list'){ showTmPicker(btn, LIST_OPTS); return; }
+  if(a==='callout'){ showTmPicker(btn, CALLOUT_OPTS); return; }
   if(ACTIONS[a]) ACTIONS[a]();
 });
 
@@ -357,6 +366,45 @@ function showTablePicker(btn){
 }
 function hideTablePicker(){ $('#tablePicker').style.display='none'; }
 document.addEventListener('click',e=>{ if(!e.target.closest('#tablePicker') && !e.target.closest('.tb-btn[data-a=table]')) hideTablePicker(); });
+
+// ---- 通用工具栏下拉（标题 / 列表 / 警告框） ----
+const HEAD_OPTS=[
+  {label:'一级标题（H1）', action:()=>linePrefix('# ')},
+  {label:'二级标题（H2）', action:()=>linePrefix('## ')},
+  {label:'三级标题（H3）', action:()=>linePrefix('### ')} ];
+const LIST_OPTS=[
+  {label:'无序列表', action:()=>linePrefix('- ')},
+  {label:'有序列表', action:()=>linePrefix('1. ')},
+  {label:'二级—无序', action:()=>linePrefix('  - ')},
+  {label:'二级—有序', action:()=>linePrefix('  1. ')} ];
+const CALLOUT_OPTS=[
+  {label:'提醒内容', action:()=>insertCallout('info','提醒内容')},
+  {label:'建议内容', action:()=>insertCallout('tip','建议内容')},
+  {label:'重要内容', action:()=>insertCallout('important','重要内容')},
+  {label:'警告内容', action:()=>insertCallout('warning','警告内容')},
+  {label:'注意内容', action:()=>insertCallout('note','注意内容')} ];
+function showTmPicker(btn, options){
+  hideTmPicker();
+  const p=$('#tmPicker'); p._opts=options;
+  p.innerHTML=options.map((o,i)=>'<button class="tm-opt" data-i="'+i+'">'+o.label+'</button>').join('');
+  const rect=btn.getBoundingClientRect();
+  p.style.left=Math.min(rect.left, window.innerWidth-200)+'px';
+  p.style.top=(rect.bottom+4)+'px';
+  p.style.display='block';
+}
+function hideTmPicker(){ const p=$('#tmPicker'); if(p) p.style.display='none'; }
+$('#tmPicker').addEventListener('click',e=>{
+  const b=e.target.closest('.tm-opt'); if(!b) return;
+  const o=($('#tmPicker')._opts||[])[+b.dataset.i]; hideTmPicker(); if(o&&o.action) o.action();
+});
+document.addEventListener('click',e=>{ if(!e.target.closest('#tmPicker') && !e.target.closest('.tm-trigger')) hideTmPicker(); });
+// 在光标处插入一个 ::: 类型 标题 … ::: 警告框（光标停在内容占位符处）
+function insertCallout(type,title){
+  const ta=$('#md'), s=ta.selectionStart, e=ta.selectionEnd;
+  const block='\n::: '+type+' '+title+'\n内容……\n:::\n';
+  ta.value=ta.value.slice(0,s)+block+ta.value.slice(e);
+  const pos=s+block.indexOf('\n内容……')+1; ta.selectionStart=ta.selectionEnd=pos; render(); saveSnap(); ta.focus();
+}
 // 在光标处插入 cols 列 × rows 行（首行表头）的 Markdown 表格
 function insertTable(cols, rows){
   const ta=$('#md'), s=ta.selectionStart;

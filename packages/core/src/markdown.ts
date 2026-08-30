@@ -60,12 +60,68 @@ export function normalizeNoSpaceAtxHeadings(markdown: string): string {
 }
 
 /**
+ * 把 `^x^` 转成 <sup>x</sup>（上标）、`~x~` 转成 <sub>x</sub>（下标）。
+ * 跳过代码围栏与行内代码，避免破坏代码；`~~` 删除线用单臂负断言保护，不与下标冲突。
+ */
+export function preprocessSuperSub(markdown: string): string {
+  const lines = markdown.split('\n')
+  let inFence = false
+  return lines
+    .map((line) => {
+      if (/^\s{0,3}(```|~~~)/.test(line)) {
+        inFence = !inFence
+        return line
+      }
+      if (inFence) return line
+      // 保护行内代码 `...`，避免把代码里的 ^ / ~ 误判
+      const codes: string[] = []
+      const guarded = line.replace(/`[^`]+`/g, (m) => {
+        codes.push(m)
+        return '\u0000' + (codes.length - 1) + '\u0000'
+      })
+      const conv = guarded
+        .replace(/\^([^\^\u0000]+)\^/g, (_m, t) => `<sup>${t}</sup>`)
+        .replace(/(?<!~)~([^\n~\u0000]+)~(?!~)/g, (_m, t) => `<sub>${t}</sub>`)
+      return conv.replace(/\u0000(\d+)\u0000/g, (_m, i) => codes[+i] ?? '')
+    })
+    .join('\n')
+}
+
+/** 警告框类型 → 颜色（背景 / 左边框 / 标题色）。 */
+export const CALLOUT_TYPES: Record<string, { bg: string; border: string; title: string }> = {
+  info: { bg: '#eef6ff', border: '#409eff', title: '#337ecc' },
+  tip: { bg: '#f2fbef', border: '#67c23a', title: '#529b2e' },
+  important: { bg: '#fdf6ec', border: '#e6a23c', title: '#b88230' },
+  warning: { bg: '#fef0f0', border: '#f56c6c', title: '#c45656' },
+  note: { bg: '#f4f0fe', border: '#9b6df2', title: '#8250df' },
+}
+
+/**
+ * 把 `:::类型 标题\n内容\n:::` 转成带内联样式的彩色警告框（提醒/建议/重要/警告/注意）。
+ * 内容仍按 Markdown 递归渲染；内联样式会被保留下游（validator 仅裁危险结构）。
+ */
+export function preprocessCallouts(markdown: string): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return markdown.replace(/:::\s*(info|tip|important|warning|note)\b[ \t]*([^\n]*)\n([\s\S]*?)\n:::/g, (_m, type, title, inner) => {
+    const s = CALLOUT_TYPES[type] || { bg: '#eef6ff', border: '#409eff', title: '#337ecc' }
+    const t = (title.trim() || type)
+    const innerHtml = markdownToHtml(inner.trim())
+    return (
+      `<div style="background:${s.bg};border-left:4px solid ${s.border};padding:12px 16px;border-radius:8px;margin:14px 0">` +
+      `<div style="font-weight:600;font-size:14px;color:${s.title};margin-bottom:6px">${esc(t)}</div>` +
+      `<div style="font-size:13.5px;color:#333;line-height:1.7">${innerHtml}</div>` +
+      '</div>'
+    )
+  })
+}
+
+/**
  * 把 Markdown 字符串转换为嵌套的 HTML 片段（不含根容器）。
  * @param markdown 文章 Markdown
  * @returns HTML 字符串，例如 `<h1>…</h1><p>…</p>`
  */
 export function markdownToHtml(markdown: string): string {
-  const normalized = normalizeNoSpaceAtxHeadings(markdown)
+  const normalized = preprocessCallouts(preprocessSuperSub(normalizeNoSpaceAtxHeadings(markdown)))
   const file = unified()
     .use(remarkParse)
     .use(remarkGfm)
