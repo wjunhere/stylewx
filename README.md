@@ -1,5 +1,13 @@
 # stylewx — 公众号排版 Agent 服务
 
+<p align="left">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-green.svg"></a>
+  <a href="https://www.npmjs.com/package/@stylewx/mcp-server"><img alt="npm" src="https://img.shields.io/npm/v/@stylewx/mcp-server"></a>
+  <a href="https://github.com/wjunhere/stylewx"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-wjunhere%2Fstylewx-181717?logo=github"></a>
+  <img alt="Node" src="https://img.shields.io/badge/Node-%E2%89%A520-3C873A">
+  <img alt="pnpm" src="https://img.shields.io/badge/pnpm-%E2%89%A510-F69220">
+</p>
+
 面向 AI Agent 的「公众号排版内核 + MCP Server + REST API + 本地 Web 编辑器」：让 Kimi Code / Claude Code / Cursor
 等 Agent 根据文章内容自动分析、生成/选择主题、渲染、校验、发布到微信公众号**草稿箱**。
 
@@ -161,6 +169,36 @@ pnpm --filter @stylewx/api dev
 
 参考其 MCP 配置格式，将 `examples/mcp.json` 中的 `mcpServers.stylewx` 加入 `~/.kimi/…/mcp.json` 或项目级配置；
 stdio 与 http 二选一即可。
+
+### Pi（pi coding agent）
+
+在 `~/.pi/agent/mcp.json` 的 `mcpServers` 里加一项，然后重启 / `/reload` pi：
+
+```json
+{
+  "mcpServers": {
+    "stylewx": {
+      "command": "npx",
+      "args": ["-y", "@stylewx/mcp-server"],
+      "env": { "WECHAT_APP_ID": "…", "WECHAT_APP_SECRET": "…", "LLM_BASE_URL": "…", "LLM_API_KEY": "…", "LLM_MODEL": "…" }
+    }
+  }
+}
+```
+
+> Windows 下把 `command` 改成 `"cmd"`、`args` 改成 `["/c", "npx", "-y", "@stylewx/mcp-server"]`。
+
+### Codex（OpenAI Codex CLI）
+
+在 `~/.codex/config.toml` 加：
+
+```toml
+[mcp_servers.stylewx]
+command = "npx"
+args = ["-y", "@stylewx/mcp-server"]
+```
+
+（也可用 `node …/dist/index.js --transport http` 指向本地构建；`--transport http` 会同时提供 `/editor` 编辑器。）
 
 ### 远程 HTTP 示例
 
