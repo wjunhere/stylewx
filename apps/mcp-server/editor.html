@@ -70,6 +70,7 @@
   .tb-btn{width:29px;height:29px;border:0;border-radius:8px;background:none;color:var(--ink2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s}
   .tb-btn:hover{background:#eef1f5;color:var(--ink)}
   .tb-btn b{font-weight:700}
+  .tb-btn svg{display:block;margin:auto}
   .tb-sep{width:1px;height:16px;background:var(--line);margin:0 5px}
   .markdown{flex:1;width:100%;border:0;resize:none;padding:22px 26px;font:14px/1.8 var(--mono);background:#fff;color:var(--ink);outline:none}
   .markdown::placeholder{color:var(--faint)}
@@ -157,19 +158,19 @@
           <button class="tb-btn" data-a="h2" title="二级标题">H2</button>
           <button class="tb-btn" data-a="h3" title="三级标题">H3</button>
           <span class="tb-sep"></span>
-          <button class="tb-btn" data-a="quote" title="引用">❝</button>
-          <button class="tb-btn" data-a="code" title="行内代码">⟨⟩</button>
-          <button class="tb-btn" data-a="ul" title="无序列表">•≡</button>
-          <button class="tb-btn" data-a="ol" title="有序列表">1≡</button>
-          <button class="tb-btn" data-a="highlight" title="高亮">≡H</button>
+          <button class="tb-btn" data-a="quote" title="引用"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M9.5 4C5.9 4 3 6.9 3 10.5V20h8v-8H7c0-2.2 1.3-4 2.5-4V4zm11 0C16.9 4 14 6.9 14 10.5V20h8v-8h-4c0-2.2 1.3-4 2.5-4V4z"/></svg></button>
+          <button class="tb-btn" data-a="code" title="行内代码"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></button>
+          <button class="tb-btn" data-a="ul" title="无序列表"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1.4" fill="currentColor"/><circle cx="4.5" cy="12" r="1.4" fill="currentColor"/><circle cx="4.5" cy="18" r="1.4" fill="currentColor"/></svg></button>
+          <button class="tb-btn" data-a="ol" title="有序列表"><svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M11 6h10M11 12h10M11 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><g fill="currentColor" font-size="8" font-family="Arial,sans-serif"><text x="2.5" y="9">1</text><text x="2.5" y="15">2</text><text x="2.5" y="21">3</text></g></svg></button>
+          <button class="tb-btn" data-a="highlight" title="高亮"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 4.5 19.5 10 9.5 20H3.5v-6z"/><path d="M4 20h17"/></svg></button>
           <span class="tb-sep"></span>
-          <button class="tb-btn" data-a="link" title="链接">🔗</button>
-          <button class="tb-btn" data-a="img" title="图片">🖼</button>
-          <button class="tb-btn" data-a="table" title="表格">⊞</button>
-          <button class="tb-btn" data-a="hr" title="分隔线">—</button>
+          <button class="tb-btn" data-a="link" title="链接"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+          <button class="tb-btn" data-a="img" title="图片"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button>
+          <button class="tb-btn" data-a="table" title="表格"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/></svg></button>
+          <button class="tb-btn" data-a="hr" title="分隔线"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h16"/></svg></button>
           <span class="tb-sep"></span>
-          <button class="tb-btn" data-a="clear" title="清除格式">⌫</button>
-          <button class="tb-btn" data-a="help" title="Markdown 帮助">?</button>
+          <button class="tb-btn" data-a="clear" title="清除格式"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          <button class="tb-btn" data-a="help" title="Markdown 帮助"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
         </div>
         <textarea class="markdown" id="md" spellcheck="false" placeholder="# 在这里输入 Markdown…"></textarea>
         <div class="ed-status"><span id="wc">字数 0</span><span id="rt">0 分钟阅读</span><span class="grow"></span><span id="saveState">就绪</span></div>
