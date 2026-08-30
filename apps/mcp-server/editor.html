@@ -45,9 +45,8 @@
 
   /* ---------- 主区 ---------- */
   .main{flex:1;display:flex;flex-direction:column;gap:14px;min-width:0}
-  .topbar{display:flex;flex-direction:column;gap:8px;padding:11px 16px;background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow)}
-  .topbar .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
-  .topbar .row .right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+  .topbar{display:flex;align-items:center;gap:7px;padding:11px 16px;background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap}
+  .topbar .right{margin-left:auto;display:flex;align-items:center;gap:7px;flex-wrap:nowrap}
   .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:var(--radius-sm);padding:7px 12px;font-size:12.5px;cursor:pointer;transition:.12s;white-space:nowrap;box-shadow:0 1px 2px rgba(20,30,50,.03);display:inline-flex;align-items:center;gap:6px}
   .btn svg,.subnav button svg{flex:none}
   .btn:hover{background:#f4f6f9;border-color:#dde1e7}
@@ -147,11 +146,9 @@
   <!-- 主区 -->
   <div class="main">
     <div class="topbar">
-      <div class="row">
       <button class="btn ghost" id="undoBtn" title="撤销">↶</button>
       <button class="btn ghost" id="redoBtn" title="重做">↷</button>
-      <span class="lbl">主题</span>
-      <select id="themeSel" style="max-width:200px"></select>
+      <select id="themeSel" style="max-width:150px" title="主题"></select>
       <details class="theme-panel" id="themePanel"><summary><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>主题管理</summary><div class="theme-box">
         <div class="menu-items">
           <button class="menu-item" id="genBtn" title="按当前文章用 AI 生成主题"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/><path d="M5 15l.7 1.8 1.8.7-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>生成主题</button>
@@ -161,22 +158,19 @@
         <h4>已保存的自定义主题</h4>
         <div id="themeList" style="max-height:150px;overflow:auto;font-size:12px;color:var(--ink2);line-height:1.9"></div>
       </div></details>
-      <div class="right">
-      <button class="btn" id="valBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>校验</button>
-      <button class="btn" id="copyHtmlBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/></svg>复制 HTML</button>
-      <button class="btn primary" id="copyWxBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制到公众号</button>
-      <button class="btn primary" id="pubBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>发布草稿箱</button>
-      </div>
-      </div>
-      <div class="row">
-      <label class="lbl">标题</label><input type="text" id="title" placeholder="文章标题" />
-      <label class="lbl">封面</label><input type="text" id="cover" placeholder="封面URL(选填)" style="width:150px" title="封面图 URL(900×383/2.35:1)；留空则用正文首图或自动生成" />
+      <label class="lbl">标题</label><input type="text" id="title" placeholder="文章标题" style="flex:1 1 120px;max-width:230px" />
+      <label class="lbl">封面</label><input type="text" id="cover" placeholder="封面URL" style="width:120px" title="封面图 URL(900×383/2.35:1)；留空则用正文首图或自动生成" />
       <button class="btn" id="coverUpload" title="上传本地图片作封面">上传</button>
       <span id="coverThumbWrp" style="display:none;position:relative;line-height:0">
         <img id="coverThumb" alt="封面预览" style="width:54px;height:26px;object-fit:cover;border-radius:6px;vertical-align:middle;border:1px solid var(--line)" />
         <button class="btn ghost" id="coverClear" title="清除封面" style="position:absolute;top:-9px;right:-9px;padding:0 5px;font-size:13px;line-height:18px;border-radius:9px">×</button>
       </span>
       <input type="file" id="coverFile" accept="image/*" style="display:none" />
+      <div class="right">
+      <button class="btn" id="valBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>校验</button>
+      <button class="btn" id="copyHtmlBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/></svg>复制 HTML</button>
+      <button class="btn primary" id="copyWxBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制到公众号</button>
+      <button class="btn primary" id="pubBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>发布草稿箱</button>
       </div>
     </div>
 
