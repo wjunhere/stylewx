@@ -46,7 +46,8 @@
   /* ---------- 主区 ---------- */
   .main{flex:1;display:flex;flex-direction:column;gap:14px;min-width:0}
   .topbar{display:flex;align-items:center;gap:8px;padding:11px 16px;background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:nowrap}
-  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:var(--radius-sm);padding:7px 12px;font-size:12.5px;cursor:pointer;transition:.12s;white-space:nowrap;box-shadow:0 1px 2px rgba(20,30,50,.03)}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:var(--radius-sm);padding:7px 12px;font-size:12.5px;cursor:pointer;transition:.12s;white-space:nowrap;box-shadow:0 1px 2px rgba(20,30,50,.03);display:inline-flex;align-items:center;gap:6px}
+  .btn svg,.subnav button svg{flex:none}
   .btn:hover{background:#f4f6f9;border-color:#dde1e7}
   .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.26)}
   .btn.primary:hover{background:var(--brand-d);border-color:var(--brand-d)}
@@ -116,9 +117,9 @@
       <div class="side-brand">stylewx<small>排版</small></div>
     </div>
     <div class="subnav">
-      <button class="active" id="navTheme">文章主题</button>
-      <button id="navImgHost">图床设置</button>
-      <button id="navAi">AI 优化</button>
+      <button class="active" id="navTheme"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-.8 2-1.8 0-.9-.7-1.3-.7-2.1 0-.8.7-1.4 1.6-1.4H17a4 4 0 0 0 4-4c0-4.4-4-8.7-9-8.7z"/><circle cx="7.5" cy="11" r="1.1" fill="currentColor"/><circle cx="10.5" cy="7.5" r="1.1" fill="currentColor"/><circle cx="14.5" cy="7.5" r="1.1" fill="currentColor"/><circle cx="17" cy="10.5" r="1.1" fill="currentColor"/></svg>文章主题</button>
+      <button id="navImgHost"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 19a4 4 0 0 1-.6-7.9 6 6 0 0 1 11.4-1.5A4.5 4.5 0 0 1 18 19z"/><path d="M12 12v6M9 15l3 3 3-3"/></svg>图床设置</button>
+      <button id="navAi"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/><path d="M5 15l.7 1.8 1.8.7-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>AI 优化</button>
     </div>
     <button class="new-btn" id="newBtn">＋ 新建文章</button>
     <div class="side-label">历史记录</div>
@@ -137,14 +138,14 @@
       <span class="lbl">主题</span>
       <select id="themeSel" style="max-width:200px"></select>
       <details class="theme-panel" id="themePanel"><summary>主题库 ▾</summary><div class="theme-box"><h4>已保存的自定义主题</h4><div id="themeList" style="max-height:180px;overflow:auto;font-size:12px;color:var(--ink2);line-height:1.9"></div></div></details>
-      <button class="btn" id="genBtn" title="按当前文章用 AI 生成主题">生成主题</button>
-      <button class="btn" id="saveBtn">保存主题</button>
-      <button class="btn" id="valBtn">校验</button>
+      <button class="btn" id="genBtn" title="按当前文章用 AI 生成主题"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/><path d="M5 15l.7 1.8 1.8.7-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>生成主题</button>
+      <button class="btn" id="saveBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>保存主题</button>
+      <button class="btn" id="valBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>校验</button>
       <span class="grow"></span>
       <label class="lbl">标题</label><input type="text" id="title" placeholder="文章标题" />
-      <button class="btn" id="copyHtmlBtn">复制 HTML</button>
-      <button class="btn primary" id="copyWxBtn">复制到公众号</button>
-      <button class="btn primary" id="pubBtn">发布草稿箱</button>
+      <button class="btn" id="copyHtmlBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/></svg>复制 HTML</button>
+      <button class="btn primary" id="copyWxBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制到公众号</button>
+      <button class="btn primary" id="pubBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>发布草稿箱</button>
     </div>
 
     <div class="content">
