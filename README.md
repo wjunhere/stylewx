@@ -121,6 +121,25 @@ pnpm --filter @stylewx/api dev
 
 ---
 
+## npm 分发
+
+`@stylewx/*` 已发布到 npm（`core / theme / validator / publisher / preview / service / mcp-server / api`，`0.1.1`）。
+
+- **MCP 给 Agent 用（stdio）**：
+  ```bash
+  npx -y stylewx-mcp
+  ```
+- **本地 Web 编辑器 + MCP(HTTP)**：
+  ```bash
+  npx -y stylewx-mcp --transport http --port 3777
+  # http://localhost:3777/editor（编辑器）· http://localhost:3777/mcp（MCP HTTP）
+  ```
+- **环境变量**：`WECHAT_APP_ID / WECHAT_APP_SECRET`（发布草稿）、`LLM_BASE_URL / LLM_API_KEY / LLM_MODEL / LLM_API_STYLE`（AI 生成主题；`LLM_API_STYLE` 默认 `chat`，opencode go 用 `responses`）。
+  缺凭据时对应功能返回明确错误（不崩），其余功能正常。
+- **截图（可选）**：`render_preview` 的预览截图依赖本地 Chromium：`npx playwright install chromium`；未装则降级为返回 HTML + 校验报告。编辑器右侧实时预览用 iframe，**不依赖 Chromium**。
+
+> 发布说明：用 `pnpm publish`（会自动把 `workspace:*` 替换为真实版本）；旧版 `0.1.0` 的坏依赖已由 `0.1.1` 修复。`@stylewx` 是 npm 组织作用域。
+
 ## 在 Agent 中接入
 
 ### Claude Desktop
