@@ -13,7 +13,9 @@
     "test": "turbo run test --concurrency=2",
     "type-check": "turbo run type-check",
     "dev": "turbo run dev",
-    "clean": "turbo run clean && rimraf node_modules"
+    "clean": "turbo run clean && rimraf node_modules",
+    "stylewx:editor": "node apps/mcp-server/scripts/editor.mjs",
+    "stylewx:editor:http": "node apps/mcp-server/scripts/editor.mjs . 3777"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^3.0.5",

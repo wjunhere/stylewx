@@ -82,12 +82,31 @@ node apps/mcp-server/dist/index.js --transport stdio
 pnpm --filter @stylewx/mcp-server exec node scripts/smoke-stdio.mjs
 ```
 
-### Streamable HTTP 模式 + 本地 Web 编辑器
+### 启动本地 Web 编辑器（一键）
+
+> 编辑器只在 **`--transport http` 模式**下提供；pi / Agent 里配的 `stylewx` 走 **stdio**（无头，无界面）。
+> 想用编辑器，请**另起一个 http 模式的实例**（可与 Agent 的 stdio MCP 共存）。
+
+**一键启动（推荐）**：
 
 ```bash
-node apps/mcp-server/dist/index.js --transport http --port 3000
-# 端点：POST /mcp（也支持 GET /mcp 做 SSE）
-# 另起一个本地 Web 编辑器：浏览器打开 http://localhost:3000/editor
+# 方式 A：pnpm（自动加载仓库根 .env，默认端口 3777）
+pnpm stylewx:editor
+
+# 方式 B：Windows 双击 stylewx-editor.bat（仓库根）
+
+# 方式 C：直接跑脚本（可指定 .env 路径与端口）
+node apps/mcp-server/scripts/editor.mjs [.env路径] [端口]
+```
+
+启动后浏览器打开：**http://localhost:3777/editor**（同时该进程也提供 `http://localhost:3777/mcp` 的 MCP(HTTP) 端点）。
+
+**手动以 HTTP 模式启动**（等价）：
+
+```bash
+cd apps/mcp-server && set -a && . ../.env && set +a
+node dist/index.js --transport http --port 3777
+# http://localhost:3777/editor 编辑器 · http://localhost:3777/mcp  MCP(Streamable HTTP)
 ```
 
 编辑器（WeMD 风格）提供：左侧 Markdown 编辑 + 富文本工具栏、主题选择/生成/保存、右侧 390px 实时预览、
