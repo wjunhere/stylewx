@@ -72,6 +72,13 @@
   .tb-btn:hover{background:#eef1f5;color:var(--ink)}
   .tb-btn b{font-weight:700}
   .tb-btn svg{display:block;margin:auto}
+  /* Typora 式表格大小选择器 */
+  .table-picker{position:fixed;z-index:70;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:10px 11px;display:none}
+  .table-picker .tlabel{font-size:12px;color:var(--ink2);margin-bottom:9px;text-align:center;font-weight:600}
+  .table-picker .tgrid{display:grid;grid-template-columns:repeat(10,16px);grid-auto-rows:16px;gap:3px}
+  .table-picker .tcell{background:#eef1f5;border-radius:3px;cursor:pointer}
+  .table-picker .tcell.on{background:var(--brand)}
+  .table-picker .tcell:hover{background:var(--brand);opacity:.75}
   .tb-sep{width:1px;height:16px;background:var(--line);margin:0 5px}
   .markdown{flex:1;width:100%;border:0;resize:none;padding:22px 26px;font:14px/1.8 var(--mono);background:#fff;color:var(--ink);outline:none}
   .markdown::placeholder{color:var(--faint)}
@@ -193,6 +200,7 @@
     </div>
   </div>
 </div>
+<div class="table-picker" id="tablePicker"></div>
 <div class="toast" id="toast"></div>
 
 <!-- 图床设置弹窗 -->
@@ -278,11 +286,48 @@ const ACTIONS={
   h1:()=>linePrefix('# '), h2:()=>linePrefix('## '), h3:()=>linePrefix('### '),
   quote:()=>linePrefix('> '), ul:()=>linePrefix('- '), ol:()=>linePrefix('1. '),
   hr:()=>{const ta=$('#md');ta.value=(ta.value+'\n\n---\n');render();},
-  table:()=>{const ta=$('#md');const t='\n| 列A | 列B |\n| --- | --- |\n| 1 | 2 |\n';ta.value+=t;render();},
   clear:()=>{const ta=$('#md');const s=ta.selectionStart,e=ta.selectionEnd;ta.value=ta.value.slice(0,s)+ta.value.slice(e);render();},
   help:()=>toast('Markdown 支持：**加粗**、*斜体*、==高亮==、> 引用、- 列表、| 表格 |、`代码`、```代码块```'),
 };
-$('#toolbar').addEventListener('click',e=>{const a=e.target.closest('.tb-btn')?.dataset?.a;if(a&&ACTIONS[a])ACTIONS[a]();});
+$('#toolbar').addEventListener('click',e=>{
+  const btn=e.target.closest('.tb-btn'); const a=btn?.dataset?.a; if(!a) return;
+  if(a==='table'){ showTablePicker(btn); return; }
+  if(ACTIONS[a]) ACTIONS[a]();
+});
+
+// ---- Typora 式表格选择器 ----
+const TBL_ROWS=8, TBL_COLS=10;
+function buildTablePicker(){
+  const p=$('#tablePicker');
+  let g='';
+  for(let r=1;r<=TBL_ROWS;r++) for(let c=1;c<=TBL_COLS;c++) g+='<div class="tcell" data-r="'+r+'" data-c="'+c+'"></div>';
+  p.innerHTML='<div class="tlabel" id="tlabel">选择表格大小</div><div class="tgrid">'+g+'</div>';
+  p.addEventListener('mouseover',e=>{ const c=e.target.closest('.tcell'); if(!c) return; const r=+c.dataset.r, col=+c.dataset.c; p.querySelectorAll('.tcell').forEach(x=>{ x.classList.toggle('on',(+x.dataset.r<=r && +x.dataset.c<=col)); }); $('#tlabel').textContent=col+' 列 × '+r+' 行'; });
+  p.addEventListener('click',e=>{ const c=e.target.closest('.tcell'); if(!c) return; const r=+c.dataset.r, col=+c.dataset.c; hideTablePicker(); insertTable(col, r); });
+}
+function showTablePicker(btn){
+  hideTablePicker();
+  const p=$('#tablePicker'); const rect=btn.getBoundingClientRect();
+  p.style.left=Math.min(rect.left, window.innerWidth-280)+'px';
+  p.style.top=(rect.bottom+4)+'px';
+  p.style.display='block';
+  p.querySelectorAll('.tcell').forEach(x=>x.classList.remove('on'));
+  $('#tlabel').textContent='选择表格大小';
+}
+function hideTablePicker(){ $('#tablePicker').style.display='none'; }
+document.addEventListener('click',e=>{ if(!e.target.closest('#tablePicker') && !e.target.closest('.tb-btn[data-a=table]')) hideTablePicker(); });
+// 在光标处插入 cols 列 × rows 行（首行表头）的 Markdown 表格
+function insertTable(cols, rows){
+  const ta=$('#md'), s=ta.selectionStart;
+  const mk=(v)=>'| '+Array(cols).fill(v).join(' | ')+' |';
+  let t='\n'+mk('  ')+'\n'+('|'+Array(cols).fill(' --- ').join('|')+'|')+'\n';
+  for(let i=1;i<rows;i++) t+=mk('  ')+'\n';
+  t+='\n';
+  ta.value=ta.value.slice(0,s)+t+ta.value.slice(s);
+  const pos=s+t.length-1; ta.selectionStart=ta.selectionEnd=pos;
+  ta.focus(); render(); queueSave();
+  setVal([{kind:'ok',text:'已插入 '+cols+' 列 × '+rows+' 行表格（首行为表头）'}]);
+}
 
 // ---- 历史记录 (localStorage) ----
 let saveTimer;
@@ -361,6 +406,7 @@ $('#redoBtn').onclick=()=>document.execCommand('redo');
 
 // ---- 启动 ----
 (async()=>{
+  buildTablePicker();
   loadHistory(); renderHistory(); activeId=history[0]?.id ?? null;
   const saved=history[0]; if(saved){ $('#md').value=saved.md; $('#title').value=saved.title; }
   else { $('#md').value='# 示例标题\n\n在这里用 Markdown 写作。支持 **加粗**、*斜体*、==高亮==、> 引用、列表、表格、代码块等。\n\n## 小节一\n\n> 引用一条。\n\n- 要点一\n- 要点二\n\n| 列A | 列B |\n| --- | --- |\n| 1 | 2 |\n'; }
