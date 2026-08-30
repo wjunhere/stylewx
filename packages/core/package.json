@@ -1,7 +1,6 @@
 {
   "name": "@stylewx/core",
   "version": "0.1.0",
-  "private": true,
   "description": "stylewx headless render core: Markdown → WeChat-compatible inlined-style HTML. Pure function, no DOM / no Node-only APIs.",
   "type": "module",
   "main": "./dist/index.js",

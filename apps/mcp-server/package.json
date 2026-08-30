@@ -1,7 +1,6 @@
 {
   "name": "@stylewx/mcp-server",
   "version": "0.1.0",
-  "private": true,
   "description": "stylewx MCP Server: exposes styling/validate/publish capabilities to AI agents (Kimi Code / Claude Code / Cursor). stdio + Streamable HTTP.",
   "type": "module",
   "bin": {
