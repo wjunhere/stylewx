@@ -143,7 +143,13 @@
       <button class="btn" id="valBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>校验</button>
       <span class="grow"></span>
       <label class="lbl">标题</label><input type="text" id="title" placeholder="文章标题" />
-      <label class="lbl">封面</label><input type="text" id="cover" placeholder="封面图URL(选填，留空自动生成)" style="width:190px" title="封面图 URL(900×383/2.35:1)；留空则用正文首图或自动生成" />
+      <label class="lbl">封面</label><input type="text" id="cover" placeholder="封面URL(选填)" style="width:150px" title="封面图 URL(900×383/2.35:1)；留空则用正文首图或自动生成" />
+      <button class="btn" id="coverUpload" title="上传本地图片作封面">上传</button>
+      <span id="coverThumbWrp" style="display:none;position:relative;line-height:0">
+        <img id="coverThumb" alt="封面预览" style="width:54px;height:26px;object-fit:cover;border-radius:6px;vertical-align:middle;border:1px solid var(--line)" />
+        <button class="btn ghost" id="coverClear" title="清除封面" style="position:absolute;top:-9px;right:-9px;padding:0 5px;font-size:13px;line-height:18px;border-radius:9px">×</button>
+      </span>
+      <input type="file" id="coverFile" accept="image/*" style="display:none" />
       <button class="btn" id="copyHtmlBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/></svg>复制 HTML</button>
       <button class="btn primary" id="copyWxBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制到公众号</button>
       <button class="btn primary" id="pubBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>发布草稿箱</button>
@@ -211,6 +217,7 @@
 let lastHtml=''; let themesCache=[]; let currentTitle='';
 let history=[]; // [{id, title, md, ts}]
 let activeId=null; // 当前正在编辑的历史条目 id（用于更新而非重复新增）
+let coverFile=null; // 本地上传的封面 { data: base64, mime }
 const $=s=>document.querySelector(s);
 const toast=(m,ok=true)=>{const t=$('#toast');t.textContent=m;t.className='toast show'+(ok?'':' err');setTimeout(()=>t.className='toast',2200);};
 
@@ -318,7 +325,7 @@ $('#valBtn').onclick=async()=>{ const md=$('#md').value,theme=$('#themeSel').val
 async function copyText(t,msg){ try{ await navigator.clipboard.writeText(t); toast(msg); }catch(e){ toast('复制失败（浏览器限制）：'+e.message,false); } }
 $('#copyHtmlBtn').onclick=()=> lastHtml?copyText(lastHtml,'已复制 HTML'):toast('请先渲染',false);
 $('#copyWxBtn').onclick=()=> lastHtml?copyText(lastHtml,'已复制，去公众号编辑器粘贴'):toast('请先渲染',false);
-$('#pubBtn').onclick=async()=>{ const title=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名'); toast('正在发布草稿箱…'); try{ const cover=$('#cover').value.trim(); const d=await api('/editor/api/publish',{markdown:$('#md').value,title,theme:$('#themeSel').value,relocate:$('#relocateOpt').checked,coverImage:cover||undefined}); toast('已发布 media_id='+(d.media_id||'').slice(0,20)+'…'); setVal([{kind:'ok',text:'✅ 已发布草稿 media_id='+d.media_id+(cover?'（封面：自定义URL）':'（封面：自动）')}]); saveSnap(); }catch(e){ toast('发布失败：'+e.message,false); } };
+$('#pubBtn').onclick=async()=>{ const title=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名'); toast('正在发布草稿箱…'); try{ const cover=$('#cover').value.trim(); const d=await api('/editor/api/publish',{markdown:$('#md').value,title,theme:$('#themeSel').value,relocate:$('#relocateOpt').checked,coverImage:cover||undefined,coverData:coverFile?coverFile.data:undefined,coverMime:coverFile?coverFile.mime:undefined}); toast('已发布 media_id='+(d.media_id||'').slice(0,20)+'…'); const cs=coverFile?'本地上传':(cover?'自定义URL':(d.coverMediaId?'自动':'')); setVal([{kind:'ok',text:'✅ 已发布草稿 media_id='+d.media_id+(cs?'（封面：'+cs+'）':'')}]); saveSnap(); }catch(e){ toast('发布失败：'+e.message,false); } };
 
 // ---- 侧栏导航 / 设置 / AI 优化 ----
 function nav(id){ document.querySelectorAll('.subnav button').forEach(b=>b.classList.remove('active')); var b=document.getElementById(id); if(b)b.classList.add('active'); }
@@ -335,6 +342,17 @@ $('#p1').onclick=()=>{ $('#p1').classList.add('active'); $('#p2').classList.remo
 $('#p2').onclick=()=>{ $('#p2').classList.add('active'); $('#p1').classList.remove('active'); $('#pv').style.width='100%'; };
 
 // ---- 事件 ----
+// ---- 封面上传 / 预览 ----
+$('#coverUpload').onclick=()=>$('#coverFile').click();
+$('#coverFile').addEventListener('change',e=>{
+  const f=e.target.files && e.target.files[0]; if(!f) return;
+  if(f.size > 5*1024*1024){ toast('图片过大(>5MB)，请换小图',false); return; }
+  const reader=new FileReader();
+  reader.onload=()=>{ coverFile={ data:String(reader.result).split(',')[1], mime:f.type||'image/jpeg' }; $('#coverThumb').src=String(reader.result); $('#coverThumbWrp').style.display=''; $('#cover').value=''; toast('已选择本地封面'); };
+  reader.readAsDataURL(f);
+});
+$('#coverClear').onclick=()=>{ coverFile=null; $('#coverThumbWrp').style.display='none'; $('#coverThumb').src=''; $('#cover').value=''; toast('已清除封面'); };
+
 $('#themeSel').addEventListener('change',render);
 $('#md').addEventListener('input',()=>{render();queueSave();});
 $('#title').addEventListener('input',queueSave);

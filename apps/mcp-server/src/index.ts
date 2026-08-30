@@ -171,10 +171,16 @@ async function handleEditorApi(
       if (!title) return sendErr(res, { code: 'missing_title', message: '缺少标题。', hint: '请提供 title。' })
       const theme = resolveTheme(typeof b.theme === 'string' ? b.theme : 'magazine')
       const { html } = await renderPreview(markdown, theme)
+      // 封面：优先本地上传的原始字节（base64），否则用 URL
+      const coverData =
+        typeof b.coverData === 'string' && b.coverData
+          ? { bytes: new Uint8Array(Buffer.from(b.coverData, 'base64')), mimeType: typeof b.coverMime === 'string' ? b.coverMime : 'image/jpeg' }
+          : undefined
       const result = await publisherPublishDraft(deps.wechat, {
         content: html,
         title,
         coverImage: typeof b.coverImage === 'string' ? b.coverImage : undefined,
+        coverData,
         author: typeof b.author === 'string' ? b.author : undefined,
         relocate: b.relocate !== false,
       })

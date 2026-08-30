@@ -18,6 +18,8 @@ export interface PublishParams {
   digest?: string
   /** 封面图 URL（可选；若缺少会用文章第一张图作为封面）。 */
   coverImage?: string
+  /** 封面原始字节（本地上传用，优先生效；不需要 URL）。 */
+  coverData?: { bytes: Uint8Array; mimeType: string }
   /** 原文链接（可选）。 */
   contentSourceUrl?: string
   needOpenComment?: boolean
@@ -43,6 +45,12 @@ async function resolveThumbMediaId(
   params: PublishParams,
   uploaded: { original: string; url: string; media_id: string }[],
 ): Promise<string> {
+  // 0. 本地上传的封面原始字节（最高优先，直接上传素材库，无需 URL）
+  if (params.coverData && params.coverData.bytes.length > 0) {
+    const ext = params.coverData.mimeType.includes('png') ? 'png' : 'jpg'
+    const thumb = await client.uploadThumb(params.coverData.bytes, `cover.${ext}`, params.coverData.mimeType)
+    return thumb.media_id
+  }
   // 1. 优先使用显式封面图
   if (params.coverImage) {
     const { bytes, mimeType } = await client.downloadImage(params.coverImage)

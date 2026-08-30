@@ -195,6 +195,13 @@ describe('publishDraft', () => {
     ).rejects.toThrow(/标题/)
   })
 
+  it('本地上传的 coverData 优先作为封面', async () => {
+    const { client, calls } = makeClient()
+    const r = await publishDraft(client, { title: 'x', content: '<p>a</p>', coverData: { bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' } })
+    expect(r.media_id).toBe('draft_abcdef')
+    expect(calls.filter((c) => c.url.includes('add_material')).length).toBeGreaterThanOrEqual(1)
+  })
+
   it('无封面且无任何图片时自动生成默认封面（不失败）', async () => {
     const { client, calls } = makeClient()
     const r = await publishDraft(client, { title: 'x', content: '<p>纯文字</p>' })
