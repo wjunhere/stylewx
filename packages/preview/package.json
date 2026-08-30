@@ -1,6 +1,6 @@
 {
   "name": "@stylewx/preview",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "stylewx preview: render styled HTML to a PNG screenshot via Playwright (headless Chromium). iPhone-like viewport (390px) for WeChat previews.",
   "type": "module",
   "main": "./dist/index.js",

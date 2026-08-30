@@ -1,6 +1,6 @@
 {
   "name": "stylewx",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "stylewx — 公众号排版 Agent 服务：无头排版内核 + MCP Server + REST API。让 AI Agent 根据文章自动选择/生成主题、渲染、校验并发布到微信公众号草稿箱。",
   "type": "module",

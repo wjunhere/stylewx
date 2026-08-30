@@ -1,6 +1,6 @@
 {
   "name": "@stylewx/api",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "stylewx REST API: mirrors the MCP tools as HTTP endpoints, reusing the same service layer.",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@stylewx/theme",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "stylewx theme package: zod theme schema (with JSON Schema export), WeChat-safe CSS whitelist, theme → CSS compiler, and preset themes (6 built-in + 20 WeMD ported). Isomorphic (no DOM / no Node-only APIs).",
   "type": "module",
   "main": "./dist/index.js",

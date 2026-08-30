@@ -1,6 +1,6 @@
 {
   "name": "@stylewx/publisher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "stylewx publisher: WeChat Official Account API wrapper (access_token, image upload, draft/add) + external-image relocation. Node-only by design.",
   "type": "module",
   "main": "./dist/index.js",
