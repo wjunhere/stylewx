@@ -195,11 +195,12 @@ describe('publishDraft', () => {
     ).rejects.toThrow(/标题/)
   })
 
-  it('无封面且无任何图片时给出清晰提示', async () => {
-    const { client } = makeClient()
-    await expect(
-      publishDraft(client, { title: 'x', content: '<p>纯文字</p>' }),
-    ).rejects.toThrow(/coverImage/)
+  it('无封面且无任何图片时自动生成默认封面（不失败）', async () => {
+    const { client, calls } = makeClient()
+    const r = await publishDraft(client, { title: 'x', content: '<p>纯文字</p>' })
+    expect(r.media_id).toBe('draft_abcdef')
+    // 应发生了一次封面上传（material/add_material 的 thumb 上传）
+    expect(calls.some((c) => c.url.includes('/cgi-bin/material/add_material'))).toBe(true)
   })
 
   it('安全边界：不暴露任何 freepublish/submit 能力', () => {

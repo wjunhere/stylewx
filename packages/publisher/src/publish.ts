@@ -5,6 +5,7 @@
 import { WeChatClient } from './client.js'
 import type { DraftArticle } from './client.js'
 import { relocateExternalImages } from './relocate.js'
+import { generateDefaultCover } from './cover.js'
 
 export interface PublishParams {
   /** 已渲染（内联样式）的 HTML 正文。 */
@@ -50,10 +51,10 @@ async function resolveThumbMediaId(
   }
   // 2. 回退到正文第一张已上传的图（素材库 media_id 通用）
   if (uploaded[0]) return uploaded[0].media_id
-  // 3. 都没有 → 明确报错，不静默失败
-  throw new Error(
-    '缺少文章封面图。请传入 coverImage 参数（建议 900×383 或 2.35:1 的图片 URL），或先为文章添加一张配图。',
-  )
+  // 3. 都没有 → 自动生成一张主题色渐变封面（纯文字文章也能发布成功）
+  const cover = generateDefaultCover()
+  const thumb = await client.uploadThumb(cover.bytes, cover.filename, cover.mimeType)
+  return thumb.media_id
 }
 
 function guessThumbFilename(url: string): string {
