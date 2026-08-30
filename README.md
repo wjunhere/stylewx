@@ -134,6 +134,12 @@ pnpm --filter @stylewx/api dev
   npx -y stylewx-mcp --transport http --port 3777
   # http://localhost:3777/editor（编辑器）· http://localhost:3777/mcp（MCP HTTP）
   ```
+- **想长期/全局安装**（之后用裸命令，无需每次 `npx`）：
+  ```bash
+  npm i -g @stylewx/mcp-server
+  stylewx-mcp            # 已装到全局，直接可调
+  stylewx-mcp --transport http --port 3777   # 编辑/HTTP 模式
+  ```
 - **环境变量**：`WECHAT_APP_ID / WECHAT_APP_SECRET`（发布草稿）、`LLM_BASE_URL / LLM_API_KEY / LLM_MODEL / LLM_API_STYLE`（AI 生成主题；`LLM_API_STYLE` 默认 `chat`，opencode go 用 `responses`）。
   缺凭据时对应功能返回明确错误（不崩），其余功能正常。
 - **截图（可选）**：`render_preview` 的预览截图依赖本地 Chromium：`npx playwright install chromium`；未装则降级为返回 HTML + 校验报告。编辑器右侧实时预览用 iframe，**不依赖 Chromium**。
