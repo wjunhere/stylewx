@@ -119,6 +119,16 @@
   .switch input:checked + .slider{background:var(--brand)}
   .switch input:checked + .slider:before{transform:translateX(18px)}
   .modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+  .ai-lbl{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+  .ai-scope{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line2)}
+  .ai-chips{display:flex;gap:8px;flex-wrap:wrap}
+  .ai-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;cursor:pointer;color:var(--ink2)}
+  .ai-chip input{accent-color:var(--blue);cursor:pointer}
+  .ai-chip:has(input:checked){border-color:var(--blue);color:var(--blue);background:rgba(64,158,255,.06)}
+  .ai-selinfo{font-size:12px;color:var(--blue);font-weight:600}
+  .ai-prompt{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:13px;font-family:inherit;line-height:1.6;resize:vertical;min-height:78px}
+  .ai-prompt:focus{outline:2px solid rgba(64,158,255,.4);border-color:var(--blue)}
+  .ai-hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:10px}
 </style>
 </head>
 <body>
@@ -229,6 +239,25 @@
       </div>
     </div>
     <div class="modal-foot"><button class="btn" data-close>关闭</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="aiOverlay">
+  <div class="modal">
+    <div class="modal-head"><b>AI 优化</b><button class="modal-close" data-close-ai>&times;</button></div>
+    <div class="modal-body">
+      <div class="ai-scope">
+        <span class="ai-lbl" style="margin:0">作用范围</span>
+        <div class="ai-chips">
+          <label class="ai-chip"><input type="radio" name="aiScope" value="all" checked>全文</label>
+          <label class="ai-chip"><input type="radio" name="aiScope" value="sel">选中片段<span class="ai-selinfo" id="aiSelInfo"></span></label>
+        </div>
+      </div>
+      <label class="ai-lbl" style="margin-top:14px">优化要求（可选，自定义 prompt）</label>
+      <textarea class="ai-prompt" id="aiPrompt" rows="4" placeholder="例如：把开头写得更有吸引力；语句更口语化；压缩到 800 字以内；每段补一个小标题…（留空 = 通用优化）"></textarea>
+      <div class="ai-hint">提示：先在编辑器里选中想优化的文字，再点「AI 优化」即可只优化该段；不选中则默认优化全文。优化会保留 Markdown 结构与事实，不改变主旨。</div>
+    </div>
+    <div class="modal-foot"><button class="btn" data-close-ai>取消</button><button class="btn primary" id="aiRun">开始优化</button></div>
   </div>
 </div>
 
@@ -388,7 +417,30 @@ $('#pubBtn').onclick=async()=>{ const title=$('#title').value||((($('#md').value
 function nav(id){ document.querySelectorAll('.subnav button').forEach(b=>b.classList.remove('active')); var b=document.getElementById(id); if(b)b.classList.add('active'); }
 $('#navTheme').onclick=()=>{ nav('navTheme'); $('#themePanel').open=true; $('#themeSel').focus(); };
 $('#navImgHost').onclick=()=>{ nav('navImgHost'); $('#imgHostOverlay').classList.add('show'); };
-$('#navAi').onclick=async()=>{ nav('navAi'); if(!$('#md').value.trim())return toast('请先输入文章',false); toast('AI 优化中（LLM）…'); try{ const d=await api('/editor/api/optimize',{markdown:$('#md').value}); $('#md').value=d.markdown; saveSnap(); render(); toast('AI 优化完成'); }catch(e){ toast('AI 优化失败：'+e.message,false); } };
+function aiSelRange(){ const t=$('#md'); return { start:t.selectionStart, end:t.selectionEnd, text:(t.value||'').slice(t.selectionStart,t.selectionEnd) }; }
+function refreshAiSel(){ const s=aiSelRange(); const info=$('#aiSelInfo'); if(info) info.textContent = s.text.trim() ? ('· 已选 '+s.text.length+' 字') : ''; }
+$('#navAi').onclick=()=>{ nav('navAi'); if(!$('#md').value.trim())return toast('请先输入文章',false); refreshAiSel(); $('#aiOverlay').classList.add('show'); $('#aiPrompt').focus(); };
+document.querySelectorAll('[data-close-ai]').forEach(b=>b.onclick=()=>{ $('#aiOverlay').classList.remove('show'); });
+$('#aiOverlay').addEventListener('click',e=>{ if(e.target.id==='aiOverlay') $('#aiOverlay').classList.remove('show'); });
+document.querySelectorAll('input[name="aiScope"]').forEach(r=>r.addEventListener('change',refreshAiSel));
+$('#aiRun').onclick=async()=>{
+  const md=$('#md').value; if(!md.trim())return toast('请先输入文章',false);
+  const scope=document.querySelector('input[name="aiScope"]:checked').value;
+  const prompt=$('#aiPrompt').value.trim();
+  let selection;
+  if(scope==='sel'){ const s=aiSelRange(); if(s.end>s.start){ selection={start:s.start,end:s.end}; } else { toast('未选中文字，将优化全文',false); } }
+  $('#aiOverlay').classList.remove('show');
+  toast('AI 优化中（LLM）…');
+  try{
+    const body={ markdown:md }; if(prompt) body.prompt=prompt; if(selection) body.selection=selection;
+    const d=await api('/editor/api/optimize', body);
+    const t=$('#md');
+    if(selection){ t.value = md.slice(0,selection.start) + d.markdown + md.slice(selection.end); const pos=selection.start+d.markdown.length; t.setSelectionRange(pos,pos); }
+    else { t.value = d.markdown; }
+    saveSnap(); render();
+    toast(selection?'已优化选中片段':'AI 优化完成');
+  }catch(e){ toast('AI 优化失败：'+e.message,false); }
+};
 // 设置弹窗：开关
 const relocateToggle=$('#relocateOpt'); relocateToggle.checked=localStorage.getItem('mp-relocate')!=='0'; relocateToggle.addEventListener('change',()=>localStorage.setItem('mp-relocate',relocateToggle.checked?'1':'0'));
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{ $('#imgHostOverlay').classList.remove('show'); });

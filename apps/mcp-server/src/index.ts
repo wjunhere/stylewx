@@ -191,7 +191,11 @@ async function handleEditorApi(
       if (!deps.llm) return sendErr(res, { code: 'missing_llm_config', message: '需要 LLM 配置。', hint: '请配置 LLM_BASE_URL / LLM_API_KEY / LLM_MODEL 后重启服务。' })
       const b = await readJsonBody(req)
       const markdown = typeof b.markdown === 'string' ? b.markdown : ''
-      const r = await optimizeArticle(markdown, deps.llm)
+      const prompt = typeof b.prompt === 'string' && b.prompt.trim() ? b.prompt.trim() : undefined
+      const sel = b.selection as { start?: number; end?: number } | undefined
+      const selection =
+        sel && typeof sel.start === 'number' && typeof sel.end === 'number' ? { start: sel.start, end: sel.end } : undefined
+      const r = await optimizeArticle(markdown, deps.llm, { prompt, selection })
       return sendJson(res, { markdown: r.markdown })
     }
 
