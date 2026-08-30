@@ -212,15 +212,15 @@ async function runStdio(): Promise<void> {
 async function runHttp(port: number): Promise<void> {
   const transports = new Map<string, StreamableHTTPServerTransport>()
   const deps = buildDeps()
-  const editorHtml = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../editor.html'), 'utf8')
+  const editorHtmlPath = resolve(dirname(fileURLToPath(import.meta.url)), '../editor.html')
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
     const path = url.pathname
-    // 本地 Web 编辑器（WeMD 风格）
+    // 本地 Web 编辑器（WeMD 风格）；每次读取，改 editor.html 后即时生效
     if (path === '/editor') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-      res.end(editorHtml)
+      res.end(readFileSync(editorHtmlPath, 'utf8'))
       return
     }
     if (path.startsWith('/editor/api/')) {
