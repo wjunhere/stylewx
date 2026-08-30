@@ -12,13 +12,16 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "type-check": "tsc -p tsconfig.json --noEmit"
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "@stylewx/theme": "workspace:*",
@@ -29,5 +32,8 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.1",
     "unified": "^11.0.5"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

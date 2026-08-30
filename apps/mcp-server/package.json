@@ -15,14 +15,18 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "editor.html"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "type-check": "tsc -p tsconfig.json --noEmit",
     "dev": "node --import tsx/esm src/index.ts --transport stdio",
-    "inspector": "node dist/index.js --transport stdio"
+    "inspector": "node dist/index.js --transport stdio",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "@stylewx/core": "workspace:*",
@@ -32,5 +36,8 @@
     "@stylewx/validator": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "zod": "^4.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
