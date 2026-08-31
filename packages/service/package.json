@@ -1,6 +1,6 @@
 {
   "name": "@stylewx/service",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "stylewx shared service layer: composes core/theme/validator/publisher/preview into the 6 high-level operations reused by both MCP Server and REST API.",
   "type": "module",
   "main": "./dist/index.js",

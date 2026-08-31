@@ -1,6 +1,6 @@
 {
   "name": "@stylewx/validator",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "stylewx validator: WeChat compatibility checker (CSS whitelist, HTML structure, content limits). Outputs a structured report. Isomorphic (no DOM / no Node-only APIs).",
   "type": "module",
   "main": "./dist/index.js",
