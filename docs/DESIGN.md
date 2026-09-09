@@ -206,3 +206,38 @@ SVG 属性还原时用白名单保持驼峰（`viewBox` / `preserveAspectRatio`�
 
 验证：`packages/preview/scripts/test-editor-sync-scroll.mjs`
 ——左→右 50% 与右→左 85% 的比例误差均为 0.000，关闭后互不联动，重新渲染后仍保持一致。
+
+## 14. 从「一步成稿」到「小原语 + 分步迭代」
+
+早期工具面偏向「一次调用产出成品」：`render_preview` 每次都返回整篇 HTML + 截图，
+改一个颜色也只能整包重新生成主题。长文迭代时既费上下文又费 LLM。
+
+调整为：MCP 提供**可组合的小原语**，agent 分步做，人在本地编辑器收尾。
+
+### 新增的三个原语
+
+| 工具 | 职责 | 与旧路径的区别 |
+| --- | --- | --- |
+| `tweak_theme` | 在现有主题上确定性修改 token / 元素 CSS | 不调用 LLM，秒回；替代「改一点就重生成」 |
+| `render_fragment` | 只渲染一段，返回组件清单 + 诊断 + 校验 + 截图 | 默认**不返回 HTML**，逐段迭代不撑爆上下文 |
+| `save_article` | Markdown 落盘 + 返回 `editorUrl` | 建立「agent 生成 → 人微调」的交接点 |
+
+`tweak_theme` 的纯函数实现放在 `@stylewx/theme`（`tweak.ts`），service 层负责解析主题名、
+校验与可选截图；写入路径限制在 `STYLEWX_ARTICLES_DIR`（默认 cwd）内，防目录穿越。
+
+### 交接闭环
+
+```
+save_article → { path, editorUrl }
+editorUrl = <STYLEWX_EDITOR_URL>/editor?file=<绝对路径>
+编辑器 GET /editor/api/load-file?file=…（同样限制在文章根目录内）
+```
+
+`verify-handoff.mjs` 验证：落盘 → 用返回的 editorUrl 从编辑器端点读回 → 内容逐字节一致。
+编辑器侧还有 Playwright 用例覆盖「越权路径被拒绝（`path_not_allowed`）」。
+
+### Skill
+
+仓库内置 `.agents/skills/stylewx-article/`（项目级、随 git 分发）：
+`SKILL.md` 写工作流与选型原则，`references/` 放微信硬约束与主题配方，
+遵循渐进披露——只有描述常驻上下文，细节按需加载。

@@ -16,7 +16,8 @@
 
 ## 功能
 
-- 10 个 MCP 工具，覆盖主题管理、组件查询与文章排版全流程。
+- 13 个 MCP 工具：主题管理、组件查询、分析/生成/**微调**主题、**片段**/整篇渲染、校验、发布、**落盘交接**。
+  既可以整篇一步到位，也可以拆成小原语逐步迭代（见 [排版工作流](#排版工作流)）。
 - 22 个富组件：图片图注/多图网格/图文卡片/自动轮播、卡片/时间线/步骤条/对比/引用卡/目录、
   分割线/章节标题/标签/提示框/背景/画布/描边动画、点击展开/进度条/呼吸强调、封面/结尾卡片。
   用 `:::card{title="…"}` … `:::` 语法书写，可嵌套，正文继续用 Markdown。
@@ -141,7 +142,8 @@ http://localhost:3777/editor，同一进程还提供 http://localhost:3777/mcp�
 编辑器功能：左栏 Markdown 编辑与富文本工具栏（标题/列表/警告框/上下标等）、富组件插入面板、
 主题选择/生成/保存、右栏 390px 实时预览、左右栏同步滚动（可开关，偏好持久化）、校验、
 复制 HTML 或复制到公众号、一键发布草稿箱、历史记录与图床设置，
-以及 **导入 HTML（带组件标记时精确还原为 `:::` 指令）/ 导入 Markdown / 导出 Markdown**。
+以及 **导入 HTML（带组件标记时精确还原为 `:::` 指令）/ 导入 Markdown / 导出 Markdown**，
+并支持 `?file=<路径>` 直接打开项目里的 `.md`（`save_article` 的交接入口）。
 
 ### REST API
 
@@ -198,11 +200,40 @@ node --env-file=.env apps/mcp-server/scripts/verify-html-roundtrip.mjs
 node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
 ```
 
+## 排版工作流
+
+MCP 不要求一次成稿。可以把它当一组**小原语**用，让 agent 分步做、人在本地收尾：
+
+```
+analyze_article                                判断内容类型/基调
+list_themes → tweak_theme / generate_theme     先定主题骨架，再微调
+list_components                                查可用组件与参数
+  ↓ 分节推进（而不是一次成稿）
+写一节 → render_fragment 验证 → 调整 → 写下一节
+  ↓ 收口
+render_preview 整篇校验 → publish_draft 发草稿箱
+  ↓ 交接
+save_article → 返回 editorUrl → 你在本地编辑器微调
+```
+
+三个小原语的分工：
+
+- `render_fragment` 只渲染一段，且默认**不返回 HTML**，逐段迭代不把上下文塞满
+- `tweak_theme` 是确定性的，改颜色/字号/圆角**不需要重新生成整包主题**
+- `save_article` 落盘并返回 `http://localhost:3777/editor?file=<路径>`，点开就是可编辑的 Markdown
+
+仓库内置了给 agent 用的 skill：[`.agents/skills/stylewx-article/SKILL.md`](./.agents/skills/stylewx-article/SKILL.md)，
+含完整工作流、组件选型速查与微信端避坑清单。项目被信任后会自动发现；
+想在所有项目里使用，把整个目录复制到 `~/.pi/agent/skills/stylewx-article/` 即可。
+
 ## MCP 工具
 
 | Tool | 用途 | 关键输入 |
 | --- | --- | --- |
 | `list_components` | 列出全部富组件及其语法与参数（可按类别过滤 / 输出 markdown 速查表） | `category` / `format` |
+| `tweak_theme` | 在现有主题上做**确定性微调**（改 token 或元素 CSS），秒回、不烧 LLM | `theme`, `tokens`/`blocks` |
+| `render_fragment` | 只渲染**一段**，返回组件清单/诊断/校验/截图，默认**不返回 HTML** | `markdown`, `theme`, `includeHtml` |
+| `save_article` | 把最终 Markdown 落盘，返回可直接打开的编辑器地址（交接点） | `markdown`, `path`, `title` |
 | `list_themes` | 列出预置 + 已保存主题（含完整 token/block，可直接复用） | — |
 | `list_saved_themes` | 列出本地已保存的自定义/AI 主题（`~/.stylewx/themes.json`） | — |
 | `save_theme` | 保存主题到本地主题库（过 Schema + 微信白名单校验） | `theme` / `name` |

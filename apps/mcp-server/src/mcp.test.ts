@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory'
 import { createMcpServer } from './server.js'
@@ -42,7 +45,7 @@ describe('stylewx MCP Server (in-memory)', () => {
     expect(data.themes.length).toBeGreaterThanOrEqual(6)
   })
 
-  it('list 出全部 10 个 tools', async () => {
+  it('list 出全部 13 个 tools', async () => {
     const { client } = await startClient()
     const { tools } = await client.listTools()
     const names = tools.map((t) => t.name).sort()
@@ -54,8 +57,11 @@ describe('stylewx MCP Server (in-memory)', () => {
       'list_saved_themes',
       'list_themes',
       'publish_draft',
+      'render_fragment',
       'render_preview',
+      'save_article',
       'save_theme',
+      'tweak_theme',
       'validate_article',
     ])
   })
@@ -161,5 +167,94 @@ describe('stylewx MCP Server (in-memory)', () => {
     })
     const data = parseText(res as never)
     expect(data.media_id).toBe('draft_mcp')
+  })
+
+  it('tweak_theme 做确定性微调并回传改动字段', async () => {
+    const { client } = await startClient()
+    const res = await client.callTool({
+      name: 'tweak_theme',
+      arguments: { theme: 'tech-minimal', tokens: { primaryColor: '#ff6600', fontSize: '17px', radius: '16px' } },
+    })
+    const data = parseText(res as never)
+    expect(data.ok).toBe(true)
+    expect(data.theme.tokens.primaryColor).toBe('#ff6600')
+    expect(data.theme.tokens.fontSize).toBe('17px')
+    expect(data.theme.tokens.radius).toBe('16px')
+    expect(data.changed).toContain('tokens.primaryColor')
+  })
+
+  it('tweak_theme 非法值返回明确错误', async () => {
+    const { client } = await startClient()
+    const res = await client.callTool({
+      name: 'tweak_theme',
+      arguments: { theme: 'tech-minimal', tokens: { primaryColor: 'not-a-color' } },
+    })
+    const data = parseText(res as never)
+    expect(data.error.code).toBe('invalid_theme_patch')
+    expect(String(data.error.hint)).toContain('颜色')
+  })
+
+  it('render_fragment 默认不回 HTML，返回组件清单与校验', async () => {
+    const { client } = await startClient()
+    const res = await client.callTool({
+      name: 'render_fragment',
+      arguments: {
+        markdown: ':::card{title="片段标题"}\n正文\n:::',
+        theme: 'tech-minimal',
+        includeScreenshot: false,
+      },
+    })
+    const data = parseText(res as never)
+    expect(data.html).toBeUndefined()
+    expect(data.components.map((c: { name: string }) => c.name)).toEqual(['card'])
+    expect(data.validation.pass).toBe(true)
+  })
+
+  it('render_fragment 可显式要求 HTML', async () => {
+    const { client } = await startClient()
+    const res = await client.callTool({
+      name: 'render_fragment',
+      arguments: { markdown: ':::badge{text="新"}\n:::', theme: 'tech-minimal', includeHtml: true, includeScreenshot: false },
+    })
+    const data = parseText(res as never)
+    expect(String(data.html)).toContain('新')
+  })
+
+  it('save_article 落盘到允许的根目录并返回编辑器地址', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'swx-'))
+    process.env.STYLEWX_ARTICLES_DIR = dir
+    process.env.STYLEWX_EDITOR_URL = 'http://localhost:3777'
+    try {
+      const { client } = await startClient()
+      const res = await client.callTool({
+        name: 'save_article',
+        arguments: { markdown: '# 测试标题\n\n正文。', path: 'draft/test.md' },
+      })
+      const data = parseText(res as never)
+      expect(readFileSync(data.path, 'utf8')).toContain('测试标题')
+      expect(String(data.editorUrl)).toContain('/editor?file=')
+      expect(String(data.path).startsWith(dir)).toBe(true)
+    } finally {
+      delete process.env.STYLEWX_ARTICLES_DIR
+      delete process.env.STYLEWX_EDITOR_URL
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('save_article 拒绝写到根目录之外', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'swx-'))
+    process.env.STYLEWX_ARTICLES_DIR = dir
+    try {
+      const { client } = await startClient()
+      const res = await client.callTool({
+        name: 'save_article',
+        arguments: { markdown: '内容', path: '../escape.md' },
+      })
+      const data = parseText(res as never)
+      expect(data.error.code).toBe('path_not_allowed')
+    } finally {
+      delete process.env.STYLEWX_ARTICLES_DIR
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

@@ -7,7 +7,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createMcpServer } from './server.js'
@@ -24,6 +24,8 @@ import {
   resolveTheme,
   optimizeArticle,
   asServiceError,
+  articlesRoot,
+  isInside,
 } from '@stylewx/service'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
 import { htmlToMarkdown } from '@stylewx/components'
@@ -139,6 +141,34 @@ async function handleEditorApi(
       }
     }
 
+    if (path === '/editor/api/load-file' && req.method === 'GET') {
+      const url = new URL(req.url ?? '/', 'http://localhost')
+      const requested = url.searchParams.get('file') ?? ''
+      if (!requested) {
+        return sendErr(res, { code: 'missing_path', message: '缺少 file 参数。', hint: '用法：/editor/api/load-file?file=<绝对路径>' })
+      }
+      const target = resolve(requested)
+      const root = articlesRoot()
+      if (!isInside(root, target)) {
+        return sendErr(res, { code: 'path_not_allowed', message: `只能读取文章根目录内的文件：${root}`, hint: '可用环境变量 STYLEWX_ARTICLES_DIR 调整根目录。' })
+      }
+      try {
+        const stat = statSync(target)
+        if (!stat.isFile()) throw new Error('不是普通文件')
+        if (stat.size > 4 * 1024 * 1024) {
+          return sendErr(res, { code: 'file_too_large', message: '文件超过 4MB。', hint: '请选择更小的 Markdown 文件。' })
+        }
+        const markdown = readFileSync(target, 'utf8')
+        const title = (/^#\s+(.+)$/m.exec(markdown)?.[1] ?? '').trim()
+        return sendJson(res, { path: target, markdown, title })
+      } catch (error) {
+        return sendErr(res, {
+          code: 'load_failed',
+          message: `读取失败：${error instanceof Error ? error.message : String(error)}`,
+          hint: '请确认路径存在、是文件且可读。',
+        })
+      }
+    }
     if (path === '/editor/api/validate' && req.method === 'POST') {
       const b = await readJsonBody(req)
       return sendJson(res, validateArticle(typeof b.html === 'string' ? b.html : ''))

@@ -132,12 +132,16 @@ node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
 ## 5. 给 AI Agent 的用法建议
 
 1. 先调 `list_components` 拿到组件清单与参数，避免臆造组件名或参数。
-2. 组件正文里继续用 Markdown；需要强调层级时优先用组件（卡片 / 章节标题 / 分割线），
+2. **逐段推进**：写完一节用 `render_fragment` 验证（默认不回 HTML，省上下文），
+   整篇定稿后再用 `render_preview` 做总检查。
+3. 主题只改几处时用 `tweak_theme`（确定性、秒回），不要为了改一个颜色重新 `generate_theme`。
+4. 定稿后用 `save_article` 落盘并拿到 `editorUrl`，交给人本地微调。
+5. 组件正文里继续用 Markdown；需要强调层级时优先用组件（卡片 / 章节标题 / 分割线），
    而不是一味加粗。
-3. 需要真交互（点击展开）才用 `reveal`；纯视觉动效用 `progress` / `pulse` / `draw`。
-4. 图片直接用外链 URL，发布时会被自动搬运；不要自己拼 `mmbiz.qpic.cn` 链接。
-5. 不要写 `href="#…"`、不要依赖 `id`、不要在 SVG 里用 `url(#…)`——这三件事微信端必然失效。
-6. `render_preview` 返回的 `diagnostics` 若非空，说明组件写法有问题，按提示修正后再发布。
+6. 需要真交互（点击展开）才用 `reveal`；纯视觉动效用 `progress` / `pulse` / `draw`。
+7. 图片直接用外链 URL，发布时会被自动搬运；不要自己拼 `mmbiz.qpic.cn` 链接。
+8. 不要写 `href="#…"`、不要依赖 `id`、不要在 SVG 里用 `url(#…)`——这三件事微信端必然失效。
+9. `render_preview` / `render_fragment` 返回的 `diagnostics` 若非空，说明组件写法有问题，按提示修正后再发布。
 
 ---
 

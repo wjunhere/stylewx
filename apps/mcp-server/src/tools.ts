@@ -15,14 +15,18 @@ import {
   deleteTheme,
   publishDraft,
   renderPreview,
+  renderFragment,
   resolveTheme,
   validateArticle,
   serviceError,
   asServiceError,
+  tweakTheme,
+  saveArticle,
 } from '@stylewx/service'
 import type { ServiceError } from '@stylewx/service'
 import type { LlmClient } from '@stylewx/service'
 import type { WeChatClient } from '@stylewx/publisher'
+import type { Theme } from '@stylewx/theme'
 import { COMPONENT_CATALOG, CATEGORY_LABELS, catalogToMarkdown } from '@stylewx/components'
 import type { ComponentCategory } from '@stylewx/components'
 
@@ -133,6 +137,49 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
     wrap(async ({ theme }) => textResult(exportTheme(theme))),
   )
 
+  // ---- tweak_theme ----
+  server.registerTool(
+    'tweak_theme',
+    {
+      title: '微调主题',
+      description:
+        '在现有主题上做确定性微调：改主色/文字色/字号/行距/字体/圆角/卡片底等 token，或直接覆盖某个元素的 CSS 声明。' +
+        '秒级返回、不调用 LLM，适合「改一点再试一下」的迭代；要从零生成新主题请用 generate_theme。' +
+        '改动后会再过一次 Schema + 微信白名单校验，非法值返回明确错误。',
+      inputSchema: {
+        theme: z.union([z.string(), themeObjSchema]).describe('基础主题：预置主题名 / 已保存主题名 / 完整主题对象。'),
+        tokens: z
+          .record(z.string(), z.union([z.string(), z.number()]))
+          .optional()
+          .describe(
+            '要改的 token，例如 { primaryColor: "#0b6bff", fontSize: "16px", lineHeight: 1.8, radius: "14px", cardBg: "#f8fafc" }。',
+          ),
+        blocks: z
+          .record(z.string(), z.record(z.string(), z.string()))
+          .optional()
+          .describe(
+            '直接覆盖元素 CSS 声明，例如 { p: { "font-size": "16px" }, h2: { "border-left": "4px solid #0b6bff" } }；属性必须在微信白名单内。',
+          ),
+        name: z.string().optional().describe('改主题名（保存不同版本时用）。'),
+        description: z.string().optional().describe('改主题描述。'),
+        preview: z.boolean().optional().describe('是否返回示例文章截图（默认 false，秒回）。'),
+      },
+    },
+    wrap(async ({ theme, tokens, blocks, name, description, preview }) => {
+      const result = await tweakTheme({
+        theme: theme as string | Theme,
+        patch: { tokens, blocks, name, description },
+        preview,
+      })
+      const content: ToolResult['content'] = [
+        { type: 'text', text: jsonText({ theme: result.theme, changed: result.changed, ok: result.ok }) },
+      ]
+      if (result.previewPng) {
+        content.push({ type: 'image', data: result.previewPng.toString('base64'), mimeType: 'image/png' })
+      }
+      return { content }
+    }),
+  )
   // ---- list_components ----
   server.registerTool(
     'list_components',
@@ -320,6 +367,42 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
     }),
   )
 
+  // ---- render_fragment ----
+  server.registerTool(
+    'render_fragment',
+    {
+      title: '渲染片段',
+      description:
+        '只渲染一小段 Markdown（一个组件或一节），返回识别到的组件清单、组件诊断、校验报告与截图。' +
+        '默认不返回 HTML（省上下文），需要时传 includeHtml=true。' +
+        '这是逐段迭代的主工具：写完一段就渲染一次确认没问题，再写下一段；整篇定稿后再用 render_preview 做总检查。',
+      inputSchema: {
+        markdown: z.string().describe('片段 Markdown（可以只含一个 ::: 组件）。'),
+        theme: z.union([z.string(), themeObjSchema]).describe('主题名或完整主题对象。'),
+        includeHtml: z.boolean().optional().describe('是否返回 HTML（默认 false）。'),
+        includeScreenshot: z.boolean().optional().describe('是否返回截图（默认 true）。'),
+      },
+    },
+    wrap(async ({ markdown, theme, includeHtml, includeScreenshot }) => {
+      const resolved = resolveTheme(theme)
+      const result = await renderFragment(markdown, resolved, { includeHtml, includeScreenshot })
+      const content: ToolResult['content'] = [
+        {
+          type: 'text',
+          text: jsonText({
+            components: result.components,
+            diagnostics: result.diagnostics ?? [],
+            validation: result.validation,
+            ...(result.html ? { html: result.html } : {}),
+          }),
+        },
+      ]
+      if (result.screenshotPng) {
+        content.push({ type: 'image', data: result.screenshotPng.toString('base64'), mimeType: 'image/png' })
+      }
+      return { content }
+    }),
+  )
   // ---- validate_article ----
   server.registerTool(
     'validate_article',
@@ -393,6 +476,24 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
         return errorResultFrom(error)
       }
     },
+  )
+
+  // ---- save_article ----
+  server.registerTool(
+    'save_article',
+    {
+      title: '保存文章到本地',
+      description:
+        '把最终 Markdown 落盘到本地，并返回可直接打开的编辑器地址（带 ?file=）。' +
+        '用于「agent 生成 → 人在本地编辑器微调」的交接：保存后把 editorUrl 交给用户，用户在编辑器里改，改完 agent 直接读同一个 .md 继续。' +
+        '写入范围限制在 STYLEWX_ARTICLES_DIR（默认当前工作目录）内，防止越权写文件。',
+      inputSchema: {
+        markdown: z.string().describe('文章 Markdown 全文。'),
+        path: z.string().optional().describe('目标路径（相对文章根目录，或根目录内的绝对路径）；缺省按标题生成 <slug>.md。'),
+        title: z.string().optional().describe('标题，用于生成默认文件名。'),
+      },
+    },
+    wrap(async ({ markdown, path, title }) => textResult(saveArticle({ markdown, path, title }))),
   )
 }
 

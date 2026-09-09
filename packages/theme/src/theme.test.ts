@@ -12,6 +12,7 @@ import {
   classifyCssProperty,
   findUnsafeCssValue,
   hasTokenReferences,
+  tweakTheme,
 } from './index.js'
 import type { Theme } from './index.js'
 
@@ -208,5 +209,57 @@ describe('themeSchema 类型解析', () => {
     const parsed = themeSchema.safeParse(withExtras)
     expect(parsed.success).toBe(true)
     expect((parsed.data as typeof validTheme).tokens).toMatchObject({ radius: '14px', accentColor: '#ffe8d6' })
+  })
+})
+
+describe('tweakTheme（确定性微调）', () => {
+  it('改 token 并回传改动路径', () => {
+    const r = tweakTheme(validTheme, { tokens: { primaryColor: '#ff6600', fontSize: '17px', radius: '16px' } })
+    expect(r.ok).toBe(true)
+    expect(r.theme?.tokens.primaryColor).toBe('#ff6600')
+    expect(r.theme?.tokens.fontSize).toBe('17px')
+    expect(r.theme?.tokens.radius).toBe('16px')
+    expect(r.changed).toEqual(['tokens.primaryColor', 'tokens.fontSize', 'tokens.radius'])
+  })
+
+  it('可改主题名与描述', () => {
+    const r = tweakTheme(validTheme, { name: 'my-variant', description: '变体' })
+    expect(r.theme?.name).toBe('my-variant')
+    expect(r.theme?.description).toBe('变体')
+    expect(r.changed).toContain('name')
+    expect(r.changed).toContain('description')
+  })
+
+  it('可覆盖 block 的 CSS 声明', () => {
+    const r = tweakTheme(validTheme, { blocks: { p: { 'font-size': '17px', 'letter-spacing': '0.5px' } } })
+    expect(r.ok).toBe(true)
+    expect(r.theme?.blocks.p['font-size']).toBe('17px')
+    expect(r.changed).toContain('blocks.p.font-size')
+  })
+
+  it('非法颜色被拒绝且不抛错', () => {
+    const r = tweakTheme(validTheme, { tokens: { primaryColor: 'not-a-color' } })
+    expect(r.ok).toBe(false)
+    expect(r.theme).toBeUndefined()
+    expect(r.issues.some((i) => i.path.includes('primaryColor'))).toBe(true)
+  })
+
+  it('微信禁止的 CSS 属性被拒绝', () => {
+    const r = tweakTheme(validTheme, { blocks: { p: { position: 'absolute' } } })
+    expect(r.ok).toBe(false)
+    expect(r.issues.some((i) => i.message.includes('position'))).toBe(true)
+  })
+
+  it('不修改入参主题', () => {
+    const before = JSON.stringify(validTheme)
+    tweakTheme(validTheme, { tokens: { primaryColor: '#123456' } })
+    expect(JSON.stringify(validTheme)).toBe(before)
+  })
+
+  it('空 patch 视为无改动', () => {
+    const r = tweakTheme(validTheme, {})
+    expect(r.ok).toBe(true)
+    expect(r.changed).toEqual([])
+    expect(r.theme?.name).toBe(validTheme.name)
   })
 })

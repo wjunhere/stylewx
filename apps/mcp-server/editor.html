@@ -358,6 +358,7 @@
 let lastHtml=''; let themesCache=[]; let currentTitle='';
 let history=[]; // [{id, title, md, ts}]
 let activeId=null; // 当前正在编辑的历史条目 id（用于更新而非重复新增）
+let linkedFile=null; // 通过 ?file= 打开时记录的文件路径
 let coverFile=null; // 本地上传的封面 { data: base64, mime }
 const $=s=>document.querySelector(s);
 const toast=(m,ok=true)=>{const t=$('#toast');t.textContent=m;t.className='toast show'+(ok?'':' err');setTimeout(()=>t.className='toast',2200);};
@@ -885,6 +886,21 @@ $('#impRun').onclick=async()=>{
 };
 
 document.querySelectorAll('[data-close-imp]').forEach(b=>b.onclick=()=>closeModal('#impOverlay'));
+// ---- 通过 ?file= 打开项目里的 Markdown（save_article 交接入口）----
+async function loadFromQuery(){
+  const file=new URLSearchParams(location.search).get("file");
+  if(!file) return;
+  try{
+    const d=await api("/editor/api/load-file?file="+encodeURIComponent(file));
+    if(!d.markdown) return;
+    $("#md").value=d.markdown; prevMd=d.markdown; linkedFile=d.path||file;
+    if(d.title) $("#title").value=d.title;
+    render(); saveSnap();
+    setVal([{kind:"ok",text:"已从文件载入："+(d.path||file)}]);
+    toast("已载入 "+(d.title||"文章"));
+  }catch(e){ toast("载入文件失败："+e.message,false); }
+}
+loadFromQuery();
 $('#newBtn').onclick=()=>{ $('#md').value=''; $('#title').value=''; undoStack.length=0;redoStack.length=0;prevMd='';updateUndoBtns(); $('#pv').srcdoc=''; $('#pv').style.display='none'; $('#pvEmpty').style.display=''; activeId=null; setVal([{kind:'warn',text:'新建文章：开始输入 Markdown'} ]); $('#md').focus(); };
 
 // ---- 主题操作 ----
