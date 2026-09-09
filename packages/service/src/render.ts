@@ -1,6 +1,7 @@
 import { renderMarkdownToHtml } from '@stylewx/core'
 import { validateTheme } from '@stylewx/theme'
 import type { Theme } from '@stylewx/theme'
+import type { ComponentDiagnostic } from '@stylewx/components'
 import { validateHtml } from '@stylewx/validator'
 import type { ValidationReport } from '@stylewx/validator'
 import { renderIphonePreview } from '@stylewx/preview'
@@ -11,6 +12,8 @@ export interface RenderPreviewResult {
   html: string
   theme: Theme
   validation: ValidationReport
+  /** 组件渲染诊断（未知组件、缺参数等）；无问题时省略。 */
+  diagnostics?: ComponentDiagnostic[]
   /** 模拟 iPhone 视口（390px）的截图 PNG（若已安装 Chromium）。 */
   screenshotPng?: Buffer
 }
@@ -34,13 +37,14 @@ export async function renderPreview(
     )
   }
 
-  const { html } = renderMarkdownToHtml(markdown, themeCheck.theme)
+  const { html, diagnostics } = renderMarkdownToHtml(markdown, themeCheck.theme)
   const validation = validateHtml(html)
 
   const result: RenderPreviewResult = {
     html,
     theme: themeCheck.theme,
     validation,
+    diagnostics,
   }
 
   if (options.includeScreenshot !== false) {

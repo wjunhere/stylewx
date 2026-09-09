@@ -23,6 +23,8 @@ import {
 import type { ServiceError } from '@stylewx/service'
 import type { LlmClient } from '@stylewx/service'
 import type { WeChatClient } from '@stylewx/publisher'
+import { COMPONENT_CATALOG, CATEGORY_LABELS, catalogToMarkdown } from '@stylewx/components'
+import type { ComponentCategory } from '@stylewx/components'
 
 export interface ToolDeps {
   llm?: LlmClient
@@ -131,6 +133,69 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
     wrap(async ({ theme }) => textResult(exportTheme(theme))),
   )
 
+  // ---- list_components ----
+  server.registerTool(
+    'list_components',
+    {
+      title: '列出富组件',
+      description:
+        '列出 stylewx 支持的富组件（图片/图库/轮播/卡片/时间线/步骤/对比/引用/目录/分割线/章节标题/标签/提示框/背景/画布/点击展开/进度条/呼吸强调/封面/结尾卡片）及其语法与参数。' +
+        '写法：`:::组件名{参数="值"}` 换行写正文 换行 `:::`；组件可嵌套，外层用更多冒号（如 ::::canvas 包裹 :::card）。' +
+        '在 render_preview / publish_draft 之前调用它，可以避免写出不存在的组件或参数。',
+      inputSchema: {
+        category: z
+          .enum(['image', 'structure', 'decor', 'interactive', 'article'])
+          .optional()
+          .describe('只返回某一类组件；缺省返回全部。'),
+        format: z
+          .enum(['json', 'markdown'])
+          .optional()
+          .describe('json（默认）返回含完整参数表的结构化数据；markdown 返回速查表，适合直接拼进提示词。'),
+      },
+    },
+    wrap(async ({ category, format }) => {
+      const categories = category ? ([category] as ComponentCategory[]) : undefined
+      if (format === 'markdown') {
+        return textResult(
+          `# stylewx 富组件速查
+
+语法：
+
+\`\`\`
+:::组件名{参数="值"}
+正文（Markdown）
+:::
+\`\`\`
+
+` +
+            `嵌套时外层用更多冒号：
+
+\`\`\`
+::::canvas{tone="paper"}
+:::card{title="标题"}
+正文
+:::
+::::
+\`\`\`
+
+` +
+            catalogToMarkdown(categories),
+        )
+      }
+      const components = categories
+        ? COMPONENT_CATALOG.filter((c) => categories.includes(c.category))
+        : COMPONENT_CATALOG
+      return textResult({
+        syntax: {
+          single: ':::card{title="标题"}\n正文\n:::',
+          nested: '::::canvas{tone="paper"}\n:::card{title="标题"}\n正文\n:::\n::::',
+          note: '组件可嵌套，外层用更多冒号；每个组件都必须用相同冒号数闭合。',
+        },
+        components,
+      })
+    }),
+  )
+
   // ---- analyze_article ----
   server.registerTool(
     'analyze_article',
@@ -138,7 +203,8 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
       title: '分析文章',
       description:
         '分析一篇 Markdown 文章：推断内容类型、情绪基调、建议主题方向、字数与预计阅读时长。' +
-        '在正式开始排版前先调用它，能帮你选定方向；generate_theme 与 render_preview 会参考这里的结论。',
+        '在正式开始排版前先调用它，能帮你选定方向；generate_theme 与 render_preview 会参考这里的结论。' +
+        '若文章会用富组件，可同时调用 list_components 了解可用组件。',
       inputSchema: {
         markdown: z
           .string()
@@ -221,6 +287,7 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
       title: '渲染预览',
       description:
         '把 Markdown + 主题渲染成微信兼容的内联样式 HTML，并返回 iPhone 视口（390px 宽）的预览截图（PNG）与校验报告。' +
+        '正文支持富组件语法（:::card / :::gallery / :::carousel / :::reveal 等），可用 list_components 查询全部组件与参数。' +
         '这是排版的核心链路：输出 HTML 不含 <style>/<link>/class 依赖，全部样式已内联。' +
         '若校验报告 pass=false，请先按 issues 中的建议修正后再发布。',
       inputSchema: {
@@ -236,7 +303,15 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
       const resolved = resolveTheme(theme)
       const result = await renderPreview(markdown, resolved)
       const content: ToolResult['content'] = [
-        { type: 'text', text: jsonText({ html: result.html, validation: result.validation, theme: result.theme }) },
+        {
+          type: 'text',
+          text: jsonText({
+            html: result.html,
+            validation: result.validation,
+            theme: result.theme,
+            diagnostics: result.diagnostics ?? [],
+          }),
+        },
       ]
       if (result.screenshotPng) {
         content.push({ type: 'image', data: result.screenshotPng.toString('base64'), mimeType: 'image/png' })
@@ -320,3 +395,4 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
     },
   )
 }
+

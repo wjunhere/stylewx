@@ -192,4 +192,21 @@ describe('themeSchema 类型解析', () => {
     ;(bad.tokens as { primaryColor: string }).primaryColor = 'not-a-color'
     expect(themeSchema.safeParse(bad).success).toBe(false)
   })
+
+  it('富组件扩展 token 均为可选（老主题不受影响）', () => {
+    expect(themeSchema.safeParse(validTheme).success).toBe(true)
+    const withExtras = structuredClone(validTheme)
+    Object.assign(withExtras.tokens as Record<string, unknown>, {
+      accentColor: '#ffe8d6',
+      mutedColor: '#7a7f87',
+      cardBg: '#fbfcfe',
+      cardBorderColor: '#dbe4f0',
+      dividerColor: '#e6e9ee',
+      canvasBg: '#fafafa',
+      radius: '14px',
+    })
+    const parsed = themeSchema.safeParse(withExtras)
+    expect(parsed.success).toBe(true)
+    expect((parsed.data as typeof validTheme).tokens).toMatchObject({ radius: '14px', accentColor: '#ffe8d6' })
+  })
 })

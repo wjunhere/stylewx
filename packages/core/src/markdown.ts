@@ -1,8 +1,10 @@
 /**
- * Markdown → HTML 转换管线（unified / remark / rehype）。
+ * Markdown → HTML 转换管线（unified / remark / rehype）+ 富组件编译。
  * 纯函数、无 DOM / Node 依赖，可同构。
  * 保留 GFM 表格/删除线/任务列表；允许内嵌 HTML（由下游 validator 负责安全校验）。
  * 渲染时会移除所有 `class` 属性 —— 输出完全依赖内联样式，不依赖任何 class 选择器。
+ *
+ * 组件语法由 `@stylewx/components` 解析：`:::card{title="…"}` … `:::`。
  */
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
@@ -10,6 +12,18 @@ import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import rehypeRaw from 'rehype-raw'
 import rehypeStringify from 'rehype-stringify'
+import {
+  buildPalette,
+  extractHeadings,
+  renderDocument,
+  renderNodes,
+} from '@stylewx/components'
+import type {
+  ComponentDiagnostic,
+  HeadingInfo,
+  RenderContext,
+} from '@stylewx/components'
+import type { PaletteTokens } from '@stylewx/components'
 
 interface HastLike {
   type?: string
@@ -87,7 +101,7 @@ export function preprocessSuperSub(markdown: string): string {
     .join('\n')
 }
 
-/** 警告框类型 → 颜色（背景 / 左边框 / 标题色）。 */
+/** 警告框类型 → 颜色（背景 / 左边框 / 标题色）。保留给旧调用方。 */
 export const CALLOUT_TYPES: Record<string, { bg: string; border: string; title: string }> = {
   info: { bg: '#eef6ff', border: '#409eff', title: '#337ecc' },
   tip: { bg: '#f2fbef', border: '#67c23a', title: '#529b2e' },
@@ -97,31 +111,49 @@ export const CALLOUT_TYPES: Record<string, { bg: string; border: string; title: 
 }
 
 /**
- * 把 `:::类型 标题\n内容\n:::` 转成带内联样式的彩色警告框（提醒/建议/重要/警告/注意）。
- * 内容仍按 Markdown 递归渲染；内联样式会被保留下游（validator 仅裁危险结构）。
+ * 把 `:::类型 标题\n内容\n:::` 转成带内联样式的彩色警告框。
+ * @deprecated 已由 `@stylewx/components` 的 callout 组件接管（`:::callout` 或 `:::warning`）。
+ * 保留该导出仅为兼容旧调用方；主管线不再调用它。
  */
 export function preprocessCallouts(markdown: string): string {
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  return markdown.replace(/:::\s*(info|tip|important|warning|note)\b[ \t]*([^\n]*)\n([\s\S]*?)\n:::/g, (_m, type, title, inner) => {
-    const s = CALLOUT_TYPES[type] || { bg: '#eef6ff', border: '#409eff', title: '#337ecc' }
-    const t = (title.trim() || type)
-    const innerHtml = markdownToHtml(inner.trim())
-    return (
-      `<div style="background:${s.bg};border-left:4px solid ${s.border};padding:12px 16px;border-radius:8px;margin:14px 0">` +
-      `<div style="font-weight:600;font-size:14px;color:${s.title};margin-bottom:6px">${esc(t)}</div>` +
-      `<div style="font-size:13.5px;color:#333;line-height:1.7">${innerHtml}</div>` +
-      '</div>'
-    )
-  })
+  return markdown.replace(
+    /:::\s*(info|tip|important|warning|note)\b[ \t]*([^\n]*)\n([\s\S]*?)\n:::/g,
+    (_m, type, title, inner) => {
+      const s = CALLOUT_TYPES[type] || { bg: '#eef6ff', border: '#409eff', title: '#337ecc' }
+      const t = title.trim() || type
+      const innerHtml = markdownToHtml(inner.trim())
+      return (
+        `<div style="background:${s.bg};border-left:4px solid ${s.border};padding:12px 16px;border-radius:8px;margin:14px 0">` +
+        `<div style="font-weight:600;font-size:14px;color:${s.title};margin-bottom:6px">${esc(t)}</div>` +
+        `<div style="font-size:13.5px;color:#333;line-height:1.7">${innerHtml}</div>` +
+        '</div>'
+      )
+    },
+  )
 }
 
-/**
- * 把 Markdown 字符串转换为嵌套的 HTML 片段（不含根容器）。
- * @param markdown 文章 Markdown
- * @returns HTML 字符串，例如 `<h1>…</h1><p>…</p>`
- */
-export function markdownToHtml(markdown: string): string {
-  const normalized = preprocessCallouts(preprocessSuperSub(normalizeNoSpaceAtxHeadings(markdown)))
+/** 默认配色：未传主题时组件使用（与 tech-minimal 接近的中性蓝）。 */
+const DEFAULT_TOKENS: PaletteTokens = {
+  primaryColor: '#0b6bff',
+  textColor: '#1f2329',
+  fontSize: '15px',
+  lineHeight: 1.75,
+  fontFamily:
+    '-apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
+  spacing: { block: '16px' },
+}
+
+export interface MarkdownRenderOptions {
+  /** 主题 tokens（决定组件配色）。缺省使用中性蓝默认配色。 */
+  theme?: PaletteTokens
+  /** 组件渲染诊断回调（未知组件、缺参数等）。 */
+  onDiagnostic?: (diagnostic: ComponentDiagnostic) => void
+}
+
+/** 纯 Markdown 段落的渲染（不含组件解析），供组件内部递归调用。 */
+export function renderMarkdownSegment(markdown: string): string {
+  const normalized = preprocessSuperSub(normalizeNoSpaceAtxHeadings(markdown))
   const file = unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -131,4 +163,32 @@ export function markdownToHtml(markdown: string): string {
     .use(rehypeStringify)
     .processSync(normalized)
   return String(file)
+}
+
+/** 扫描全文标题（供 toc 组件）。 */
+export function collectHeadings(markdown: string): HeadingInfo[] {
+  return extractHeadings(markdown)
+}
+
+/**
+ * 把 Markdown 字符串转换为 HTML 片段（不含根容器）。
+ * 支持富组件：`:::card{title="…"}` … `:::`（可嵌套，外层用更多冒号）。
+ * @param markdown 文章 Markdown
+ * @param options 主题 tokens 与诊断回调
+ * @returns HTML 字符串，例如 `<h1>…</h1><p>…</p>`
+ */
+export function markdownToHtml(markdown: string, options: MarkdownRenderOptions = {}): string {
+  const diagnostics: ComponentDiagnostic[] = []
+  const ctx: RenderContext = {
+    renderMarkdown: renderMarkdownSegment,
+    renderChildren: () => '',
+    palette: buildPalette(options.theme ?? DEFAULT_TOKENS),
+    headings: collectHeadings(markdown),
+    diagnostics,
+  }
+  // 注入递归渲染能力（含嵌套组件），避免 components ↔ core 的循环依赖。
+  ctx.renderChildren = (node) => renderNodes(node.children, ctx)
+  const html = renderDocument(markdown, ctx)
+  if (options.onDiagnostic) for (const d of diagnostics) options.onDiagnostic(d)
+  return html
 }

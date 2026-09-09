@@ -35,6 +35,22 @@ describe('stylewx REST API', () => {
     expect((data.themes as unknown[]).length).toBeGreaterThanOrEqual(6)
   })
 
+  it('POST /render 支持富组件并返回 diagnostics', async () => {
+    const app = createApp({})
+    const md = ':::card{title="卡片标题"}\n正文\n:::\n\n:::no-such\n兜底内容\n:::'
+    const res = await app.request('/render', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ markdown: md, theme: 'magazine', includeScreenshot: false }),
+    })
+    expect(res.status).toBe(200)
+    const data = await jsonResponse(res)
+    expect(String(data.html)).toContain('卡片标题')
+    expect(String(data.html)).toContain('兜底内容')
+    const diags = data.diagnostics as Array<{ component: string }>
+    expect(diags.some((d) => d.component === 'no-such')).toBe(true)
+  })
+
   it('POST /validate 返回报告', async () => {
     const app = createApp({})
     const res = await app.request('/validate', {

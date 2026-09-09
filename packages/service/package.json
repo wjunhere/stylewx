@@ -23,6 +23,7 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
+    "@stylewx/components": "workspace:*",
     "@stylewx/core": "workspace:*",
     "@stylewx/preview": "workspace:*",
     "@stylewx/publisher": "workspace:*",

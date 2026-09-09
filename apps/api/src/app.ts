@@ -129,6 +129,7 @@ export function createApp(deps: ApiDeps = {}): Hono {
         html: result.html,
         theme: result.theme,
         validation: result.validation,
+        diagnostics: result.diagnostics ?? [],
         screenshotPngB64: result.screenshotPng ? result.screenshotPng.toString('base64') : undefined,
       })
     } catch (error) {

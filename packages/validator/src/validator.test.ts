@@ -142,6 +142,41 @@ describe('报告格式', () => {
   })
 })
 
+describe('微信实测约束（draft/add → draft/get）', () => {
+  it('页内锚点 href="#..." 报错（实测 errcode 45166）', () => {
+    const r = validateHtml('<section><a href="#toc">目录</a></section>')
+    expect(r.pass).toBe(false)
+    expect(r.issues.some((i) => i.rule === 'no-hash-anchor' && i.severity === 'error')).toBe(true)
+  })
+
+  it('id 属性给出 warning（微信会剥离）', () => {
+    const r = validateHtml('<section><p id="x">hi</p></section>')
+    expect(r.pass).toBe(true)
+    expect(r.issues.some((i) => i.rule === 'id-will-be-stripped' && i.severity === 'warning')).toBe(true)
+  })
+
+  it('SVG url(#...) 引用报错（id 被剥离后必然失效）', () => {
+    const r = validateHtml('<section><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="url(#g)"/></svg></section>')
+    expect(r.pass).toBe(false)
+    expect(r.issues.some((i) => i.rule === 'svg-url-ref-broken' && i.severity === 'error')).toBe(true)
+  })
+
+  it('内联样式里的 url(#...) 同样报错且不重复', () => {
+    const r = validateHtml('<section><div style="background-image:url(#x)">a</div></section>')
+    const hits = r.issues.filter((i) => i.rule === 'svg-url-ref-broken')
+    expect(hits).toHaveLength(1)
+  })
+
+  it('干净的 SVG + SMIL 动画可以通过', () => {
+    const svg =
+      '<section><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#409eff">' +
+      '<animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite"/></rect></svg></section>'
+    const r = validateHtml(svg)
+    expect(r.pass).toBe(true)
+    expect(r.issues.some((i) => i.rule === 'no-forbidden-tag')).toBe(false)
+  })
+})
+
 describe('parseHtml', () => {
   it('返回 hast 根节点', () => {
     const root = parseHtml('<section><p>hi</p></section>')

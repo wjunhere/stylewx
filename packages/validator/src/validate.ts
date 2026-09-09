@@ -56,6 +56,12 @@ const CSS_PROP_SUGGESTION = (prop: string): string =>
 
 const IMAGE_SUGGESTION =
   '外链图片微信会被拦截/无法显示。请先上传到微信公众号素材库（或使用图床得到 mmbiz.qpic.cn 链接）后再发布。'
+const HASH_ANCHOR_SUGGESTION =
+  '微信 draft/add 会直接拒绝含 `#` 锚点的链接（errcode 45166，实测）。请把 href 改成完整的 http(s) 地址，或改用不带跳转的视觉目录。'
+const ID_STRIPPED_SUGGESTION =
+  '微信会剥离所有 id 属性（实测 draft/add → draft/get 后 id 全部消失）。请勿依赖 id 做锚点、CSS 选择器或 SVG 引用。'
+const SVG_URL_REF_SUGGESTION =
+  '微信会剥离 id，因此 `url(#…)` 引用（渐变、裁剪、遮罩、<use>）在读者端全部失效。请改用纯色填充或叠加图形实现同样效果。'
 
 interface HastNode {
   type: string
@@ -161,6 +167,36 @@ function walk(node: HastNode, location: string, state: WalkState): void {
         location: `${tagLocation}[${attr}]`,
       })
     }
+    // 微信会剥离 id（实测）：任何依赖 id 的引用都会失效
+    if (key === 'id') {
+      state.issues.push({
+        rule: 'id-will-be-stripped',
+        severity: 'warning',
+        message: `属性「id」会被微信剥离，无法在读者端生效。`,
+        suggestion: ID_STRIPPED_SUGGESTION,
+        location: `${tagLocation}[id]`,
+      })
+    }
+    // SVG 的 url(#id) 引用在 id 被剥离后必然失效
+    if (key !== 'style' && typeof raw === 'string' && /url\(\s*['"]?#/.test(raw)) {
+      state.issues.push({
+        rule: 'svg-url-ref-broken',
+        severity: 'error',
+        message: `属性「${attr}」引用了 url(#…)，但微信会剥离 id，该引用在读者端必然失效。`,
+        suggestion: SVG_URL_REF_SUGGESTION,
+        location: `${tagLocation}[${attr}]`,
+      })
+    }
+    // 页内锚点：draft/add 实测直接报 45166
+    if (key === 'href' && typeof raw === 'string' && raw.trim().startsWith('#')) {
+      state.issues.push({
+        rule: 'no-hash-anchor',
+        severity: 'error',
+        message: `页内锚点链接「${raw.trim()}」会被微信 draft/add 拒绝（实测 errcode 45166）。`,
+        suggestion: HASH_ANCHOR_SUGGESTION,
+        location: `${tagLocation}[href]`,
+      })
+    }
   }
 
   // 3. 内联样式 -> CSS 三档校验（safe 放行 / gray、unknown 警告 / banned 错误）
@@ -190,6 +226,15 @@ function walk(node: HastNode, location: string, state: WalkState): void {
           severity: 'warning',
           message: `内联样式使用了未纳入已知白名单的属性「${decl.property}」，微信兼容性未确认。`,
           suggestion: '建议确认该属性在微信端的表现；若不放心，用已验证的基础属性表达。',
+          location: `${tagLocation}@${decl.property}`,
+        })
+      }
+      if (/url\(\s*['"]?#/.test(decl.value)) {
+        state.issues.push({
+          rule: 'svg-url-ref-broken',
+          severity: 'error',
+          message: `属性「${decl.property}」引用了 url(#…)，但微信会剥离 id，该引用在读者端必然失效。`,
+          suggestion: SVG_URL_REF_SUGGESTION,
           location: `${tagLocation}@${decl.property}`,
         })
       }

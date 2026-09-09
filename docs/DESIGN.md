@@ -113,3 +113,55 @@ MCP 与 REST 的错误统一为：
   `pnpm --filter @stylewx/preview exec playwright install chromium`。
   未安装时服务降级为返回 HTML + 校验报告（不崩溃，可正常发布），并提示安装。
 - 微信草稿箱编辑器加载 `draft/add` 建的草稿时以简化视图显示（不完整渲染内联样式）；看点用「预览/发表」的读者端。
+
+## 11. 富组件库（`@stylewx/components`）
+
+目标：让文章不只是「Markdown 换字体」，而是能插入图片组、卡片、时间线、轮播、点击展开、
+背景纹理这类**像人精心编辑过**的元素，并且这些元素在微信读者端真实生效。
+
+### 11.1 为什么单独建包
+
+组件既需要「把一段 Markdown 渲染成 HTML」的能力（在 `core`），又需要主题配色（在 `theme`）。
+若直接写进 `core`，`core` 会同时承担渲染管线与组件实现两件事；若独立包直接 import `core`，
+则形成 `core → components → core` 循环。最终方案：
+
+- `@stylewx/components` 只做**指令解析 + 组件渲染**，不 import `core`；
+- `core` 依赖 `components`，并在 `RenderContext` 里注入 `renderMarkdown` / `renderChildren` 两个回调；
+- 组件目录（`catalog.ts`）是「有哪些组件、怎么写」的单一事实来源，同时驱动 MCP 工具 `list_components`。
+
+### 11.2 语法与嵌套
+
+`:::name{props}` … `:::`，闭合冒号数必须与开启一致；嵌套时外层用更多冒号。
+解析器按冒号数匹配栈帧，并做三件容错：代码围栏内的 `:::` 不解析、未闭合组件在文末自动闭合、
+非 callout 组件若带尾随文本则不当作开启（避免「一行写多个 `:::` 导致后续内容被吞」）。
+
+### 11.3 微信端约束是设计输入，不是事后修补
+
+在写任何组件之前，先用真实公众号跑了 `draft/add → draft/get → Chromium` 的实测
+（脚本：`apps/mcp-server/scripts/probe-wechat-capabilities.mjs`、`packages/preview/scripts/probe-wechat-svg.mjs`），
+得到下面这张「可用性表」，组件设计直接建立在它之上：
+
+| 能力 | 实测结果 | 对设计的约束 |
+| --- | --- | --- |
+| `<svg>` + `<animate>` / `<animateTransform>` | 保留且真实触发 | 交互全部用 SVG + SMIL |
+| `begin="click"` | 保留且可点击触发 | 点击展开用 SMIL 事件，不用 `<details>` |
+| SVG 属性大小写 | 被小写化（`viewBox`→`viewbox`） | 浏览器解析器会纠正，照常写驼峰 |
+| `id` 属性 | **被剥离** | 禁用 `url(#…)`、`<use>`、渐变/裁剪/遮罩引用 |
+| SVG 内 `<a>` | 被移除 | SVG 里不做链接 |
+| `href="#…"` | `draft/add` 报 errcode 45166 | 目录组件只做视觉编号，不给锚点 |
+| `<details>` | 被剥离（只剩 `<summary>`） | 不能依赖原生折叠 |
+| `position` / `filter` | 被过滤 | 布局只用 `flex` + `gap`，重叠靠 SVG 绘制顺序 |
+| `flex` / `gap` / `background-image` 渐变 / `box-shadow` / `transform` | 保留 | 卡片、网格、纹理背景可用 |
+| 外链 `<img>` / SVG `<image>` | 会被拦截 | `publisher` 搬运时同时处理 `<img src>` 与 `<image href>` |
+
+### 11.4 主题联动
+
+组件配色由 `buildPalette(tokens)` 从主题 token 派生（主色、文字色、圆角、间距等），
+主题 Schema 新增 8 个**可选** token（`accentColor` / `cardBg` / `dividerColor` / `radius` 等），
+老主题不填也能正常工作——因此 26 套预置主题零改动即可驱动全部组件。
+
+### 11.5 端到端验证
+
+`apps/mcp-server/scripts/verify-wechat-showcase.mjs` 把 `examples/component-showcase.md`
+渲染后真实发布到草稿箱，再取回逐项核对：**23/23 项存活**，8 张外链图（含 4 张 SVG `<image>`）
+全部搬运为 `mmbiz.qpic.cn`，且 `script` / `class` / 页内锚点均不存在。

@@ -57,8 +57,11 @@ async function processImages(
 ): Promise<void> {
   if (!isElement(node)) return
 
-  if (node.tagName.toLowerCase() === 'img') {
-    const src = node.properties.src
+  const tag = node.tagName.toLowerCase()
+  // 普通 <img> 与 SVG <image>（轮播/封面用的就是它）都要搬运。
+  const srcKey = tag === 'img' ? 'src' : tag === 'image' ? (node.properties.href ? 'href' : 'xlinkHref') : null
+  if (srcKey) {
+    const src = node.properties[srcKey]
     if (typeof src !== 'string' || !src.trim()) {
       result.skipped.push(String(src ?? '(no src)'))
     } else if (isWechatImage(src)) {
@@ -69,7 +72,12 @@ async function processImages(
         const filename = guessFilename(src)
         const uploaded = await client.uploadImage(bytes, filename, mimeType)
         const finalUrl = uploaded.url ?? uploaded.media_id
-        node.properties.src = finalUrl
+        node.properties[srcKey] = finalUrl
+        // SVG <image> 统一用 href（SVG2），避免微信剥离 xlink:href
+        if (tag === 'image' && srcKey === 'xlinkHref') {
+          delete node.properties.xlinkHref
+          node.properties.href = finalUrl
+        }
         result.uploaded.push({ original: src, url: finalUrl, media_id: uploaded.media_id })
       } catch (error) {
         result.failed.push({

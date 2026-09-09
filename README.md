@@ -9,16 +9,20 @@
 </p>
 
 公众号排版服务，提供 MCP Server 与 REST API。Kimi Code、Claude Code、Cursor、Pi、Codex 等 Agent
-可以通过它完成「分析文章 → 选择或生成主题 → 渲染 → 校验 → 发布到公众号草稿箱」的流程。
+可以通过它完成「分析文章 → 选择或生成主题 → 写富组件 → 渲染 → 校验 → 发布到公众号草稿箱」的流程。
 
 本项目只负责排版和发布草稿，不负责正文写作。另有一个可选的本地 Web 编辑器，在 HTTP 模式下开在
 `/editor`，用于人工排版和主题调试。
 
 ## 功能
 
-- 9 个 MCP 工具，覆盖主题管理与文章排版全流程。
+- 10 个 MCP 工具，覆盖主题管理、组件查询与文章排版全流程。
+- 21 个富组件：图片图注/多图网格/图文卡片/自动轮播、卡片/时间线/步骤条/对比/引用卡/目录、
+  分割线/章节标题/标签/提示框/背景/画布/描边动画、点击展开/进度条/呼吸强调、封面/结尾卡片。
+  用 `:::card{title="…"}` … `:::` 语法书写，可嵌套，正文继续用 Markdown。
 - 26 套预置主题（6 套原创 + 20 套 WeMD 移植），支持保存自定义主题和 LLM 生成主题。
 - 三档微信 CSS 白名单，经真实草稿 API 实测校准；输出全部为内联样式，不依赖 `<style>` / `<link>` / `class`。
+- 动态交互全部是内联 SVG + SMIL（微信正文禁 JS），点击展开、自动轮播、进度生长在读者端真实生效。
 - `core` / `theme` / `validator` 不依赖 DOM 和 Node 独有 API，可独立复用；微信 API 调用集中在 `publisher`。
 - 三种接入方式：MCP（stdio / Streamable HTTP）、REST API、本地 Web 编辑器。
 - 只发布草稿箱，不实现群发；微信和 LLM 凭据只从环境变量读取。
@@ -28,6 +32,7 @@
 ```
 ┌──────────── Agent（Kimi / Claude / Cursor / Pi / Codex）────────────┐
 │  list_themes · list_saved_themes · save_theme · export_theme         │
+│  list_components                                                     │
 │  analyze_article · generate_theme · render_preview · validate_article│
 │  publish_draft                                                       │
 └──────────────┬──────────────────────────┬───────────────────────────┘
@@ -35,8 +40,8 @@
                │                                │
                └────────────┬───────────────────┘
                       @stylewx/service（共享 service 层）
-              ┌──────────────┼───────────────┬───────────────┐
-        core 渲染内核    theme 主题系统   validator 校验器   publisher 发布   preview 截图
+        ┌──────────────┬────────────┬───────────┬───────────────┬──────────────┐
+   components 富组件  core 渲染内核  theme 主题  validator 校验  publisher 发布  preview 截图
 ```
 
 ### 目录结构
@@ -44,17 +49,18 @@
 ```
 stylewx/
 ├── packages/
+│   ├── components/  # 富组件库：::: 指令解析 + 21 个组件渲染器 + 组件目录（同构）
 │   ├── core/        # Markdown → 内联样式 HTML（unified/remark/rehype + juice），纯函数
 │   ├── theme/       # 主题 zod Schema（含 JSON Schema 导出）、微信 CSS 白名单、主题→CSS 编译器、26 套预置主题
 │   ├── validator/   # 微信兼容性校验器，输出结构化报告 { pass, issues }
-│   ├── publisher/   # 微信 API：access_token / 素材上传 / draft.add + 外链图片搬运；不含群发
+│   ├── publisher/   # 微信 API：access_token / 素材上传 / draft.add + 外链图片搬运（含 SVG <image>）；不含群发
 │   ├── preview/     # Playwright 截图（iPhone 视口 390px）
 │   └── service/     # 共享 service 层，被 MCP 与 REST 复用
 ├── apps/
 │   ├── mcp-server/  # MCP Server：stdio + Streamable HTTP 双传输（含本地 Web 编辑器）
 │   └── api/         # REST API（Hono），与 MCP tools 一一对应
-├── examples/        # mcp.json / mcp-http.json 示例
-└── docs/            # 设计说明
+├── examples/        # mcp.json / mcp-http.json 示例 + component-showcase.md
+└── docs/            # 设计说明与组件参考
 ```
 
 ## 快速开始
@@ -143,10 +149,48 @@ pnpm --filter @stylewx/api dev
 # GET /themes · POST /render · POST /validate · POST /drafts · POST /themes/generate
 ```
 
+## 富组件
+
+文章正文用 `:::` 指令插入组件，组件可嵌套（外层用更多冒号），内部继续写 Markdown：
+
+```markdown
+::::canvas{tone="paper"}
+
+:::cover{title="文章标题" subtitle="SUBTITLE" author="作者"}
+:::
+
+:::section-title{index="01" title="第一节"}
+:::
+
+:::gallery{cols="3" caption="一组配图"}
+![图一](https://example.com/1.jpg)
+![图二](https://example.com/2.jpg)
+![图三](https://example.com/3.jpg)
+:::
+
+:::carousel{height="200" interval="3"}
+![一](https://example.com/a.jpg)
+![二](https://example.com/b.jpg)
+:::
+
+:::reveal{label="点击查看答案"}
+答案会在点击后淡入。
+:::
+
+:::end-card{title="感谢阅读"}
+:::
+
+::::
+```
+
+完整组件清单、参数与微信端约束见 [docs/COMPONENTS.md](./docs/COMPONENTS.md)，
+或调用 MCP 工具 `list_components`。完整示例见 [examples/component-showcase.md](./examples/component-showcase.md)。
+
 ## MCP 工具
 
 | Tool | 用途 | 关键输入 |
 | --- | --- | --- |
+| `list_components` | 列出全部富组件及其语法与参数（可按类别过滤 / 输出 markdown 速查表） | `category` / `format` |
 | `list_themes` | 列出预置 + 已保存主题（含完整 token/block，可直接复用） | — |
 | `list_saved_themes` | 列出本地已保存的自定义/AI 主题（`~/.stylewx/themes.json`） | — |
 | `save_theme` | 保存主题到本地主题库（过 Schema + 微信白名单校验） | `theme` / `name` |
@@ -188,13 +232,24 @@ pnpm --filter @stylewx/api dev
 - 主题 CSS 采用三档白名单（经真实微信草稿 API 实测校准）：`position` / `filter` 硬禁止；
   `transform` / `animation` / `float` / `box-shadow` / `flex` / `opacity` 等为灰色属性（微信保留但提示）；
   只有 `safe` 档无提示。
-- 外链图（非 `mmbiz.qpic.cn`）会被校验器提示，`publish_draft` 会自动搬运到素材库。
+- 外链图（非 `mmbiz.qpic.cn`）会被校验器提示，`publish_draft` 会自动搬运到素材库（含 SVG `<image>`）。
+- 校验器额外拦三类「微信端必然失效」的写法（均来自真实 `draft/add` → `draft/get` 实测）：
+  页内锚点 `href="#…"`（errcode 45166）、依赖 `id` 属性（会被剥离）、SVG `url(#…)` 引用（id 被剥离后失效）。
 
 ## 示例脚本
 
 ```bash
 # 排版一篇 Markdown（analyze → 生成主题 → 渲染 → 校验，输出到 <md>/typeset-out/）
 node apps/mcp-server/scripts/typeset-article.mjs 文章.md "主题提示词"
+
+# 渲染富组件示例文章（HTML + 390px 截图 + 校验报告）
+node --env-file=.env apps/mcp-server/scripts/render-showcase.mjs
+
+# 真实发布到草稿箱，并逐项核对组件在微信侧是否存活
+node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
+
+# 微信 HTML/CSS/SVG 能力探针（往草稿箱写一条 [probe] 草稿并读回比对）
+node --env-file=.env apps/mcp-server/scripts/probe-wechat-capabilities.mjs
 
 # 把渲染好的 HTML 发布到公众号草稿箱（缺封面时自动生成渐变封面）
 node apps/mcp-server/scripts/publish-draft.mjs out/文章.html "标题"

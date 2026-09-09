@@ -10,12 +10,15 @@ import {
 } from '@stylewx/theme'
 import type { Theme } from '@stylewx/theme'
 import { markdownToHtml } from './markdown.js'
+import type { ComponentDiagnostic } from '@stylewx/components'
 
 export interface RenderResult {
   /** 最终可直接粘贴进微信公众号的 HTML：全部样式已内联，无 <style>/<link>/class 依赖。 */
   html: string
   /** 实际使用的主题（已通过 schema + 微信白名单校验）。 */
   theme: Theme
+  /** 组件渲染诊断（未知组件、缺参数等）。 */
+  diagnostics?: ComponentDiagnostic[]
 }
 
 /** 禁止 juice 去抓取任何外部资源（保持 headless、无网络、可复现）。 */
@@ -52,10 +55,14 @@ export function renderMarkdownToHtml(markdown: string, theme: Theme): RenderResu
   }
   const safeTheme = validation.theme
 
-  const bodyHtml = markdownToHtml(markdown)
+  const diagnostics: ComponentDiagnostic[] = []
+  const bodyHtml = markdownToHtml(markdown, {
+    theme: safeTheme.tokens,
+    onDiagnostic: (d) => diagnostics.push(d),
+  })
   const baseStyle = compileRootBaseStyle(safeTheme)
   const wrapped = `<section style="${baseStyle}">${bodyHtml}</section>`
   const html = juice(wrapped, juiceOptions(safeTheme))
 
-  return { html, theme: safeTheme }
+  return { html, theme: safeTheme, diagnostics: diagnostics.length ? diagnostics : undefined }
 }

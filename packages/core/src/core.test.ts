@@ -7,6 +7,7 @@ import {
   preprocessSuperSub,
 } from './index.js'
 import { getPresetTheme, compileThemeToCss } from '@stylewx/theme'
+import { validateHtml } from '@stylewx/validator'
 import type { Theme } from '@stylewx/theme'
 
 const theme = getPresetTheme('tech-minimal') as Theme
@@ -132,6 +133,76 @@ describe('快照测试', () => {
       theme,
     )
     expect(html).toMatchSnapshot()
+  })
+})
+
+describe('富组件（@stylewx/components 集成）', () => {
+  const componentArticle = `:::cover{title="封面" subtitle="SUB" author="作者"}
+:::
+
+:::card{title="卡片标题" tone="primary"}
+卡片正文，含 **加粗**。
+:::
+
+:::gallery{cols="2"}
+![图一](https://mmbiz.qpic.cn/a.png)
+![图二](https://mmbiz.qpic.cn/b.png)
+:::
+
+:::timeline{title="历程"}
+- 2023 | 启动
+- 2024 | 上线
+:::
+
+:::reveal{label="点我"}
+
+答案在点击后显示。
+
+:::
+
+:::end-card{title="感谢阅读"}
+:::
+`
+
+  it('组件被渲染为 HTML，且主题色注入到组件内联样式', () => {
+    const { html } = renderMarkdownToHtml(componentArticle, theme)
+    expect(html).toContain('封面')
+    expect(html).toContain('卡片标题')
+    expect(html).toContain('感谢阅读')
+    // tech-minimal 的 primaryColor = #0b6bff，应出现在组件内联样式里
+    expect(html).toContain('#0b6bff')
+    expect(html).not.toContain('{{')
+  })
+
+  it('组件输出仍不含 <style> / <link> / class 依赖', () => {
+    const { html } = renderMarkdownToHtml(componentArticle, theme)
+    expect(html).not.toContain('<style')
+    expect(html).not.toContain('<link')
+    expect(html).not.toContain('class=')
+  })
+
+  it('组件文章通过微信校验（无 error）', () => {
+    const { html } = renderMarkdownToHtml(componentArticle, theme)
+    const report = validateHtml(html)
+    expect(report.issues.filter((i) => i.severity === 'error')).toEqual([])
+  })
+
+  it('未传主题时组件使用默认配色', () => {
+    const html = markdownToHtml(':::card{title="x"}\n正文\n:::')
+    expect(html).toContain('正文')
+    expect(html).toMatch(/background-color/)
+  })
+
+  it('未知组件不会丢内容，并通过 onDiagnostic 上报', () => {
+    const diagnostics: Array<{ component: string }> = []
+    const html = markdownToHtml(':::no-such\n内容还在\n:::', { onDiagnostic: (d) => diagnostics.push(d) })
+    expect(html).toContain('内容还在')
+    expect(diagnostics[0]?.component).toBe('no-such')
+  })
+
+  it('collectHeadings 可用于 toc', () => {
+    const html = markdownToHtml('# 一\n\n## 二\n\n:::toc\n:::')
+    expect(html).toContain('二')
   })
 })
 

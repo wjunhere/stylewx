@@ -244,6 +244,7 @@
           <button class="tb-btn" data-a="table" title="表格"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/></svg></button>
           <button class="tb-btn" data-a="hr" title="分隔线"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h16"/></svg></button>
           <button class="tb-btn tm-trigger" data-a="callout" title="警告框"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg></button>
+          <button class="tb-btn tm-trigger" data-a="component" title="富组件"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><path d="M17 13v8M13 17h8"/></svg></button>
           <span class="tb-sep"></span>
           <button class="tb-btn" data-a="clear" title="清除格式"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
           <button class="tb-btn" data-a="help" title="Markdown 帮助"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
@@ -605,7 +606,8 @@ async function render(){
       const c=markdown.replace(/\s+/g,''); $('#wc').textContent='字数 '+c.length;
       $('#rt').textContent=Math.max(1,Math.round(c.length/400))+' 分钟阅读';
       const v=d.validation||{}; const issues=(v.issues||[]).map(i=>'['+i.rule+'] '+i.message);
-      setVal([{kind:v.pass?'ok':'err',text:(v.pass?'✓ 渲染完成 · 校验通过':'✗ 校验未通过')+' · HTML '+d.html.length+' 字'},...issues.map(t=>({kind:v.pass?'warn':'err',text:t}))]);
+      const diags=(d.diagnostics||[]).map(x=>'⚠ [组件 '+x.component+'] '+x.message);
+      setVal([{kind:v.pass?'ok':'err',text:(v.pass?'✓ 渲染完成 · 校验通过':'✗ 校验未通过')+' · HTML '+d.html.length+' 字'},...diags.map(t=>({kind:'warn',text:t})),...issues.map(t=>({kind:v.pass?'warn':'err',text:t}))]);
     }catch(e){ setVal([{kind:'err',text:'渲染失败：'+e.message}]); }
   },300);
 }
@@ -634,7 +636,7 @@ const ACTIONS={
   quote:()=>linePrefix('> '), ul:()=>linePrefix('- '), ol:()=>linePrefix('1. '),
   hr:()=>{const ta=$('#md');pushUndo(ta.value);ta.value=(ta.value+'\n\n---\n');render();},
   clear:()=>{const ta=$('#md');const s=ta.selectionStart,e=ta.selectionEnd;pushUndo(ta.value);ta.value=ta.value.slice(0,s)+ta.value.slice(e);render();},
-  help:()=>toast('Markdown 支持：**加粗**、*斜体*、==高亮==、> 引用、- 列表、| 表格 |、`代码`、```代码块```'),
+  help:()=>toast('Markdown 支持：**加粗**、*斜体*、==高亮==、> 引用、- 列表、| 表格 |、`代码`、```代码块```；富组件见工具栏「富组件」按钮（:::card / :::gallery / :::carousel / :::reveal 等）'),
 };
 $('#toolbar').addEventListener('click',e=>{
   const btn=e.target.closest('.tb-btn'); const a=btn?.dataset?.a; if(!a) return;
@@ -642,6 +644,7 @@ $('#toolbar').addEventListener('click',e=>{
   if(a==='heading'){ showTmPicker(btn, HEAD_OPTS); return; }
   if(a==='list'){ showTmPicker(btn, LIST_OPTS); return; }
   if(a==='callout'){ showTmPicker(btn, CALLOUT_OPTS); return; }
+  if(a==='component'){ showTmPicker(btn, COMPONENT_OPTS); return; }
   if(ACTIONS[a]) ACTIONS[a]();
 });
 
@@ -706,6 +709,44 @@ function insertCallout(type,title){
   ta.value=ta.value.slice(0,s)+block+ta.value.slice(e);
   const pos=s+block.indexOf('\n内容……')+1; ta.selectionStart=ta.selectionEnd=pos; render(); saveSnap(); ta.focus();
 }
+// ---- 富组件插入 ----
+// 在光标处插入一段块级内容，并把光标放到合适位置
+function insertBlock(block, caretMarker){
+  const ta=$('#md'), s=ta.selectionStart, e=ta.selectionEnd, v=ta.value;
+  pushUndo(v);
+  const lead = s>0 && v[s-1] !== '\n' ? '\n\n' : '';
+  const tail = v[e] && v[e] !== '\n' ? '\n\n' : '';
+  const text = lead + block + tail;
+  ta.value = v.slice(0,s) + text + v.slice(e);
+  const marker = caretMarker ? text.indexOf(caretMarker) : -1;
+  const pos = marker >= 0 ? s + marker : s + lead.length + block.length;
+  ta.selectionStart = ta.selectionEnd = pos;
+  ta.focus(); render(); saveSnap();
+}
+const COMPONENT_OPTS=[
+  {label:'封面头图', action:()=>insertBlock(':::cover{title="文章标题" subtitle="SUBTITLE" author="作者" date="2025 · 09"}\n:::', '文章标题')},
+  {label:'目录（自动生成）', action:()=>insertBlock(':::toc{title="本文目录" max-level="2"}\n:::', '')},
+  {label:'章节标题（带序号）', action:()=>insertBlock(':::section-title{index="01" title="章节标题" subtitle="SUBTITLE"}\n:::', '章节标题')},
+  {label:'卡片', action:()=>insertBlock(':::card{title="卡片标题" tone="primary"}\n正文内容……\n:::', '卡片标题')},
+  {label:'提示框', action:()=>insertBlock(':::callout{type="tip" title="提示"}\n内容……\n:::', '提示')},
+  {label:'引用卡片', action:()=>insertBlock(':::quote{author="作者" source="出处"}\n引用内容……\n:::', '引用内容')},
+  {label:'分割线（波浪）', action:()=>insertBlock(':::divider{style="wave" tone="primary"}\n:::', '')},
+  {label:'标签徽章', action:()=>insertBlock(':::badge{text="标签" tone="primary"}\n:::', '标签')},
+  {label:'呼吸强调', action:()=>insertBlock(':::pulse{text="重点提示" tone=\"danger\"}\n:::', '重点提示')},
+  {label:'描边动画', action:()=>insertBlock(':::draw{shape="underline" tone="primary" text="重点句"}\n:::', '重点句')},
+  {label:'单图 + 图注', action:()=>insertBlock(':::image{src="https://" caption="图注文字" shadow="true"}\n:::', 'https://')},
+  {label:'图库（多图网格）', action:()=>insertBlock(':::gallery{cols="2" caption="图组说明"}\n![图一](https://)\n![图二](https://)\n:::', 'https://')},
+  {label:'自动轮播', action:()=>insertBlock(':::carousel{height="200" interval="3"}\n![一](https://)\n![二](https://)\n![三](https://)\n:::', 'https://')},
+  {label:'图文卡片', action:()=>insertBlock(':::image-card{src="https://" title="卡片标题" desc="一句话描述" layout="left"}\n:::', '卡片标题')},
+  {label:'时间线', action:()=>insertBlock(':::timeline{title="时间线"}\n- 2024 | 第一件事\n- 2025 | 第二件事\n:::', '时间线')},
+  {label:'步骤条', action:()=>insertBlock(':::steps{layout="vertical"}\n1. 第一步 | 说明\n2. 第二步 | 说明\n:::', '步骤条')},
+  {label:'左右对比', action:()=>insertBlock(':::compare{layout="stack"}\n| 旧方案 | 新方案 |\n| --- | --- |\n| A | B |\n:::', '旧方案')},
+  {label:'进度条', action:()=>insertBlock(':::progress{value="72" label="完成度"}\n:::', '完成度')},
+  {label:'点击展开', action:()=>insertBlock(':::reveal{label="点击查看答案"}\n答案内容……\n:::', '答案内容')},
+  {label:'局部背景块', action:()=>insertBlock(':::background{tone="primary" variant="gradient"}\n内容……\n:::', '内容……')},
+  {label:'整篇画布（包裹全文）', action:()=>insertBlock('::::canvas{tone="paper" padding="18px 16px"}\n\n（把正文放进这里）\n\n::::', '（把正文放进这里）')},
+  {label:'结尾卡片', action:()=>insertBlock(':::end-card{title="感谢阅读" footer="stylewx"}\n如果这篇对你有帮助，欢迎转发。\n:::', '感谢阅读')},
+];
 // 在光标处插入 cols 列 × rows 行（首行表头）的 Markdown 表格
 function insertTable(cols, rows){
   const ta=$('#md'), s=ta.selectionStart;

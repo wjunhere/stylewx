@@ -50,6 +50,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.12.0
         version: 1.30.0(zod@4.4.3)
+      '@stylewx/components':
+        specifier: workspace:*
+        version: link:../../packages/components
       '@stylewx/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -69,8 +72,17 @@ importers:
         specifier: ^4.0.0
         version: 4.4.3
 
+  packages/components:
+    dependencies:
+      '@stylewx/theme':
+        specifier: workspace:*
+        version: link:../theme
+
   packages/core:
     dependencies:
+      '@stylewx/components':
+        specifier: workspace:*
+        version: link:../components
       '@stylewx/theme':
         specifier: workspace:*
         version: link:../theme
@@ -95,6 +107,10 @@ importers:
       unified:
         specifier: ^11.0.5
         version: 11.0.5
+    devDependencies:
+      '@stylewx/validator':
+        specifier: workspace:*
+        version: link:../validator
 
   packages/preview:
     dependencies:
@@ -116,6 +132,9 @@ importers:
 
   packages/service:
     dependencies:
+      '@stylewx/components':
+        specifier: workspace:*
+        version: link:../components
       '@stylewx/core':
         specifier: workspace:*
         version: link:../core

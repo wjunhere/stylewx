@@ -116,6 +116,7 @@ async function handleEditorApi(
         html: r.html,
         validation: r.validation,
         theme: r.theme,
+        diagnostics: r.diagnostics ?? [],
       })
     }
 

@@ -59,6 +59,21 @@ export const themeTokensSchema = z.object({
   spacing: z.object({
     block: lengthSchema,
   }),
+  // ---- 以下为富组件扩展 token，全部可选（老主题不受影响） ----
+  /** 强调色（卡片浅底、标签底色等），缺省由 primaryColor 派生。 */
+  accentColor: colorSchema.optional().describe('强调色：卡片浅底、标签底色等，缺省由 primaryColor 派生。'),
+  /** 次要文字色，缺省由 textColor 向白色混合派生。 */
+  mutedColor: colorSchema.optional().describe('次要文字色，缺省由 textColor 向白色混合派生。'),
+  /** 卡片底色。 */
+  cardBg: colorSchema.optional().describe('卡片 / 图注条底色。'),
+  /** 卡片描边色。 */
+  cardBorderColor: colorSchema.optional().describe('卡片描边色。'),
+  /** 分割线颜色。 */
+  dividerColor: colorSchema.optional().describe('分割线 / 虚线分隔颜色。'),
+  /** 画布背景色（canvas 组件）。 */
+  canvasBg: colorSchema.optional().describe('canvas 画布组件的背景底色。'),
+  /** 全局圆角（卡片、图片、按钮等）。 */
+  radius: lengthSchema.optional().describe('全局圆角（卡片、图片、按钮、进度条等），例如 12px。'),
 })
 
 /**

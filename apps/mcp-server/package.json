@@ -28,12 +28,13 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@stylewx/components": "workspace:*",
     "@stylewx/core": "workspace:*",
     "@stylewx/publisher": "workspace:*",
     "@stylewx/service": "workspace:*",
     "@stylewx/theme": "workspace:*",
     "@stylewx/validator": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.12.0",
     "zod": "^4.0.0"
   },
   "publishConfig": {

@@ -42,7 +42,7 @@ describe('stylewx MCP Server (in-memory)', () => {
     expect(data.themes.length).toBeGreaterThanOrEqual(6)
   })
 
-  it('list 出全部 9 个 tools', async () => {
+  it('list 出全部 10 个 tools', async () => {
     const { client } = await startClient()
     const { tools } = await client.listTools()
     const names = tools.map((t) => t.name).sort()
@@ -50,6 +50,7 @@ describe('stylewx MCP Server (in-memory)', () => {
       'analyze_article',
       'export_theme',
       'generate_theme',
+      'list_components',
       'list_saved_themes',
       'list_themes',
       'publish_draft',
@@ -57,6 +58,31 @@ describe('stylewx MCP Server (in-memory)', () => {
       'save_theme',
       'validate_article',
     ])
+  })
+
+  it('list_components 返回组件目录与语法', async () => {
+    const { client } = await startClient()
+    const res = await client.callTool({ name: 'list_components', arguments: {} })
+    const data = parseText(res as never)
+    expect(data.syntax.single).toContain(':::card')
+    expect(Array.isArray(data.components)).toBe(true)
+    expect(data.components.length).toBeGreaterThanOrEqual(18)
+    const names = data.components.map((c: { name: string }) => c.name)
+    for (const expected of ['card', 'gallery', 'carousel', 'reveal', 'cover', 'end-card', 'timeline', 'progress']) {
+      expect(names).toContain(expected)
+    }
+  })
+
+  it('list_components 支持按类别过滤与 markdown 格式', async () => {
+    const { client } = await startClient()
+    const res = await client.callTool({ name: 'list_components', arguments: { category: 'interactive' } })
+    const data = parseText(res as never)
+    expect(data.components.every((c: { category: string }) => c.category === 'interactive')).toBe(true)
+
+    const md = await client.callTool({ name: 'list_components', arguments: { format: 'markdown' } })
+    const text = (md as { content: Array<{ type: string; text?: string }> }).content.find((c) => c.type === 'text')?.text ?? ''
+    expect(text).toContain(':::carousel')
+    expect(text).toContain('图片')
   })
 
   it('analyze_article 返回分析结论', async () => {
