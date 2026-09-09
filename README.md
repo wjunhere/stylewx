@@ -8,6 +8,10 @@
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-%E2%89%A510-F69220">
 </p>
 
+<p align="center">
+  <img src="./docs/assets/editor-preview.png" alt="stylewx 编辑器：左侧 Markdown + 富组件插入，右侧 390px 实时预览" width="100%">
+</p>
+
 公众号排版服务，提供 MCP Server 与 REST API。Kimi Code、Claude Code、Cursor、Pi、Codex 等 Agent
 可以用它把 Markdown 排成一篇可发布的公众号文章——**既可以整篇一步到位，也可以拆成小原语分步迭代**：
 定主题 → 写富组件 → 逐段验证 → 发布草稿箱 → 交给人本地微调。
@@ -336,6 +340,13 @@ node packages/preview/scripts/test-editor-sync-scroll.mjs   # 左右栏同步滚
 node packages/preview/scripts/test-editor-handoff.mjs      # ?file= 交接 + 越权拒绝
 node packages/preview/scripts/test-editor-components.mjs    # 富组件面板
 node packages/preview/scripts/audit-showcase-layout.mjs     # 390px 布局审计
+```
+
+### 维护 README 配图
+
+```bash
+node packages/preview/scripts/capture-hero.mjs        # 重新截取 docs/assets/editor-preview.png
+node packages/preview/scripts/verify-hero-image.mjs   # 校验配图不是空白/纯色
 ```
 
 ## 许可
