@@ -9,10 +9,11 @@
 </p>
 
 公众号排版服务，提供 MCP Server 与 REST API。Kimi Code、Claude Code、Cursor、Pi、Codex 等 Agent
-可以通过它完成「分析文章 → 选择或生成主题 → 写富组件 → 渲染 → 校验 → 发布到公众号草稿箱」的流程。
+可以用它把 Markdown 排成一篇可发布的公众号文章——**既可以整篇一步到位，也可以拆成小原语分步迭代**：
+定主题 → 写富组件 → 逐段验证 → 发布草稿箱 → 交给人本地微调。
 
 本项目只负责排版和发布草稿，不负责正文写作。另有一个可选的本地 Web 编辑器，在 HTTP 模式下开在
-`/editor`，用于人工排版和主题调试。
+`/editor`，用于人工排版、主题调试和最后收尾。
 
 ## 功能
 
@@ -32,10 +33,10 @@
 
 ```
 ┌──────────── Agent（Kimi / Claude / Cursor / Pi / Codex）────────────┐
-│  list_themes · list_saved_themes · save_theme · export_theme         │
-│  list_components                                                     │
-│  analyze_article · generate_theme · render_preview · validate_article│
-│  publish_draft                                                       │
+│  list_themes · list_saved_themes · generate_theme · tweak_theme      │
+│  save_theme · export_theme · list_components                         │
+│  analyze_article · render_fragment · render_preview · validate_article│
+│  publish_draft · save_article                                        │
 └──────────────┬──────────────────────────┬───────────────────────────┘
          MCP (stdio / Streamable HTTP)         REST API (/themes … /drafts)
                │                                │
@@ -228,23 +229,35 @@ save_article → 返回 editorUrl → 你在本地编辑器微调
 
 ## MCP 工具
 
+**主题**
+
+| Tool | 用途 | 关键输入 |
+| --- | --- | --- |
+| `list_themes` | 列出预置 + 已保存主题（含完整 token/block，可直接复用） | — |
+| `list_saved_themes` | 列出本地已保存的自定义/AI 主题（`~/.stylewx/themes.json`） | — |
+| `generate_theme` | LLM 生成主题（可 `save` 存档），内置自检修复循环，失败时降级并标记 `fallback` | `prompt` / `article` / `baseTheme` / `save` |
+| `tweak_theme` | 在现有主题上做**确定性微调**（改 token 或元素 CSS），秒回、不烧 LLM | `theme`, `tokens` / `blocks` |
+| `save_theme` | 保存主题到本地主题库（过 Schema + 微信白名单校验） | `theme` / `name` |
+| `export_theme` | 导出主题为完整 JSON（已存/预置/对象） | `theme` |
+
+**组件与排版**
+
 | Tool | 用途 | 关键输入 |
 | --- | --- | --- |
 | `list_components` | 列出全部富组件及其语法与参数（可按类别过滤 / 输出 markdown 速查表） | `category` / `format` |
-| `tweak_theme` | 在现有主题上做**确定性微调**（改 token 或元素 CSS），秒回、不烧 LLM | `theme`, `tokens`/`blocks` |
-| `render_fragment` | 只渲染**一段**，返回组件清单/诊断/校验/截图，默认**不返回 HTML** | `markdown`, `theme`, `includeHtml` |
-| `save_article` | 把最终 Markdown 落盘，返回可直接打开的编辑器地址（交接点） | `markdown`, `path`, `title` |
-| `list_themes` | 列出预置 + 已保存主题（含完整 token/block，可直接复用） | — |
-| `list_saved_themes` | 列出本地已保存的自定义/AI 主题（`~/.stylewx/themes.json`） | — |
-| `save_theme` | 保存主题到本地主题库（过 Schema + 微信白名单校验） | `theme` / `name` |
-| `export_theme` | 导出主题为完整 JSON（已存/预置/对象） | `theme` |
 | `analyze_article` | 分析内容类型/基调/建议主题/阅读时长 | `markdown` |
-| `generate_theme` | LLM 生成主题（可 `save` 存档），内置自检修复循环，失败时降级并标记 `fallback` | `prompt` / `article` / `baseTheme` / `save` |
-| `render_preview` | 渲染为内联样式 HTML + 校验报告 + iPhone(390px) 截图 | `markdown`, `theme` |
+| `render_fragment` | 只渲染**一段**，返回组件清单/诊断/校验/截图，默认**不返回 HTML** | `markdown`, `theme`, `includeHtml` |
+| `render_preview` | 渲染整篇为内联样式 HTML + 校验报告 + iPhone(390px) 截图 | `markdown`, `theme` |
 | `validate_article` | 校验微信兼容性，输出结构化报告 | `html` |
-| `publish_draft` | 发布到草稿箱（搬运外链图、上传封面） | `title`, `markdown`/`html`, `theme` 等 |
 
-`render_preview` 和 `publish_draft` 的 `theme` 参数支持预置主题名（如 `tech-minimal`）或完整主题 JSON。
+**发布与交接**
+
+| Tool | 用途 | 关键输入 |
+| --- | --- | --- |
+| `publish_draft` | 发布到草稿箱（搬运外链图、上传封面） | `title`, `markdown`/`html`, `theme` 等 |
+| `save_article` | 把最终 Markdown 落盘，返回可直接打开的编辑器地址（交接点） | `markdown`, `path`, `title` |
+
+`theme` 参数支持预置主题名（如 `tech-minimal`）或完整主题 JSON；`render_preview` / `render_fragment` / `publish_draft` 均可用。
 
 所有 tool 的错误统一为：
 
@@ -263,6 +276,9 @@ save_article → 返回 editorUrl → 你在本地编辑器微调
 | `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | OpenAI 兼容接口（`generate_theme` 和编辑器 AI 优化必需） |
 | `LLM_API_STYLE` | LLM 调用风格，默认 `chat`；opencode go 用 `responses` |
 | `PORT` | REST API 端口，默认 `3001` |
+| `STYLEWX_THEMES_PATH` | 本地主题库路径，默认 `~/.stylewx/themes.json` |
+| `STYLEWX_ARTICLES_DIR` | `save_article` / 编辑器 `?file=` 允许读写的根目录，默认当前工作目录 |
+| `STYLEWX_EDITOR_URL` | `save_article` 返回的编辑器地址前缀，默认 `http://localhost:3777` |
 
 缺少凭据时相关功能返回明确错误，其余功能正常。凭据只从环境变量注入。
 
@@ -288,14 +304,38 @@ node apps/mcp-server/scripts/typeset-article.mjs 文章.md "主题提示词"
 # 渲染富组件示例文章（HTML + 390px 截图 + 校验报告）
 node --env-file=.env apps/mcp-server/scripts/render-showcase.mjs
 
-# 真实发布到草稿箱，并逐项核对组件在微信侧是否存活
-node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
-
-# 微信 HTML/CSS/SVG 能力探针（往草稿箱写一条 [probe] 草稿并读回比对）
-node --env-file=.env apps/mcp-server/scripts/probe-wechat-capabilities.mjs
-
 # 把渲染好的 HTML 发布到公众号草稿箱（缺封面时自动生成渐变封面）
 node apps/mcp-server/scripts/publish-draft.mjs out/文章.html "标题"
+```
+
+### 验证脚本
+
+```bash
+# 模拟 agent 的分步工作流（真实 MCP stdio）：微调主题 → 逐段 → 整篇 → 落盘 → editorUrl 读回
+node apps/mcp-server/scripts/verify-agent-workflow.mjs
+
+# save_article 落盘 → 用 editorUrl 从编辑器端点读回（需编辑器在 3777 运行）
+node --env-file=.env apps/mcp-server/scripts/verify-handoff.mjs
+
+# 本地往返：渲染 → HTML 回导 → 再渲染，比对组件标记与纯文本
+node --env-file=.env apps/mcp-server/scripts/verify-html-roundtrip.mjs
+
+# 真实微信端到端：发布 → 取回 → 核对组件存活 + 回导还原
+node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
+
+# 微信能力探针（往草稿箱写一条 [probe] 草稿并读回比对）
+node --env-file=.env apps/mcp-server/scripts/probe-wechat-capabilities.mjs
+node --env-file=.env apps/mcp-server/scripts/probe-wechat-data-attrs.mjs
+```
+
+### 编辑器 E2E（需编辑器在 3777 运行，依赖 Playwright）
+
+```bash
+node packages/preview/scripts/test-editor-import.mjs       # 导入 HTML
+node packages/preview/scripts/test-editor-sync-scroll.mjs   # 左右栏同步滚动
+node packages/preview/scripts/test-editor-handoff.mjs      # ?file= 交接 + 越权拒绝
+node packages/preview/scripts/test-editor-components.mjs    # 富组件面板
+node packages/preview/scripts/audit-showcase-layout.mjs     # 390px 布局审计
 ```
 
 ## 许可
