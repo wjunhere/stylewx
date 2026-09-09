@@ -26,6 +26,7 @@ import {
   asServiceError,
 } from '@stylewx/service'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
+import { htmlToMarkdown } from '@stylewx/components'
 import type { ToolDeps } from './tools.js'
 
 interface CliOptions {
@@ -118,6 +119,24 @@ async function handleEditorApi(
         theme: r.theme,
         diagnostics: r.diagnostics ?? [],
       })
+    }
+
+    if (path === '/editor/api/import-html' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      const html = typeof b.html === 'string' ? b.html : ''
+      if (!html.trim()) {
+        return sendErr(res, { code: 'missing_content', message: '缺少 html 内容。', hint: '请提供 html 字段（完整文档或片段均可）。' })
+      }
+      try {
+        const result = htmlToMarkdown(html)
+        return sendJson(res, result)
+      } catch (error) {
+        return sendErr(res, {
+          code: 'import_failed',
+          message: `HTML 解析失败：${error instanceof Error ? error.message : String(error)}`,
+          hint: '请确认导入的是 stylewx 渲染的 HTML（或标准 HTML 片段）。',
+        })
+      }
     }
 
     if (path === '/editor/api/validate' && req.method === 'POST') {

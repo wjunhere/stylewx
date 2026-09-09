@@ -8,6 +8,7 @@ import {
 } from './index.js'
 import { getPresetTheme, compileThemeToCss } from '@stylewx/theme'
 import { validateHtml } from '@stylewx/validator'
+import { htmlToMarkdown } from '@stylewx/components'
 import type { Theme } from '@stylewx/theme'
 
 const theme = getPresetTheme('tech-minimal') as Theme
@@ -216,6 +217,19 @@ describe('富组件（@stylewx/components 集成）', () => {
   it('collectHeadings 可用于 toc', () => {
     const html = markdownToHtml('# 一\n\n## 二\n\n:::toc\n:::')
     expect(html).toContain('二')
+  })
+
+  it('往返：渲染 → HTML 回导 → 再渲染，组件与文本一致', () => {
+    const first = renderMarkdownToHtml(componentArticle, theme)
+    const back = htmlToMarkdown(first.html)
+    const second = renderMarkdownToHtml(back.markdown, theme)
+    const markers = (h: string) => [...h.matchAll(/data-swx="([^"]+)"/g)].map((m) => m[1])
+    const plain = (h: string) => h.replace(/<[^>]+>/g, '').replace(/\s+/g, '')
+    expect(markers(second.html)).toEqual(markers(first.html))
+    expect(markers(first.html).length).toBeGreaterThan(4)
+    expect(plain(second.html)).toBe(plain(first.html))
+    expect(back.markdown).toContain(":::cover")
+    expect(back.warnings).toEqual([])
   })
 })
 

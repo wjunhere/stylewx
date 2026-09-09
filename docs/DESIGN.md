@@ -165,3 +165,27 @@ MCP 与 REST 的错误统一为：
 `apps/mcp-server/scripts/verify-wechat-showcase.mjs` 把 `examples/component-showcase.md`
 渲染后真实发布到草稿箱，再取回逐项核对：**23/23 项存活**，8 张外链图（含 4 张 SVG `<image>`）
 全部搬运为 `mmbiz.qpic.cn`，且 `script` / `class` / 页内锚点均不存在。
+
+## 12. HTML 反向导入（可编辑闭环）
+
+**问题**：渲染产物是 HTML，编辑器只认 Markdown。用户手里只剩 `.html` 时无法继续改。
+
+**关键实测**：微信 `draft/add → draft/get` **完整保留 `data-*` 属性**（含 SVG 元素）。
+（脚本：`apps/mcp-server/scripts/probe-wechat-data-attrs.mjs`）
+
+**方案**：渲染时在组件根元素写入机器可读标记，导入时据此精确还原，而不是猜。
+
+- `data-swx` = 组件名；`data-swx-props` = URL 编码的参数；`data-swx-body` = Markdown 正文容器。
+- 结构化正文（时间线 / 步骤 / 对比表 / 图库 / 轮播 / 点击展开 / 单图）额外把原始正文写进 `data-swx-src`，
+  导入时直接取用——DOM 还原对 `- 2023 | 启动` 这类结构化文本会失真。
+- 标记注入集中在 `renderComponent()`（对返回结果的首个元素打标），因此 22 个组件渲染器无需各自改动。
+
+**冒号分配**：导入时先预扫描整棵树的组件最大嵌套层数，再按 `colons = 3 + (maxDepth - depth - 1)`
+分配，保证「外层冒号更多」的语法约定在任意嵌套深度下都成立。
+
+**降级**：没有标记的 HTML 退化为普通 HTML→Markdown；无法映射的标签原样保留为 HTML，不丢内容。
+SVG 属性还原时用白名单保持驼峰（`viewBox` / `preserveAspectRatio`），其余属性才连字符化，
+否则会产出 `view-box` 这种非法属性。
+
+**验证**：`verify-html-roundtrip.mjs`（本地）与 `verify-wechat-showcase.mjs`（真实微信）双重往返：
+示例文章 21/21 组件标记一致、纯文本一致；从微信取回的 HTML 回导后 16/16 组件类型全部还原。

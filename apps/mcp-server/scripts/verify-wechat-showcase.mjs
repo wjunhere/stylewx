@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { renderPreview } from '@stylewx/service'
 import { getPresetTheme } from '@stylewx/theme'
 import { loadConfigFromEnv, WeChatClient, publishDraft } from '@stylewx/publisher'
+import { htmlToMarkdown } from '@stylewx/components'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '../../..')
@@ -90,4 +91,21 @@ for (const [needle, label] of forbidden) {
   console.log(`  ${stored.includes(needle) ? '⚠️ 仍存在' : '✅ 已无'} ${label}`)
 }
 console.log(`\n[verify] 取回正文长度 = ${stored.length}（发送前 ${rendered.html.length}）`)
-process.exit(ok === checks.length ? 0 : 1)
+
+// ---- 从微信取回的 HTML 反向导入，验证组件可还原 ----
+const back = htmlToMarkdown(stored)
+const expectedNames = ['cover', 'toc', 'card', 'gallery', 'carousel', 'timeline', 'steps', 'compare', 'quote', 'reveal', 'progress', 'pulse', 'divider', 'badge', 'end-card', 'canvas']
+const backNames = back.components.map((c) => c.name)
+console.log(`\n[verify] 从微信 HTML 回导：识别到 ${back.components.length} 个组件，标题 = ${JSON.stringify(back.title)}`)
+let recovered = 0
+for (const name of expectedNames) {
+  const hit = backNames.includes(name)
+  if (hit) recovered += 1
+  console.log(`  ${hit ? "✅" : "❌"} :::${name}`)
+}
+const cover = back.components.find((c) => c.name === "cover")
+const canvasFence = back.markdown.includes("::::canvas")
+console.log(`\n[verify] 组件还原 ${recovered}/${expectedNames.length} | cover.title=${JSON.stringify(cover?.props.title)} | 嵌套冒号=${canvasFence}`)
+console.log(`[verify] 回导 Markdown 长度 = ${back.markdown.length}，警告 ${back.warnings.length} 条`)
+
+process.exit(ok === checks.length && recovered === expectedNames.length && canvasFence ? 0 : 1)

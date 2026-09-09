@@ -147,7 +147,7 @@ function renderEndCard(node: ComponentNode, ctx: RenderContext): string {
           'font-size': '13.5px',
           color: palette.muted,
           'line-height': '1.85',
-        })}">${text ? ctx.renderMarkdown(text) : ctx.renderChildren(node)}</div>`
+        })}"><span data-swx-body="1">${text ? ctx.renderMarkdown(text) : ctx.renderChildren(node)}</span></div>`
       : '') +
     (footer
       ? `<div style="${css({

@@ -23,7 +23,9 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "@stylewx/theme": "workspace:*"
+    "@stylewx/theme": "workspace:*",
+    "rehype-parse": "^9.0.1",
+    "unified": "^11.0.5"
   },
   "publishConfig": {
     "access": "public"

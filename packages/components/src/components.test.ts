@@ -5,6 +5,7 @@ import { buildPalette } from './palette.js'
 import { contrastText, darken, lighten, mix, parseColor } from './color.js'
 import { measureEm, truncateEm, wrapText } from './text.js'
 import { COMPONENT_CATALOG, catalogToMarkdown, getComponentSpec } from './catalog.js'
+import { formatProps, htmlToMarkdown } from './reverse.js'
 import type { ComponentNode, RenderContext } from './types.js'
 
 /** 测试用的极简 Markdown 渲染器：只把 **粗体** 转成 <strong>，段落包 <p>。 */
@@ -198,6 +199,72 @@ describe('组件渲染', () => {
   })
 })
 
+
+describe('HTML → Markdown 反向导入', () => {
+  it('渲染结果带机器可读标记（data-swx / data-swx-props）', () => {
+    const html = render(':::card{title="标题" tone=primary}\n正文\n:::')
+    expect(html).toContain('data-swx="card"')
+    expect(html).toContain('data-swx-props="title=')
+    expect(html).toContain('data-swx-body="1"')
+  })
+
+  it('结构化正文的组件把原始正文存进 data-swx-src', () => {
+    const html = render(':::timeline{title="历程"}\n- 2023 | 启动\n:::')
+    expect(html).toContain('data-swx-src=')
+    const back = htmlToMarkdown(html)
+    expect(back.markdown).toContain(':::timeline{title="历程"}')
+    expect(back.markdown).toContain('- 2023 | 启动')
+  })
+
+  it('容器组件的 Markdown 正文从 DOM 还原', () => {
+    const html = render(':::card{title="标题"}\n正文 **加粗**\n\n- 一\n- 二\n:::')
+    const back = htmlToMarkdown(html)
+    expect(back.markdown).toContain(':::card{title="标题"}')
+    expect(back.markdown).toContain('**加粗**')
+    expect(back.markdown).toContain('- 一')
+    expect(back.components[0]).toMatchObject({ name: 'card', bodyFrom: 'markdown' })
+  })
+
+  it('嵌套组件（canvas > card）能递归还原', () => {
+    const html = render('::::canvas{tone="paper"}\n:::card{title="内层"}\n正文\n:::\n::::')
+    const back = htmlToMarkdown(html)
+    expect(back.markdown).toContain('::::canvas{tone=paper}')
+    expect(back.markdown).toContain(':::card{title="内层"}')
+    expect(back.components.map((c) => c.name)).toEqual(['canvas', 'card'])
+  })
+
+  it('无标记的 HTML 退化为普通 Markdown（不丢内容）', () => {
+    const back = htmlToMarkdown('<h1>标题</h1><p>段落 <strong>粗</strong></p><ul><li>项</li></ul>')
+    expect(back.markdown).toContain('# 标题')
+    expect(back.markdown).toContain('**粗**')
+    expect(back.markdown).toContain('- 项')
+    expect(back.components).toEqual([])
+  })
+
+  it('标题优先取 h1，其次回退到 cover 的 title', () => {
+    expect(htmlToMarkdown('<h1>正文标题</h1>').title).toBe('正文标题')
+    const cover = render(':::cover{title="封面标题"}\n:::')
+    expect(htmlToMarkdown(cover).title).toBe('封面标题')
+  })
+
+  it('props 格式化：布尔值省略等号，含空格的值加引号', () => {
+    expect(formatProps({ outline: 'true', tone: 'primary', title: '有 空格' })).toBe(
+      '{outline tone=primary title="有 空格"}',
+    )
+    expect(formatProps({})).toBe('')
+  })
+
+  it('图片 / 表格 / 代码块能还原为 Markdown', () => {
+    const md = htmlToMarkdown(
+      '<p><img src="https://x/a.jpg" alt="图" /></p><table><thead><tr><th>列A</th><th>列B</th></tr></thead>' +
+        '<tbody><tr><td>1</td><td>2</td></tr></tbody></table><pre><code>const a = 1</code></pre>',
+    ).markdown
+    expect(md).toContain('![图](https://x/a.jpg)')
+    expect(md).toContain('| 列A | 列B |')
+    expect(md).toContain('```')
+    expect(md).toContain('const a = 1')
+  })
+})
 describe('extractHeadings', () => {
   it('提取标题并跳过代码围栏', () => {
     const h = extractHeadings('# 一\n\n```\n# 不是标题\n```\n\n## 二\n')

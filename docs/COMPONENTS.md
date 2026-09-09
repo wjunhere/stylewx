@@ -138,3 +138,67 @@ node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
 4. 图片直接用外链 URL，发布时会被自动搬运；不要自己拼 `mmbiz.qpic.cn` 链接。
 5. 不要写 `href="#…"`、不要依赖 `id`、不要在 SVG 里用 `url(#…)`——这三件事微信端必然失效。
 6. `render_preview` 返回的 `diagnostics` 若非空，说明组件写法有问题，按提示修正后再发布。
+
+---
+
+## 6. HTML 反向导入（编辑器「导入 HTML」）
+
+渲染出的 HTML 带机器可读标记，因此可以**再导回编辑器继续编辑**，组件会还原成 `:::` 指令。
+
+### 6.1 标记长什么样
+
+```html
+<div data-swx="card" data-swx-props="title=%E6%A0%87%E9%A2%98&amp;tone=primary">
+  <div data-swx-body="1">…正文…</div>
+</div>
+```
+
+- `data-swx`：组件名。
+- `data-swx-props`：URL 编码的参数，导入时原样还原成 `{title="标题" tone=primary}`。
+- `data-swx-body`：Markdown 正文容器，导入时按 DOM 结构还原成 Markdown。
+- `data-swx-src`：结构化正文（时间线 / 步骤 / 表格对比 / 图库 / 轮播 / 点击展开 / 单图）的**原始文本**，导入时直接取用，避免 DOM 还原失真。
+
+这些属性是 `data-*`，**实测微信 `draft/add → draft/get` 会完整保留**（含 SVG 元素），
+所以从公众号取回的文章同样能导回。
+
+### 6.2 还原规则
+
+| 情况 | 结果 |
+| --- | --- |
+| 带 `data-swx` 的组件 | 还原为 `:::组件名{参数}`，嵌套时外层自动分配更多冒号 |
+| 组件内 Markdown 正文 | 从 DOM 还原（标题 / 列表 / 表格 / 代码块 / 图片 / 加粗等） |
+| 结构化正文组件 | 直接取 `data-swx-src` 原文 |
+| 无标记的 HTML | 退化为普通 HTML→Markdown；无法映射的标签原样保留为 HTML |
+| 标题 | 优先 `<h1>`，其次 `:::cover` 的 `title` |
+
+### 6.3 用法
+
+编辑器左侧「导入 HTML」→ 粘贴 HTML 或选择 `.html` 文件 → 「导入并还原」。
+也可直接调接口：
+
+```bash
+curl -X POST http://localhost:3777/editor/api/import-html \
+  -H 'content-type: application/json' \
+  -d '{"html":"<section>…</section>"}'
+# → { markdown, title, components: [{name, props, bodyFrom}], warnings }
+```
+
+代码侧：
+
+```ts
+import { htmlToMarkdown } from '@stylewx/components'
+const { markdown, title, components, warnings } = htmlToMarkdown(html)
+```
+
+### 6.4 验证
+
+```bash
+# 本地往返：渲染 → 回导 → 再渲染，比对组件标记与纯文本
+node --env-file=.env apps/mcp-server/scripts/verify-html-roundtrip.mjs
+
+# 真实微信往返：发布 → 取回 → 回导，检查组件是否全部还原
+node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
+```
+
+`examples/component-showcase.md` 的实测结果：**21/21 组件标记一致、纯文本一致**；
+从微信取回的 HTML 回导后 **16/16 组件类型全部还原**，标题与嵌套冒号均正确，0 条警告。

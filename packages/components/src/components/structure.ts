@@ -84,7 +84,7 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
     'box-shadow': variant === 'raised' ? `0 6px 20px ${tone.soft}` : undefined,
   })
 
-  return `<div style="${outer}">${header}${inner}${footerHtml}</div>`
+  return `<div style="${outer}">${header}<div data-swx-body="1">${inner}</div>${footerHtml}</div>`
 }
 
 /** 时间线。 */
@@ -333,7 +333,7 @@ function renderQuote(node: ComponentNode, ctx: RenderContext): string {
       color: tone.base,
       'margin-bottom': '6px',
     })}">“</div>` +
-    `<div style="${css({ 'font-size': '14px', color: palette.text, 'line-height': '1.8' })}">${inner}</div>` +
+    `<div data-swx-body="1" style="${css({ 'font-size': '14px', color: palette.text, 'line-height': '1.8' })}">${inner}</div>` +
     attribution +
     `</div>`
 }

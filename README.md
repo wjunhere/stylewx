@@ -49,7 +49,7 @@
 ```
 stylewx/
 ├── packages/
-│   ├── components/  # 富组件库：::: 指令解析 + 22 个组件渲染器 + 组件目录（同构）
+│   ├── components/  # 富组件库：::: 指令解析 + 22 个组件渲染器 + HTML 反向导入 + 组件目录（同构）
 │   ├── core/        # Markdown → 内联样式 HTML（unified/remark/rehype + juice），纯函数
 │   ├── theme/       # 主题 zod Schema（含 JSON Schema 导出）、微信 CSS 白名单、主题→CSS 编译器、26 套预置主题
 │   ├── validator/   # 微信兼容性校验器，输出结构化报告 { pass, issues }
@@ -138,8 +138,9 @@ node apps/mcp-server/scripts/editor.mjs [.env路径] [端口]   # 手动指定
 Windows 也可以直接双击仓库根的 `stylewx-editor.bat`。启动后打开
 http://localhost:3777/editor，同一进程还提供 http://localhost:3777/mcp。
 
-编辑器功能：左栏 Markdown 编辑与富文本工具栏（标题/列表/警告框/上下标等）、主题选择/生成/保存、
-右栏 390px 实时预览、校验、复制 HTML 或复制到公众号、一键发布草稿箱、历史记录与图床设置。
+编辑器功能：左栏 Markdown 编辑与富文本工具栏（标题/列表/警告框/上下标等）、富组件插入面板、
+主题选择/生成/保存、右栏 390px 实时预览、校验、复制 HTML 或复制到公众号、一键发布草稿箱、
+历史记录与图床设置，以及 **导入 HTML（带组件标记时精确还原为 `:::` 指令）/ 导入 Markdown / 导出 Markdown**。
 
 ### REST API
 
@@ -185,6 +186,16 @@ pnpm --filter @stylewx/api dev
 
 完整组件清单、参数与微信端约束见 [docs/COMPONENTS.md](./docs/COMPONENTS.md)，
 或调用 MCP 工具 `list_components`。完整示例见 [examples/component-showcase.md](./examples/component-showcase.md)。
+
+渲染出的 HTML 带 `data-swx` 标记，可再导回编辑器继续编辑（组件会还原成 `:::` 指令）：
+
+```bash
+# 本地往返：渲染 → 回导 → 再渲染，比对组件与文本
+node --env-file=.env apps/mcp-server/scripts/verify-html-roundtrip.mjs
+
+# 真实微信往返：发布 → 取回 → 回导
+node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
+```
 
 ## MCP 工具
 

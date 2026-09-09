@@ -7,6 +7,7 @@ import { decorComponents } from './components/decor.js'
 import { interactiveComponents } from './components/interactive.js'
 import { articleComponents } from './components/article.js'
 import { parseComponents } from './parse.js'
+import { escapeAttr } from './style.js'
 import type { ComponentNode, ComponentRenderer, HeadingInfo, RenderContext, RenderNode } from './types.js'
 
 /** 全部已注册组件。 */
@@ -28,6 +29,46 @@ export const COMPONENT_NAMES: string[] = [
   ...Object.keys(interactiveComponents),
   ...Object.keys(articleComponents).filter((n) => n !== 'follow'),
 ]
+
+/** 正文按原始文本保存的组件：结构化正文（`- 时间 | 内容`、表格、图片行）从 DOM 还原会失真。 */
+const RAW_BODY = new Set(['image', 'gallery', 'image-card', 'carousel', 'timeline', 'steps', 'compare', 'reveal'])
+/** 不使用正文、仅靠 props 的组件。 */
+const PROPS_ONLY = new Set(['divider', 'section-title', 'toc', 'progress', 'pulse', 'cover', 'badge'])
+
+/** props → URL 编码串（写进 data-swx-props，导入时精确还原）。 */
+function encodeProps(props: Record<string, string>): string {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(props)) if (v !== "") params.set(k, v)
+  return params.toString()
+}
+
+/**
+ * 给组件根元素写入机器可读标记，供 HTML 导入时精确还原为 ::: 指令。
+ * 实测微信 draft/add → draft/get 会完整保留 data-* 属性（含 SVG 元素），因此发布后的文章同样可回导。
+ */
+function markerAttrs(node: ComponentNode): string {
+  const useSrc = RAW_BODY.has(node.name) || PROPS_ONLY.has(node.name)
+  let attrs = ` data-swx="${escapeAttr(node.name)}"`
+  const propsEnc = encodeProps(node.props)
+  if (propsEnc) attrs += ` data-swx-props="${escapeAttr(propsEnc)}"`
+  const body = node.body.trim()
+  if (useSrc && body) attrs += ` data-swx-src="${escapeAttr(body)}"`
+  return attrs
+}
+
+/** 把标记注入到渲染结果的第一个元素开标签里。 */
+function injectMarker(html: string, node: ComponentNode): string {
+  const leading = html.length - html.trimStart().length
+  const body = html.slice(leading)
+  if (!body.startsWith("<") || body.startsWith("<!")) return html
+  const end = body.indexOf(">")
+  if (end === -1) return html
+  const open = body.slice(0, end)
+  const rest = body.slice(end)
+  const attrs = markerAttrs(node)
+  const patched = open.endsWith("/") ? `${open.slice(0, -1)}${attrs} /${rest}` : `${open}${attrs}${rest}`
+  return html.slice(0, leading) + patched
+}
 
 /** 不消费正文的自包含组件：若被写入正文，多半是漏写闭合 `:::`，给出诊断。 */
 const SELF_CONTAINED = new Set(['toc', 'divider', 'section-title', 'badge', 'progress', 'pulse', 'cover'])
@@ -52,7 +93,7 @@ export function renderComponent(node: ComponentNode, ctx: RenderContext): string
     })
     return ctx.renderMarkdown(node.body)
   }
-  return renderer(node, ctx)
+  return injectMarker(renderer(node, ctx), node)
 }
 
 /** 渲染节点序列。 */

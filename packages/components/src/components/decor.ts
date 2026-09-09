@@ -225,7 +225,7 @@ function renderCallout(node: ComponentNode, ctx: RenderContext): string {
       'flex-shrink': 0,
     })}">${escapeHtml(icon)}</span>` +
     `<span>${escapeHtml(title)}</span></div>` +
-    `<div style="${css({ 'font-size': '13.5px', color: palette.text, 'line-height': '1.75' })}">${ctx.renderChildren(
+    `<div data-swx-body="1" style="${css({ 'font-size': '13.5px', color: palette.text, 'line-height': '1.75' })}">${ctx.renderChildren(
       node,
     )}</div></div>`
 }
@@ -251,7 +251,7 @@ function renderCanvas(node: ComponentNode, ctx: RenderContext): string {
     }
   }
 
-  const inner = ctx.renderChildren(node)
+  const inner = `<div data-swx-body="1">${ctx.renderChildren(node)}</div>`
 
   return `<div style="${css({
     'background-color': backgroundColor,
@@ -290,7 +290,7 @@ function renderBackground(node: ComponentNode, ctx: RenderContext): string {
     margin: `0 0 ${palette.blockGap}`,
     'border-radius': palette.radius,
     padding,
-  })};${style}">${ctx.renderChildren(node)}</div>`
+  })};${style}"><div data-swx-body="1">${ctx.renderChildren(node)}</div></div>`
 }
 
 /** 自动描边动画（下划线 / 对勾 / 波浪），用于强调。 */

@@ -17,9 +17,9 @@
 import type { ComponentNode, RenderNode } from './types.js'
 
 /** 开启行：至少 3 个冒号 + 组件名 + 可选 {props} + 可选尾随标题。 */
-const OPEN_RE = /^(:{3,})\s*([a-zA-Z][a-zA-Z0-9-]*)(?:\s*\{([^}]*)\})?\s*(.*)$/
+const OPEN_RE = /^[ \t]{0,3}(:{3,})\s*([a-zA-Z][a-zA-Z0-9-]*)(?:\s*\{([^}]*)\})?\s*(.*)$/
 /** 闭合行：只有冒号。 */
-const CLOSE_RE = /^(:{3,})\s*$/
+const CLOSE_RE = /^[ \t]{0,3}(:{3,})\s*$/
 /** 代码围栏。 */
 const FENCE_RE = /^\s{0,3}(```|~~~)/
 /** 允许「:::type 标题」尾随写法的旧式提示框别名。 */
