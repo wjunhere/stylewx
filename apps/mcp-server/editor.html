@@ -104,6 +104,7 @@
   .preview-head{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line2);font-size:12.5px;color:var(--ink2);background:#fff}
   .preview-head .tab{padding:5px 13px;border-radius:8px;cursor:pointer}
   .preview-head .tab.active{background:var(--brand-sub);color:var(--brand);font-weight:600}
+  .preview-head button.tab{border:0;background:none;font:inherit;color:inherit;line-height:1.4}
   .preview-wrap{flex:1;overflow:auto;background:#eef1f5;padding:20px;display:flex;justify-content:center}
   iframe.preview{width:390px;min-height:100%;border:0;background:#fff;border-radius:16px;box-shadow:0 10px 34px rgba(20,30,50,.12);align-self:flex-start}
   .val-bar{padding:9px 16px;border-top:1px solid var(--line2);font-size:12px;color:var(--muted);background:#fbfcfe;white-space:pre-wrap;max-height:110px;overflow:auto}
@@ -268,7 +269,7 @@
 
       <!-- 右栏：预览 -->
       <section class="preview-pane">
-        <div class="preview-head"><span class="tab active" id="p1">实时预览</span><span class="tab" id="p2">手机视图</span><span class="grow"></span><span style="color:var(--muted)">390px</span></div>
+        <div class="preview-head"><span class="tab active" id="p1">实时预览</span><span class="tab" id="p2">手机视图</span><span class="grow"></span><button class="tab" id="syncToggle" aria-pressed="true" title="左右栏同步滚动">同步滚动</button><span style="color:var(--muted)">390px</span></div>
         <div class="preview-wrap" id="previewWrap"><div class="empty" id="pvEmpty">正在渲染…</div><iframe class="preview" id="pv" style="display:none"></iframe></div>
         <div class="val-bar" id="status">就绪。</div>
       </section>
@@ -942,6 +943,73 @@ $('#imgHostOverlay').addEventListener('click',e=>{ if(e.target.id==='imgHostOver
 // ---- 标签切换 (实时预览 / 手机视图) ----
 $('#p1').onclick=()=>{ $('#p1').classList.add('active'); $('#p2').classList.remove('active'); $('#previewWrap').style.display=''; $('#pv').style.width='390px'; };
 $('#p2').onclick=()=>{ $('#p2').classList.add('active'); $('#p1').classList.remove('active'); $('#pv').style.width='100%'; };
+// ---- 左右栏同步滚动 ----
+// 左侧是 textarea 自身滚动，右侧是 iframe 内部文档滚动（实测外层 .preview-wrap 不滚）
+const SYNC_KEY='mp-sync-scroll';
+let syncOn = localStorage.getItem(SYNC_KEY)!=='0';
+let syncLock = false;
+let pvScrollHandler = null;
+function updateSyncBtn(){
+  const b=$('#syncToggle'); if(!b) return;
+  b.classList.toggle('active', syncOn);
+  b.setAttribute('aria-pressed', syncOn?'true':'false');
+  b.title = syncOn ? '左右栏同步滚动（点击关闭）' : '已关闭同步滚动（点击开启）';
+}
+function mdScrollInfo(){
+  const ta=$('#md');
+  return { kind:'ta', el:ta, top:ta.scrollTop, max:Math.max(0, ta.scrollHeight-ta.clientHeight) };
+}
+function pvScrollInfo(){
+  const f=$('#pv'); const w=f && f.contentWindow;
+  if(!w || !w.document) return null;
+  const de=w.document.documentElement || w.document.body;
+  const max=Math.max(0, (de?de.scrollHeight:0)-(w.innerHeight||0));
+  return { kind:'win', el:w, top:w.scrollY||0, max };
+}
+function applyScroll(info, top){
+  if(info.kind==='ta') info.el.scrollTop=top;
+  else info.el.scrollTo(0, top);
+}
+function syncScrollFrom(src){
+  if(!syncOn || syncLock) return;
+  const a = src==='md' ? mdScrollInfo() : pvScrollInfo();
+  const b = src==='md' ? pvScrollInfo() : mdScrollInfo();
+  if(!a || !b) return;
+  const ratio = a.max>0 ? a.top/a.max : 0;
+  syncLock = true;
+  applyScroll(b, Math.round(ratio*Math.max(0,b.max)));
+  requestAnimationFrame(()=>{ syncLock=false; });
+}
+let mdTick=false;
+$('#md').addEventListener('scroll',()=>{
+  if(mdTick) return; mdTick=true;
+  requestAnimationFrame(()=>{ mdTick=false; syncScrollFrom('md'); });
+},{passive:true});
+function bindPreviewScroll(){
+  const w=$('#pv') && $('#pv').contentWindow;
+  if(!w || !w.document) return;
+  if(pvScrollHandler){ try{ w.removeEventListener('scroll', pvScrollHandler); }catch(e){} }
+  let tick=false;
+  pvScrollHandler = ()=>{
+    if(tick) return; tick=true;
+    requestAnimationFrame(()=>{ tick=false; syncScrollFrom('pv'); });
+  };
+  w.addEventListener('scroll', pvScrollHandler, {passive:true});
+}
+$('#pv').addEventListener('load',()=>{
+  bindPreviewScroll();
+  // 重新渲染会把预览滚回顶部，这里按左栏当前位置恢复
+  if(syncOn) requestAnimationFrame(()=>syncScrollFrom('md'));
+});
+$('#syncToggle').onclick=()=>{
+  syncOn=!syncOn;
+  localStorage.setItem(SYNC_KEY, syncOn?'1':'0');
+  updateSyncBtn();
+  toast(syncOn?'已开启左右栏同步滚动':'已关闭左右栏同步滚动');
+  if(syncOn) syncScrollFrom('md');
+};
+updateSyncBtn();
+
 
 // ---- 事件 ----
 // ---- 封面上传 / 预览 ----

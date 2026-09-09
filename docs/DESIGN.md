@@ -189,3 +189,20 @@ SVG 属性还原时用白名单保持驼峰（`viewBox` / `preserveAspectRatio`�
 
 **验证**：`verify-html-roundtrip.mjs`（本地）与 `verify-wechat-showcase.mjs`（真实微信）双重往返：
 示例文章 21/21 组件标记一致、纯文本一致；从微信取回的 HTML 回导后 16/16 组件类型全部还原。
+
+## 13. 编辑器左右栏同步滚动
+
+实测两个栏目的滚动容器并不相同：左侧是 `<textarea>` 自身滚动，
+右侧 `.preview-wrap` 不滚（600/600），**真正滚动的是 iframe 内部文档**（4346 > 560）。
+因此同步必须同时处理「textarea.scrollTop」与「iframe.contentWindow.scrollY」两种目标。
+
+实现（`apps/mcp-server/editor.html`）：
+
+- 按**滚动比例**映射：`ratio = top / (scrollHeight - clientHeight)`，再乘目标栏的可滚动高度。
+- `syncLock` 标志 + `requestAnimationFrame` 节流，避免双向回环与抖动。
+- iframe 每次 `srcdoc` 重新渲染都会换掉内部 window，因此 `load` 时重新绑定 scroll 监听；
+  同时按左栏当前比例恢复右侧位置，避免「一打字预览就跳回顶部」。
+- 预览头提供「同步滚动」开关，偏好写入 `localStorage`（`mp-sync-scroll`），默认开启。
+
+验证：`packages/preview/scripts/test-editor-sync-scroll.mjs`
+——左→右 50% 与右→左 85% 的比例误差均为 0.000，关闭后互不联动，重新渲染后仍保持一致。
