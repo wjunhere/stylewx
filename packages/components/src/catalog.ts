@@ -258,7 +258,7 @@ export const COMPONENT_CATALOG: ComponentSpec[] = [
 :::
 ::::`,
     props: [
-      { name: 'tone', type: 'paper | grid | dots | lines | diagonal | gradient | night', description: '背景样式', default: 'paper' },
+      { name: 'tone', type: 'paper | grid | dots | lines | diagonal | gradient', description: '背景样式', default: 'paper' },
       { name: 'bg', type: 'css 颜色', description: '自定义底色（会覆盖 tone）' },
       { name: 'padding', type: 'css 长度', description: '内边距', default: '16px' },
     ],

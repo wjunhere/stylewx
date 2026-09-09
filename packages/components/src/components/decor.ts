@@ -246,15 +246,11 @@ function renderCanvas(node: ComponentNode, ctx: RenderContext): string {
     if (kind === 'gradient') {
       backgroundImage = `linear-gradient(160deg, ${palette.primarySoft}, #ffffff 55%, ${palette.primarySoft})`
       backgroundColor = '#ffffff'
-    } else if (kind === 'night') {
-      backgroundColor = '#22262b'
-      backgroundImage = texture('grid', 'rgba(255,255,255,0.05)')
     } else {
-      backgroundImage = texture(kind, kind === 'night' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)')
+      backgroundImage = texture(kind, 'rgba(0,0,0,0.04)')
     }
   }
 
-  const dark = kind === 'night'
   const inner = ctx.renderChildren(node)
 
   return `<div style="${css({
@@ -263,8 +259,8 @@ function renderCanvas(node: ComponentNode, ctx: RenderContext): string {
     'background-size': kind === 'dots' ? '14px 14px' : undefined,
     'border-radius': radius,
     padding,
-    border: dark ? undefined : `1px solid ${palette.divider}`,
-    color: dark ? '#e8eaed' : palette.text,
+    border: `1px solid ${palette.divider}`,
+    color: palette.text,
   })}">${inner}</div>`
 }
 
