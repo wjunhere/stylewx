@@ -42,6 +42,11 @@ function juiceOptions(theme: Theme) {
   }
 }
 
+/** 转义 HTML 属性值（style 里的字体名可能带双引号，必须转义后再拼进属性）。 */
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+}
+
 /**
  * 渲染一篇 Markdown 为微信兼容的内联样式 HTML。
  * @param markdown 文章 Markdown
@@ -61,7 +66,9 @@ export function renderMarkdownToHtml(markdown: string, theme: Theme): RenderResu
     onDiagnostic: (d) => diagnostics.push(d),
   })
   const baseStyle = compileRootBaseStyle(safeTheme)
-  const wrapped = `<section style="${baseStyle}">${bodyHtml}</section>`
+  // 注意：主题的 fontFamily 常带双引号（如 Georgia, "Songti SC"），
+  // 不转义会截断 style 属性，导致根节点的 font-size/color/line-height 全部丢失。
+  const wrapped = `<section style="${escapeAttribute(baseStyle)}">${bodyHtml}</section>`
   const html = juice(wrapped, juiceOptions(safeTheme))
 
   return { html, theme: safeTheme, diagnostics: diagnostics.length ? diagnostics : undefined }

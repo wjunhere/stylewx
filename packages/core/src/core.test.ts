@@ -113,6 +113,19 @@ describe('renderMarkdownToHtml', () => {
     expect(html).not.toContain('{{')
   })
 
+  it('根节点 style 属性里的字体名已转义，不会截断属性（回归）', () => {
+    const { html } = renderMarkdownToHtml('# 标题', theme)
+    const match = /^<section style="([^"]*)">/.exec(html)
+    expect(match).not.toBeNull()
+    const style = match?.[1] ?? ''
+    // 字体名里的双引号必须转义，否则属性会在第一个 " 处被截断，后续声明全部丢失
+    expect(style).toContain('&quot;')
+    expect(style).toContain('font-family')
+    expect(style).toContain('font-size')
+    expect(style).toContain('line-height')
+    expect(style).toContain('color')
+  })
+
   it('主题 CSS 编译结果可被 validator 白名单复验', () => {
     const css = compileThemeToCss(theme)
     expect(css).toContain('#0b6bff')
