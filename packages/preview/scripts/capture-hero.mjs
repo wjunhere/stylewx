@@ -31,4 +31,18 @@ await shot({
   type: 'png',
 })
 
+// 组件库预览页
+{
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })
+  await page.goto(`${BASE}/editor`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(2500)
+  await page.click('#navComp')
+  await page.waitForTimeout(3000)
+  await page.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()))
+  const file = resolve(outDir, 'component-library.png')
+  await page.screenshot({ path: file, type: 'png' })
+  console.log(`${file}  ${(statSync(file).size / 1024).toFixed(0)} KB`)
+  await page.close()
+}
+
 await browser.close()

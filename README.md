@@ -146,7 +146,7 @@ Windows 也可以直接双击仓库根的 `stylewx-editor.bat`。启动后打开
 http://localhost:3777/editor，同一进程还提供 http://localhost:3777/mcp。
 
 编辑器功能：左栏 Markdown 编辑与富文本工具栏（标题/列表/警告框/上下标等）、
-富组件插入面板（内置 22 个 + **agent 定义的自定义组件**，可在面板里直接删除）、
+富组件插入面板 + **组件库预览页**（内置 22 个 + agent 自定义组件，按当前主题实时渲染，可插入/删除）、
 主题选择/生成/保存、右栏 390px 实时预览、左右栏同步滚动（可开关，偏好持久化）、校验、
 复制 HTML 或复制到公众号、一键发布草稿箱、历史记录与图床设置，
 以及 **导入 HTML（带组件标记时精确还原为 `:::` 指令）/ 导入 Markdown / 导出 Markdown**，
@@ -197,6 +197,13 @@ pnpm --filter @stylewx/api dev
 组件样式可由主题统一定制：`components.<组件名>.<部位>` 可覆盖 `root`（最外层）、`*`（内部所有元素）
 与语义部位（`title` / `body` / `footer` …），也可用实例级 `style` 一次性微调；
 自由度只受微信白名单限制。细节见 [docs/COMPONENTS.md](./docs/COMPONENTS.md)。
+
+<p align="center">
+  <img src="./docs/assets/component-library.png" alt="组件库预览页：左侧列组件，右侧按当前主题实时渲染" width="100%">
+</p>
+
+编辑器内置「组件库」页：左侧列出全部组件（内置 + agent 自定义），右侧用**当前主题**实时渲染效果，
+并可一键插入正文或复制示例。
 
 完整组件清单、参数与微信端约束见 [docs/COMPONENTS.md](./docs/COMPONENTS.md)，
 或调用 MCP 工具 `list_components`。完整示例见 [examples/component-showcase.md](./examples/component-showcase.md)。

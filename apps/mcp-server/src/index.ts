@@ -28,6 +28,7 @@ import {
   isInside,
   listSavedComponents,
   deleteUserComponent,
+  renderComponentPreviews,
 } from '@stylewx/service'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
 import { htmlToMarkdown } from '@stylewx/components'
@@ -153,6 +154,17 @@ async function handleEditorApi(
     }
 
     // 本地自定义组件库（编辑器「富组件」面板里展示「我的组件」）
+    // 组件库预览：用当前主题把每个组件示例渲染一遍（一次性返回，供「组件库」页展示）
+    if (path === '/editor/api/component-previews' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      try {
+        const theme = resolveTheme(b.theme ?? 'magazine')
+        const names = Array.isArray(b.names) ? b.names.filter((x): x is string => typeof x === 'string') : undefined
+        return sendJson(res, renderComponentPreviews(theme, { names }))
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
+    }
     if (path === '/editor/api/components' && req.method === 'GET') {
       try {
         const { components } = listSavedComponents()

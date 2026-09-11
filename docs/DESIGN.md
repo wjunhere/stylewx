@@ -365,3 +365,33 @@ POST /editor/api/delete-component    → { name }
 
 清空编辑器后仍会去打 `/editor/api/render`，后端对空 markdown 返回 400，
 控制台白刷一条错误。已在前端加空文档短路。
+
+## 18. 编辑器「组件库」预览页
+
+### 为什么需要
+
+在此之前，编辑器只有「富组件」插入面板——一串文字条目，**看不到渲染效果**。
+agent 造了自定义组件、主题改了几个 token，人都得先插进正文才知道长什么样。
+
+### 做法
+
+**一次请求渲染全部**：新增 `POST /editor/api/component-previews { theme }`，
+服务端用当前主题把每个组件的示例 Markdown 渲染一遍，一次性返回
+`{ name, origin, summary, slots, sample, html, diagnostics }[]`。
+客户端不再逐个请求（24 个组件逐个渲染会很慢）。
+
+示例 Markdown 的来源：
+- 内置组件用 `COMPONENT_CATALOG[].example`（组件目录里的权威示例，已有测试保证每个示例
+  都能解析成对应组件）
+- 自定义组件用 `defaults` 预填参数 + 两行示例正文（兼容 `{{#each body}}` 的 `this.0`/`this.1`）
+
+**渲染隔离**：每个预览放在独立 iframe（`sandbox="allow-same-origin"`）里，
+组件的内联样式不会污染编辑器界面，主题切换后重开即刷新。
+
+**页内交互**：左侧可搜索列表（内置/自定义分组），右侧 390px 预览 + 可定制部位提示 +
+示例源码（可复制）+ 「插入到正文」。「富组件」面板顶部也放了入口。
+
+### 验证
+
+`test-editor-component-library.mjs`（Playwright）：入口可见、共 24 个组件、分组正确、
+默认渲染非空且带内联样式、切到 gallery 有 flex 布局、搜索命中 2 条、插入后正文含该组件、0 控制台报错。
