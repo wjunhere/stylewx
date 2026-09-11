@@ -80,6 +80,9 @@ importers:
       rehype-parse:
         specifier: ^9.0.1
         version: 9.0.1
+      rehype-stringify:
+        specifier: ^10.0.1
+        version: 10.0.1
       unified:
         specifier: ^11.0.5
         version: 11.0.5

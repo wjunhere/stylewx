@@ -3,7 +3,7 @@
  * 这是「让 AI 知道有哪些组件、怎么写」的单一事实来源。
  */
 
-export type ComponentCategory = 'image' | 'structure' | 'decor' | 'interactive' | 'article'
+export type ComponentCategory = 'image' | 'structure' | 'decor' | 'interactive' | 'article' | 'custom'
 
 export interface ComponentPropSpec {
   name: string
@@ -29,6 +29,7 @@ export const CATEGORY_LABELS: Record<ComponentCategory, string> = {
   decor: '装饰',
   interactive: '交互',
   article: '文章级',
+  custom: '自定义',
 }
 
 export const COMPONENT_CATALOG: ComponentSpec[] = [

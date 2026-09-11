@@ -10,7 +10,7 @@ import {
 } from '@stylewx/theme'
 import type { Theme } from '@stylewx/theme'
 import { markdownToHtml } from './markdown.js'
-import type { ComponentDiagnostic } from '@stylewx/components'
+import type { ComponentDiagnostic, UserComponentDef } from '@stylewx/components'
 
 export interface RenderResult {
   /** 最终可直接粘贴进微信公众号的 HTML：全部样式已内联，无 <style>/<link>/class 依赖。 */
@@ -47,12 +47,22 @@ function escapeAttribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
 }
 
+export interface RenderOptions {
+  /** 用户自定义组件（本地组件库），用 `:::名字` 调用。 */
+  userComponents?: Record<string, UserComponentDef>
+}
+
 /**
  * 渲染一篇 Markdown 为微信兼容的内联样式 HTML。
  * @param markdown 文章 Markdown
  * @param theme 已通过 themeSchema 校验的主题
+ * @param options 额外选项（用户自定义组件）
  */
-export function renderMarkdownToHtml(markdown: string, theme: Theme): RenderResult {
+export function renderMarkdownToHtml(
+  markdown: string,
+  theme: Theme,
+  options: RenderOptions = {},
+): RenderResult {
   const validation = validateTheme(theme)
   if (!validation.ok || !validation.theme) {
     const detail = validation.issues.map((i) => `${i.path}: ${i.message}`).join('；')
@@ -64,6 +74,7 @@ export function renderMarkdownToHtml(markdown: string, theme: Theme): RenderResu
   const bodyHtml = markdownToHtml(markdown, {
     theme: safeTheme.tokens,
     componentStyles: safeTheme.components,
+    userComponents: options.userComponents,
     onDiagnostic: (d) => diagnostics.push(d),
   })
   const baseStyle = compileRootBaseStyle(safeTheme)

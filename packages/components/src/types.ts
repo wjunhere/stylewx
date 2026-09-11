@@ -1,3 +1,4 @@
+import type { UserComponentDef } from './user-component.js'
 import type { ComponentStyleOverrides } from './overrides.js'
 /**
  * 组件 AST 类型。
@@ -33,6 +34,8 @@ export interface RenderContext {
   renderMarkdown: (markdown: string) => string
   /** 渲染组件的子节点（含嵌套组件）。由 core 注入，避免循环依赖。 */
   renderChildren: (node: ComponentNode) => string
+  /** 用户自定义组件（本地组件库注入），优先于内置组件之外的名字空间。 */
+  userComponents?: Record<string, UserComponentDef>
   /** 主题级组件样式覆盖（components.<组件名>.<部位>）。 */
   componentStyles?: ComponentStyleOverrides
   /**

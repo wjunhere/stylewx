@@ -283,3 +283,91 @@ node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
 - `data-swx-slot` 是渲染期的临时标记，应用覆盖后会被剥离，**不会出现在最终产物里**；
   没有配置任何覆盖时，组件输出与之前**逐字节一致**（有回归测试保证）。
 - `*` 不会进入嵌套组件的子树——外层组件的 `*` 不会污染内层组件自己的样式。
+
+---
+
+## 8. 自定义组件（agent 自己定义新组件）
+
+内置 22 个组件之外，agent 可以用 **HTML 模板定义全新组件**，存到本地组件库，之后用 `:::名字` 调用。
+这让「组件库」本身变成可扩展的，而不是固定菜单。
+
+### 8.1 定义
+
+```
+save_component{
+  name: "brand-quote",
+  description: "品牌引言卡：左侧色带 + 引号 + 可选作者",
+  template: "<div data-swx-slot=\"card\" style=\"...\">{{title}}</div>",
+  defaults: { ... },
+  slots: ["card", "mark", "body"]
+}
+```
+
+定义存到 `~/.stylewx/components.json`（可用 `STYLEWX_COMPONENTS_PATH` 覆盖）。
+
+### 8.2 模板语法
+
+| 写法 | 含义 |
+| --- | --- |
+| `{{prop}}` | 参数值，**默认 HTML 转义**；`{{prop\|raw}}` 不转义 |
+| `{{body}}` | 正文（Markdown 已渲染成 HTML） |
+| `{{theme.primary}}` | 主题配色，避免把颜色写死。可用键见下 |
+| `{{#if prop}}…{{/if}}` | 条件块；`{{#unless prop}}…{{/unless}}` 取反 |
+| `{{#each body}}…{{/each}}` | 按正文的非空行迭代；块内可用 `{{this}}`、`{{this.0}}`/`{{this.1}}`（按 `\|` 切分）、`{{@index}}` |
+| `data-swx-slot="title"` | 声明可被主题样式覆盖的部位（渲染后剥离） |
+
+可用主题键：`primary` `primarySoft` `primaryStrong` `onPrimary` `text` `muted` `weak`
+`cardBg` `cardBorder` `divider` `canvasBg` `fontFamily` `fontSize` `lineHeight`
+`blockGap` `radiusSm` `radius` `radiusLg`
+
+参数名**不区分大小写**（存储时统一小写）。
+
+### 8.3 例子
+
+```
+:::stat-list
+2024 | 1200 万
+2025 | 3800 万
+:::
+```
+
+```html
+<div data-swx-slot="list" style="margin:0 0 {{theme.blockGap}};background-color:{{theme.cardBg}};border-radius:{{theme.radius}};padding:12px 16px">
+  {{#each body}}
+  <div data-swx-slot="row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed {{theme.divider}}">
+    <span data-swx-slot="key" style="font-size:13px;color:{{theme.muted}}">{{this.0}}</span>
+    <span data-swx-slot="value" style="font-size:14px;font-weight:600;color:{{theme.primary}}">{{this.1}}</span>
+  </div>
+  {{/each}}
+</div>
+```
+
+### 8.4 保存时的安全闸门
+
+`save_component` 会用一份「把所有参数都填上」的样例输入渲染模板并跑**微信校验**，
+不通过直接拒绝并说明原因：
+
+- `<script>` / `<style>` / `<iframe>` / `<input>` 等微信会过滤的标签
+- `on*` 事件属性、`javascript:` 链接
+- `position` / `filter` 等被过滤的 CSS 属性
+- 与内置组件重名、组件名不合法（只允许小写字母/数字/连字符）
+- 模板渲染结果为空、没有产出任何元素
+
+### 8.5 两者的诊断
+
+自定义组件有两类「静默失效」会在 `render_preview` / `render_fragment` 里被点出来：
+
+| 情况 | 诊断 |
+| --- | --- |
+| 模板用了 `{{x}}` 但调用时没给 `x`（且不在 `#if` 里） | 「模板引用了未提供的参数「x」，该项渲染为空」 |
+| 调用时给了 `x` 但模板完全没用到（多为参数名拼错） | 「收到了参数「x」，但模板里没有使用它（可能拼错了参数名）」 |
+
+`#if prop` 里的参数视为可选，不会报第一类警告。
+
+### 8.6 与其它能力的关系
+
+- **样式覆盖**：自定义组件同样支持主题级 `components.<名字>.<部位>` 与实例级 `style`。
+- **往返**：渲染产物带 `data-swx` 标记，`导入 HTML` 能还原成 `:::名字{…}`；
+  正文按原文存在 `data-swx-src`，往返无损。
+- **列表**：`list_components` 会合并本地自定义组件，并用 `origin: "user" | "builtin"` 区分。
+- **删除**：`delete_component`。

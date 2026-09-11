@@ -45,12 +45,13 @@ describe('stylewx MCP Server (in-memory)', () => {
     expect(data.themes.length).toBeGreaterThanOrEqual(6)
   })
 
-  it('list 出全部 13 个 tools', async () => {
+  it('list 出全部 15 个 tools', async () => {
     const { client } = await startClient()
     const { tools } = await client.listTools()
     const names = tools.map((t) => t.name).sort()
     expect(names).toEqual([
       'analyze_article',
+      'delete_component',
       'export_theme',
       'generate_theme',
       'list_components',
@@ -60,6 +61,7 @@ describe('stylewx MCP Server (in-memory)', () => {
       'render_fragment',
       'render_preview',
       'save_article',
+      'save_component',
       'save_theme',
       'tweak_theme',
       'validate_article',
@@ -283,4 +285,56 @@ describe('stylewx MCP Server (in-memory)', () => {
     expect(badge.slots).toEqual(['root', '*'])
   })
 
+  it('save_component 定义自定义组件，list_components 能查到并标注 origin=user', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'swx-c-'))
+    process.env.STYLEWX_COMPONENTS_PATH = join(dir, 'components.json')
+    try {
+      const { client } = await startClient()
+      const saved = await client.callTool({
+        name: 'save_component',
+        arguments: {
+          name: 'brand-quote',
+          description: '品牌引言卡',
+          template:
+            '<div data-swx-slot="card" style="color:{{theme.primary}}">' +
+            '<div data-swx-slot="title">{{title}}</div>{{body}}</div>',
+          slots: ['card', 'title'],
+        },
+      })
+      const savedData = parseText(saved as never)
+      expect(savedData.component.name).toBe('brand-quote')
+
+      const list = await client.callTool({ name: 'list_components', arguments: {} })
+      const listData = parseText(list as never)
+      const custom = listData.components.find((c: { name: string }) => c.name === 'brand-quote')
+      expect(custom.origin).toBe('user')
+      expect(custom.slots).toContain('title')
+      const builtin = listData.components.find((c: { name: string }) => c.name === 'card')
+      expect(builtin.origin).toBe('builtin')
+
+      const del = await client.callTool({ name: 'delete_component', arguments: { name: 'brand-quote' } })
+      expect(parseText(del as never).deleted).toBe('brand-quote')
+    } finally {
+      delete process.env.STYLEWX_COMPONENTS_PATH
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('save_component 拒绝含 script 的模板', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'swx-c-'))
+    process.env.STYLEWX_COMPONENTS_PATH = join(dir, 'components.json')
+    try {
+      const { client } = await startClient()
+      const res = await client.callTool({
+        name: 'save_component',
+        arguments: { name: 'bad-one', template: '<div><script>alert(1)</script></div>' },
+      })
+      const data = parseText(res as never)
+      expect(data.error.code).toBe('invalid_component')
+      expect(String(data.error.message)).toContain('script')
+    } finally {
+      delete process.env.STYLEWX_COMPONENTS_PATH
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })

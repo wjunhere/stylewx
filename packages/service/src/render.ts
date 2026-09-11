@@ -1,8 +1,9 @@
 import { renderMarkdownToHtml } from '@stylewx/core'
+import { userComponentMap } from './component-store.js'
 import { validateTheme } from '@stylewx/theme'
 import type { Theme } from '@stylewx/theme'
 import { parseComponents } from '@stylewx/components'
-import type { ComponentDiagnostic } from '@stylewx/components'
+import type { ComponentDiagnostic, UserComponentDef } from '@stylewx/components'
 import { validateHtml } from '@stylewx/validator'
 import type { ValidationReport } from '@stylewx/validator'
 import { renderIphonePreview } from '@stylewx/preview'
@@ -19,6 +20,19 @@ export interface RenderPreviewResult {
 }
 
 /** 校验主题并返回校验后的主题；不合法时抛出统一错误。 */
+/** 取用户自定义组件表：显式传入优先，否则读本地组件库。 */
+function safeUserComponents(
+  explicit?: Record<string, UserComponentDef>,
+): Record<string, UserComponentDef> | undefined {
+  if (explicit) return explicit
+  try {
+    const map = userComponentMap()
+    return Object.keys(map).length > 0 ? map : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function assertValidTheme(theme: Theme): Theme {
   const themeCheck = validateTheme(theme)
   if (!themeCheck.ok || !themeCheck.theme) {
@@ -39,11 +53,13 @@ function assertValidTheme(theme: Theme): Theme {
 export async function renderPreview(
   markdown: string,
   theme: Theme,
-  options: { includeScreenshot?: boolean } = {},
+  options: { includeScreenshot?: boolean; userComponents?: Record<string, UserComponentDef> } = {},
 ): Promise<RenderPreviewResult> {
   const safeTheme = assertValidTheme(theme)
 
-  const { html, diagnostics } = renderMarkdownToHtml(markdown, safeTheme)
+  const { html, diagnostics } = renderMarkdownToHtml(markdown, safeTheme, {
+    userComponents: safeUserComponents(options.userComponents),
+  })
   const validation = validateHtml(html)
 
   const result: RenderPreviewResult = {
@@ -69,6 +85,8 @@ export async function renderPreview(
 export interface RenderFragmentOptions {
   /** 是否把整段 HTML 返回给调用方（默认 false，避免长文把上下文塞满）。 */
   includeHtml?: boolean
+  /** 覆盖本地组件库（默认从 ~/.stylewx/components.json 读取）。 */
+  userComponents?: Record<string, UserComponentDef>
   /** 是否返回截图（默认 true，片段渲染很快）。 */
   includeScreenshot?: boolean
 }
@@ -94,7 +112,9 @@ export async function renderFragment(
   options: RenderFragmentOptions = {},
 ): Promise<RenderFragmentResult> {
   const safeTheme = assertValidTheme(theme)
-  const { html, diagnostics } = renderMarkdownToHtml(markdown, safeTheme)
+  const { html, diagnostics } = renderMarkdownToHtml(markdown, safeTheme, {
+    userComponents: safeUserComponents(options.userComponents),
+  })
   const validation = validateHtml(html)
 
   const components = parseComponents(markdown)

@@ -21,11 +21,12 @@
 
 ## 功能
 
-- 13 个 MCP 工具：主题管理、组件查询、分析/生成/**微调**主题、**片段**/整篇渲染、校验、发布、**落盘交接**。
+- **15 个 MCP 工具**：主题管理、组件查询/**自定义组件**、分析/生成/**微调**主题、**片段**/整篇渲染、校验、发布、**落盘交接**。
   既可以整篇一步到位，也可以拆成小原语逐步迭代（见 [排版工作流](#排版工作流)）。
-- 22 个富组件：图片图注/多图网格/图文卡片/自动轮播、卡片/时间线/步骤条/对比/引用卡/目录、
+- 22 个内置富组件 + **可自定义新组件**（用 HTML 模板定义，存本地组件库，用 `:::名字` 调用）：图片图注/多图网格/图文卡片/自动轮播、卡片/时间线/步骤条/对比/引用卡/目录、
   分割线/章节标题/标签/提示框/背景/画布/描边动画、点击展开/进度条/呼吸强调、封面/结尾卡片。
-  用 `:::card{title="…"}` … `:::` 语法书写，可嵌套，正文继续用 Markdown。
+  用 `:::card{title="…"}` … `:::` 语法书写，可嵌套，正文继续用 Markdown；
+  组件样式可按「组件 → 部位」精确覆盖（见下）。
 - 26 套预置主题（6 套原创 + 20 套 WeMD 移植），支持保存自定义主题和 LLM 生成主题。
 - 三档微信 CSS 白名单，经真实草稿 API 实测校准；输出全部为内联样式，不依赖 `<style>` / `<link>` / `class`。
 - 动态交互全部是内联 SVG + SMIL（微信正文禁 JS），点击展开、自动轮播、进度生长在读者端真实生效。
@@ -40,7 +41,7 @@
 │  list_themes · list_saved_themes · generate_theme · tweak_theme      │
 │  save_theme · export_theme · list_components                         │
 │  analyze_article · render_fragment · render_preview · validate_article│
-│  publish_draft · save_article                                        │
+│  publish_draft · save_article · save_component · delete_component    │
 └──────────────┬──────────────────────────┬───────────────────────────┘
          MCP (stdio / Streamable HTTP)         REST API (/themes … /drafts)
                │                                │

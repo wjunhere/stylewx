@@ -6,6 +6,7 @@ import { contrastText, darken, lighten, mix, parseColor } from './color.js'
 import { measureEm, truncateEm, wrapText } from './text.js'
 import { COMPONENT_CATALOG, COMPONENT_SLOTS, catalogToMarkdown, getComponentSpec } from './catalog.js'
 import { formatProps, htmlToMarkdown } from './reverse.js'
+import type { UserComponentDef } from './user-component.js'
 import type { ComponentNode, RenderContext } from './types.js'
 
 /** 测试用的极简 Markdown 渲染器：只把 **粗体** 转成 <strong>，段落包 <p>。 */
@@ -385,5 +386,89 @@ describe('组件样式覆盖（root / * / 语义槽位）', () => {
     ctx.componentStyles = { card: { nosuchslot: { color: '#f00' } } }
     render(':::card{title="标题"}\n正文\n:::', ctx)
     expect(ctx.diagnostics.some((d) => d.message.includes('nosuchslot'))).toBe(true)
+  })
+})
+
+describe('用户自定义组件（模板引擎）', () => {
+  const def: UserComponentDef = {
+    name: 'brand-quote',
+    description: '测试用',
+    template:
+      '<div data-swx-slot="card" style="color:{{theme.primary}}">' +
+      '<div data-swx-slot="title">{{title}}</div>' +
+      '{{#if author}}<div data-swx-slot="author">— {{author}}</div>{{/if}}' +
+      '{{#unless compact}}<div data-swx-slot="body">{{body}}</div>{{/unless}}' +
+      '{{#each body}}<div data-swx-slot="row">{{@index}}|{{this.0}}|{{this.1}}</div>{{/each}}' +
+      '<div>{{rawHtml|raw}}</div>' +
+      '</div>',
+  }
+
+  function renderUser(md: string, extra?: Partial<RenderContext>) {
+    const ctx = makeCtx()
+    ctx.userComponents = { [def.name]: def }
+    Object.assign(ctx, extra ?? {})
+    return { html: render(md, ctx), ctx }
+  }
+
+  it('插值默认转义，|raw 不转义', () => {
+    const { html } = renderUser(':::brand-quote{title="<b>" rawHtml="<i>x</i>"}\n正文\n:::')
+    // 默认转义：不能出现真实的 <b> 元素（转义形式可能是 &lt; 或 &#x3C;）
+    expect(html).not.toMatch(/<b>/)
+    expect(html).toMatch(/&#x3C;b>|&lt;b&gt;/)
+    // |raw 原样输出
+    expect(html).toContain('<i>x</i>')
+  })
+
+  it('主题配色注入（{{theme.primary}}）', () => {
+    const { html } = renderUser(':::brand-quote{title="t"}\n正文\n:::')
+    expect(html).toContain('#0b6bff')
+  })
+
+  it('#if / #unless 条件块', () => {
+    const withAuthor = renderUser(':::brand-quote{title="t" author="张三"}\n正文\n:::').html
+    expect(withAuthor).toContain('张三')
+    const noAuthor = renderUser(':::brand-quote{title="t"}\n正文\n:::').html
+    expect(noAuthor).not.toContain('—')
+    // unless compact：给了 compact 就不再输出 body 容器
+    const compact = renderUser(':::brand-quote{title="t" compact="true"}\n正文\n:::').html
+    expect(compact).not.toContain('data-swx-slot="body"')
+  })
+
+  it('#each body 按行迭代，this / this.N / @index 可用', () => {
+    const { html } = renderUser(':::brand-quote{title="t"}\nA | 1\nB | 2\n:::')
+    expect(html).toContain('1|A|1')
+    expect(html).toContain('2|B|2')
+  })
+
+  it('渲染后剥离模板里的 slot 标记', () => {
+    const { html } = renderUser(':::brand-quote{title="t"}\n正文\n:::')
+    expect(html).not.toContain('data-swx-slot')
+  })
+
+  it('缺少必需参数 → 诊断', () => {
+    // title 不在 #if 里，缺失应报警
+    const { ctx } = renderUser(':::brand-quote\n正文\n:::')
+    expect(ctx.diagnostics.some((d) => d.message.includes('title'))).toBe(true)
+  })
+
+  it('给了模板没用到的参数 → 诊断（防参数名拼错）', () => {
+    const { ctx } = renderUser(':::brand-quote{title="t" tagline="x"}\n正文\n:::')
+    expect(ctx.diagnostics.some((d) => d.message.includes('tagline'))).toBe(true)
+  })
+
+  it('未知组件名不再按未知处理（有定义就渲染）', () => {
+    const { html } = renderUser(':::brand-quote{title="标题"}\n正文\n:::')
+    expect(html).toContain('标题')
+    expect(html).toContain('data-swx="brand-quote"')
+    // 自定义组件按 raw body 存原文，保证往返无损
+    expect(html).toContain('data-swx-src=')
+  })
+
+  it('自定义组件同样支持主题级样式覆盖', () => {
+    const ctx = makeCtx()
+    ctx.userComponents = { [def.name]: def }
+    ctx.componentStyles = { 'brand-quote': { title: { 'letter-spacing': '9px' } } }
+    const html = render(':::brand-quote{title="x"}\n正文\n:::', ctx)
+    expect(html).toContain('letter-spacing:9px')
   })
 })

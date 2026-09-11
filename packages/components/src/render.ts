@@ -9,6 +9,7 @@ import { articleComponents } from './components/article.js'
 import { parseComponents } from './parse.js'
 import { escapeAttr } from './style.js'
 import { ALL_SLOT, ROOT_SLOT, applyComponentStyles } from './overrides.js'
+import { renderUserComponent } from './user-component.js'
 import type { ComponentNode, ComponentRenderer, HeadingInfo, RenderContext, RenderNode } from './types.js'
 
 /** 全部已注册组件。 */
@@ -47,8 +48,8 @@ function encodeProps(props: Record<string, string>): string {
  * 给组件根元素写入机器可读标记，供 HTML 导入时精确还原为 ::: 指令。
  * 实测微信 draft/add → draft/get 会完整保留 data-* 属性（含 SVG 元素），因此发布后的文章同样可回导。
  */
-function markerAttrs(node: ComponentNode): string {
-  const useSrc = RAW_BODY.has(node.name) || PROPS_ONLY.has(node.name)
+function markerAttrs(node: ComponentNode, isUserComponent = false): string {
+  const useSrc = isUserComponent || RAW_BODY.has(node.name) || PROPS_ONLY.has(node.name)
   let attrs = ` data-swx="${escapeAttr(node.name)}"`
   const propsEnc = encodeProps(node.props)
   if (propsEnc) attrs += ` data-swx-props="${escapeAttr(propsEnc)}"`
@@ -58,7 +59,7 @@ function markerAttrs(node: ComponentNode): string {
 }
 
 /** 把标记注入到渲染结果的第一个元素开标签里。 */
-function injectMarker(html: string, node: ComponentNode): string {
+function injectMarker(html: string, node: ComponentNode, isUserComponent = false): string {
   const leading = html.length - html.trimStart().length
   const body = html.slice(leading)
   if (!body.startsWith("<") || body.startsWith("<!")) return html
@@ -66,7 +67,7 @@ function injectMarker(html: string, node: ComponentNode): string {
   if (end === -1) return html
   const open = body.slice(0, end)
   const rest = body.slice(end)
-  const attrs = markerAttrs(node)
+  const attrs = markerAttrs(node, isUserComponent)
   const patched = open.endsWith("/") ? `${open.slice(0, -1)}${attrs} /${rest}` : `${open}${attrs}${rest}`
   return html.slice(0, leading) + patched
 }
@@ -76,7 +77,9 @@ const SELF_CONTAINED = new Set(['toc', 'divider', 'section-title', 'badge', 'pro
 
 /** 渲染单个组件节点。 */
 export function renderComponent(node: ComponentNode, ctx: RenderContext): string {
-  const renderer = COMPONENT_RENDERERS[node.name]
+  const builtin = COMPONENT_RENDERERS[node.name]
+  const userDef = builtin ? undefined : ctx.userComponents?.[node.name]
+  const renderer = builtin
   if (renderer && SELF_CONTAINED.has(node.name) && node.body.trim()) {
     ctx.diagnostics.push({
       level: 'warning',
@@ -85,11 +88,11 @@ export function renderComponent(node: ComponentNode, ctx: RenderContext): string
       line: node.line,
     })
   }
-  if (!renderer) {
+  if (!renderer && !userDef) {
     ctx.diagnostics.push({
       level: 'warning',
       component: node.name,
-      message: `未知组件「${node.name}」，已按普通 Markdown 渲染其正文。可用组件见 list_components。`,
+      message: `未知组件「${node.name}」，已按普通 Markdown 渲染其正文。可用组件见 list_components（含你的自定义组件）。`,
       line: node.line,
     })
     return ctx.renderMarkdown(node.body)
@@ -97,10 +100,12 @@ export function renderComponent(node: ComponentNode, ctx: RenderContext): string
   const overrides = ctx.componentStyles?.[node.name]
   // 只有存在覆盖时才开启部位标记，未使用时输出与之前完全一致
   const prevSlotEnabled = ctx.slotEnabled
-  ctx.slotEnabled = Boolean(overrides)
+  ctx.slotEnabled = Boolean(overrides) && Boolean(renderer)
   let raw: string
   try {
-    raw = renderer(node, ctx)
+    raw = renderer
+      ? renderer(node, ctx)
+      : renderUserComponent(userDef as never, node, ctx, ctx.renderChildren(node)).html
   } finally {
     ctx.slotEnabled = prevSlotEnabled
   }
@@ -121,7 +126,7 @@ export function renderComponent(node: ComponentNode, ctx: RenderContext): string
     }
   }
 
-  return injectMarker(html, node)
+  return injectMarker(html, node, Boolean(userDef))
 }
 
 /** 渲染节点序列。 */

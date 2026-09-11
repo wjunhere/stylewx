@@ -22,12 +22,15 @@ import {
   asServiceError,
   tweakTheme,
   saveArticle,
+  saveUserComponent,
+  deleteUserComponent,
+  listSavedComponents,
 } from '@stylewx/service'
 import type { ServiceError } from '@stylewx/service'
 import type { LlmClient } from '@stylewx/service'
 import type { WeChatClient } from '@stylewx/publisher'
 import type { Theme } from '@stylewx/theme'
-import { COMPONENT_CATALOG, CATEGORY_LABELS, catalogToMarkdown } from '@stylewx/components'
+import { COMPONENT_CATALOG, CATEGORY_LABELS, catalogToMarkdown, slotsForComponent } from '@stylewx/components'
 import type { ComponentCategory } from '@stylewx/components'
 
 export interface ToolDeps {
@@ -200,7 +203,7 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
         '在 render_preview / publish_draft 之前调用它，可以避免写出不存在的组件或参数。',
       inputSchema: {
         category: z
-          .enum(['image', 'structure', 'decor', 'interactive', 'article'])
+          .enum(['image', 'structure', 'decor', 'interactive', 'article', 'custom'])
           .optional()
           .describe('只返回某一类组件；缺省返回全部。'),
         format: z
@@ -238,15 +241,31 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
             catalogToMarkdown(categories),
         )
       }
-      const components = categories
-        ? COMPONENT_CATALOG.filter((c) => categories.includes(c.category))
-        : COMPONENT_CATALOG
+      const builtin = COMPONENT_CATALOG.map((c) => ({
+        ...c,
+        origin: 'builtin' as const,
+        slots: c.slots ?? slotsForComponent(c.name),
+      }))
+      // 本地自定义组件也一并返回，agent 才知道自己定义过什么
+      const user = listSavedComponents().components.map((c) => ({
+        name: c.name,
+        category: 'custom' as const,
+        summary: c.description || '自定义组件',
+        example: `:::${c.name}\n正文\n:::`,
+        template: c.template,
+        defaults: c.defaults,
+        origin: 'user' as const,
+        slots: c.slots ?? ['root', '*'],
+      }))
+      const all = [...builtin, ...user]
+      const components = categories ? all.filter((c) => categories.includes(c.category)) : all
       return textResult({
         syntax: {
           single: ':::card{title="标题"}\n正文\n:::',
           nested: '::::canvas{tone="paper"}\n:::card{title="标题"}\n正文\n:::\n::::',
           note: '组件可嵌套，外层用更多冒号；每个组件都必须用相同冒号数闭合。',
         },
+        categories: CATEGORY_LABELS,
         components,
       })
     }),
@@ -503,6 +522,43 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
       },
     },
     wrap(async ({ markdown, path, title }) => textResult(saveArticle({ markdown, path, title }))),
+  )
+
+  // ---- save_component ----
+  server.registerTool(
+    'save_component',
+    {
+      title: '定义自定义组件',
+      description:
+        '用 HTML 模板定义一个新的富组件，存到本地组件库（~/.stylewx/components.json），之后用 `:::名字` 调用。' +
+        '模板语法：`{{prop}}` 参数（默认转义，`{{prop|raw}}` 不转义）、`{{body}}` 正文、`{{theme.primary}}` 等主题配色、' +
+        '`{{#if prop}}…{{/if}}` 条件、`{{#each body}}…{{/each}}` 按正文行迭代（块内 `{{this}}` / `{{this.0}}` / `{{@index}}`）。' +
+        '模板里写 `data-swx-slot="title"` 可声明可被主题样式覆盖的部位。' +
+        '保存前会用一个样例输入渲染并跑微信校验：script/style/iframe 等标签、on* 事件、position/filter 等属性会被直接拒绝。',
+      inputSchema: {
+        name: z.string().describe('组件名：小写字母开头，只能含小写字母/数字/连字符，例如 brand-quote。不能与内置组件重名。'),
+        template: z.string().describe('HTML 模板，必须至少产出一个元素。'),
+        description: z.string().optional().describe('组件说明（面向后续调用它的 agent）。'),
+        defaults: z.record(z.string(), z.string()).optional().describe('参数默认值，例如 { tone: "primary" }。'),
+        slots: z.array(z.string()).optional().describe('声明可定制部位（与模板里的 data-swx-slot 对应）。'),
+      },
+    },
+    wrap(async ({ name, template, description, defaults, slots }) =>
+      textResult(saveUserComponent({ name, template, description, defaults, slots })),
+    ),
+  )
+
+  // ---- delete_component ----
+  server.registerTool(
+    'delete_component',
+    {
+      title: '删除自定义组件',
+      description: '从本地组件库删除一个自定义组件。内置组件不受影响。',
+      inputSchema: {
+        name: z.string().describe('要删除的自定义组件名。'),
+      },
+    },
+    wrap(async ({ name }) => textResult(deleteUserComponent(name))),
   )
 }
 

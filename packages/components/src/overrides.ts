@@ -99,7 +99,10 @@ export function applyComponentStyles(
   const rootStyle = overrides?.[ROOT_SLOT]
   const hasInstance = Boolean(instanceStyle && instanceStyle.trim())
   const instance = hasInstance ? parseStyleDeclarations(instanceStyle) : undefined
-  if (!all && !rootStyle && !instance && !overrides) return { html, appliedSlots: [] }
+  // 注意：模板里可能自带 data-swx-slot（自定义组件），即使没有覆盖也要剥离
+  if (!all && !rootStyle && !instance && !overrides && !html.includes('data-swx-slot')) {
+    return { html, appliedSlots: [] }
+  }
 
   const processor = unified().use(rehypeParse, { fragment: true }).use(rehypeStringify)
   const tree = processor.parse(html) as unknown as HastNode

@@ -66,7 +66,7 @@ const call = async (name, args) => {
 // 0) 工具面
 const tools = (await client.listTools()).tools.map((t) => t.name).sort()
 console.log('[0] 工具数 =', tools.length)
-assert(tools.length === 13, '应有 13 个工具')
+assert(tools.length === 15, '应有 15 个工具')
 assert(tools.includes('tweak_theme') && tools.includes('render_fragment') && tools.includes('save_article'), '缺新工具')
 
 // 1) 查组件
@@ -119,4 +119,4 @@ console.log('[6] 读回长度 =', (back.markdown ?? '').length, '| 一致 =', ba
 assert(back.markdown === full, '读回内容应与落盘一致')
 
 await client.close()
-console.log('\n✅ 分步工作流端到端通过（13 工具 / 微调 / 逐段 / 整篇 / 交接读回）')
+console.log('\n✅ 分步工作流端到端通过（15 工具 / 微调 / 逐段 / 整篇 / 交接读回）')

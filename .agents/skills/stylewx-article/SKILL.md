@@ -45,6 +45,9 @@ list_themes                  # 预置主题（含完整 token/block，可直接�
 
 ### 2. 拆结构
 
+如果内置组件覆盖不到某种表达（数据对比条、评分卡、CTA 块…），先用 `save_component` 定义它，
+再在正文里用 `:::名字` 调用。**先把「没现成组件」的部分补齐，再逐节写。**
+
 先列出骨架：标题 + 每节打算用什么组件。**不要一次写全文。**
 
 ### 3. 逐节写 + 逐节验证
@@ -137,6 +140,44 @@ save_article{markdown, title}
 - 覆盖值同样要过微信白名单：`position`、`filter` 会被直接拒绝。
 - `*` 不会进入嵌套组件内部，别指望用外层 `*` 去改内层组件。
 - 不要为了改一处样式重新 `generate_theme`；用 `tweak_theme` 的 `components` 秒回。
+
+---
+## 定义新组件（内置 22 个不够用时）
+
+用 `save_component` 把一个 HTML 模板存成新组件，之后用 `:::名字` 调用。
+适合内置组件覆盖不到的表达（数据条、评分卡、时间轴表、CTA 块…）。
+
+```
+save_component{
+  name: "stat-list",
+  description: "数据条：按正文行渲染「名称 | 数值」两列",
+  template: "<div style=\"background:{{theme.cardBg}};border-radius:{{theme.radius}};padding:12px 16px\">{{#each body}}<div style=\"display:flex;justify-content:space-between\"><span>{{this.0}}</span><span>{{this.1}}</span></div>{{/each}}</div>"
+}
+```
+
+模板语法：
+
+| 写法 | 含义 |
+| --- | --- |
+| `{{prop}}` | 参数值，默认转义；`{{prop\|raw}}` 不转义 |
+| `{{body}}` | 正文（Markdown 已渲染） |
+| `{{theme.primary}}` | 主题配色——**别把颜色写死**，否则换主题不跟着变 |
+| `{{#if prop}}…{{/if}}` | 条件（可选参数放这里，不会报缺参） |
+| `{{#each body}}…{{/each}}` | 按正文行迭代，块内 `{{this}}` / `{{this.0}}` / `{{@index}}` |
+| `data-swx-slot="title"` | 声明可被主题样式覆盖的部位 |
+
+可用主题键：`primary` `primarySoft` `text` `muted` `weak` `cardBg` `cardBorder`
+`divider` `canvasBg` `fontSize` `lineHeight` `blockGap` `radius` `radiusLg`。
+
+**保存时会自动做微信校验**：`script`/`style`/`iframe`、`on*` 事件、`position`/`filter`
+都会被直接拒绝。模板至少要产出一个元素。
+
+**两类诊断会帮你自查**：
+- 模板用了 `{{x}}` 但没给 `x` → 提示「引用了未提供的参数」
+- 给了 `x` 但模板没用 → 提示「收到了参数但模板没有使用它（可能拼错了参数名）」
+
+自定义组件同样支持样式覆盖（`components.<名字>.<部位>`）与 HTML 往返导入。
+用 `delete_component` 删除。
 
 ---
 ## 组件选择速查
