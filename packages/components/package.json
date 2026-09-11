@@ -1,6 +1,6 @@
 {
   "name": "@stylewx/components",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "stylewx rich component library: Markdown directive syntax (:::card / :::gallery / :::carousel …) compiled to WeChat-safe inline-style HTML + SVG/SMIL interactions. Isomorphic (no DOM / no Node-only APIs).",
   "type": "module",
   "main": "./dist/index.js",
