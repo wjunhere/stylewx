@@ -8,6 +8,7 @@ import { interactiveComponents } from './components/interactive.js'
 import { articleComponents } from './components/article.js'
 import { parseComponents } from './parse.js'
 import { escapeAttr } from './style.js'
+import { ALL_SLOT, ROOT_SLOT, applyComponentStyles } from './overrides.js'
 import type { ComponentNode, ComponentRenderer, HeadingInfo, RenderContext, RenderNode } from './types.js'
 
 /** 全部已注册组件。 */
@@ -93,7 +94,34 @@ export function renderComponent(node: ComponentNode, ctx: RenderContext): string
     })
     return ctx.renderMarkdown(node.body)
   }
-  return injectMarker(renderer(node, ctx), node)
+  const overrides = ctx.componentStyles?.[node.name]
+  // 只有存在覆盖时才开启部位标记，未使用时输出与之前完全一致
+  const prevSlotEnabled = ctx.slotEnabled
+  ctx.slotEnabled = Boolean(overrides)
+  let raw: string
+  try {
+    raw = renderer(node, ctx)
+  } finally {
+    ctx.slotEnabled = prevSlotEnabled
+  }
+
+  const { html, appliedSlots } = applyComponentStyles(raw, overrides, node.props.style)
+
+  // 诊断：主题里写了某个部位，但组件没有这个部位 → 明确告知，避免静默失效
+  if (overrides) {
+    for (const key of Object.keys(overrides)) {
+      if (key === ROOT_SLOT || key === ALL_SLOT) continue
+      if (appliedSlots.includes(key)) continue
+      ctx.diagnostics.push({
+        level: 'warning',
+        component: node.name,
+        message: `主题里为 :::${node.name} 配置了「${key}」部位，但该组件没有这个部位，覆盖未生效。可用部位见 list_components。`,
+        line: node.line,
+      })
+    }
+  }
+
+  return injectMarker(html, node)
 }
 
 /** 渲染节点序列。 */

@@ -206,3 +206,80 @@ node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
 
 `examples/component-showcase.md` 的实测结果：**21/21 组件标记一致、纯文本一致**；
 从微信取回的 HTML 回导后 **16/16 组件类型全部还原**，标题与嵌套冒号均正确，0 条警告。
+
+---
+
+## 7. 自定义组件样式
+
+组件样式分三层，**自由度只受微信白名单限制**，不受组件实现限制。
+
+### 7.1 主题级覆盖（可复用，推荐）
+
+主题里新增 `components` 段，按「组件名 → 部位 → 声明」三层寻址：
+
+```json
+{
+  "components": {
+    "card": {
+      "root":  { "padding": "20px 24px", "border-left-width": "6px", "background-color": "#fffdf5" },
+      "title": { "font-size": "19px", "letter-spacing": "1px" },
+      "body":  { "line-height": "1.9" },
+      "*":     { "font-family": "Georgia, serif" }
+    },
+    "badge": { "root": { "border-radius": "6px", "padding": "2px 12px" } }
+  }
+}
+```
+
+| 寻址键 | 命中范围 |
+| --- | --- |
+| `root` | 组件最外层元素 |
+| `*` | 组件内所有元素（适合统一字体/颜色/行高这类可继承属性） |
+| 语义部位 | 渲染器标记过的具体部位，如 `title` `body` `footer` `dot` `label`… |
+
+**优先级**（后者覆盖前者）：`*` → `root` 或语义部位 → 实例级 `style`。
+
+各组件支持哪些部位，由 `list_components` 返回的 `slots` 字段给出：
+
+| 组件 | 可定制部位 |
+| --- | --- |
+| `card` | `root` `*` `title` `titleIcon` `body` `footer` |
+| `callout` | `root` `*` `title` `body` |
+| `quote` | `root` `*` `text` `author` |
+| `section-title` | `root` `*` `index` `title` `underline` `subtitle` |
+| `image` | `root` `*` `img` `caption` |
+| `end-card` / `follow` | `root` `*` `title` `text` `footer` |
+| 其余组件 | `root` `*` |
+
+写了不存在的部位不会静默失效——`render_preview` / `render_fragment` 会返回诊断：
+`主题里为 :::card 配置了「nosuch」部位，但该组件没有这个部位，覆盖未生效。`
+
+### 7.2 实例级覆盖（一次性微调）
+
+给单个实例加 `style` 参数，只作用于该组件最外层，优先级高于主题：
+
+```
+:::card{title="核心结论" style="border-left-width:5px;padding:18px 20px"}
+正文
+:::
+```
+
+### 7.3 通过 agent 下发
+
+`tweak_theme` 支持 `components` 参数，确定性、秒回、不烧 LLM：
+
+```json
+{
+  "theme": "tech-minimal",
+  "components": { "card": { "root": { "padding": "20px" } } }
+}
+```
+
+传 `null` 可清空某组件的覆盖：`{ "components": { "card": null } }`。
+
+### 7.4 安全与约束
+
+- 覆盖值会被**真实微信实测**的白名单校验：`position` / `filter` 等硬禁止属性直接报错。
+- `data-swx-slot` 是渲染期的临时标记，应用覆盖后会被剥离，**不会出现在最终产物里**；
+  没有配置任何覆盖时，组件输出与之前**逐字节一致**（有回归测试保证）。
+- `*` 不会进入嵌套组件的子树——外层组件的 `*` 不会污染内层组件自己的样式。

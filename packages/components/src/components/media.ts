@@ -60,12 +60,12 @@ function renderImage(node: ComponentNode, ctx: RenderContext): string {
     'object-fit': prop(p, 'fit', 'cover') || undefined,
   })
 
-  const img = `<img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}" style="${imgStyle}"/>`
+  const img = `<img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}"${ctx.slot('img')} style="${imgStyle}"/>`
   const linked = href ? `<a href="${escapeAttr(href)}">${img}</a>` : img
 
   const captionHtml = caption
     ? overlay
-      ? `<div style="${css({
+      ? `<div${ctx.slot('caption')} style="${css({
           'background-color': barTone === 'dark' ? '#22262b' : palette.cardBg,
           color: barTone === 'dark' ? '#ffffff' : palette.muted,
           'font-size': '12.5px',
@@ -73,7 +73,7 @@ function renderImage(node: ComponentNode, ctx: RenderContext): string {
           padding: '7px 12px',
           'border-radius': `0 0 ${palette.radius} ${palette.radius}`,
         })}">${escapeHtml(caption)}</div>`
-      : `<div style="${css({
+      : `<div${ctx.slot('caption')} style="${css({
           'font-size': '12.5px',
           color: palette.weak,
           'text-align': 'center',

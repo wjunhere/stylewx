@@ -23,7 +23,7 @@ import type {
   HeadingInfo,
   RenderContext,
 } from '@stylewx/components'
-import type { PaletteTokens } from '@stylewx/components'
+import type { PaletteTokens, ComponentStyleOverrides } from '@stylewx/components'
 
 interface HastLike {
   type?: string
@@ -147,6 +147,8 @@ const DEFAULT_TOKENS: PaletteTokens = {
 export interface MarkdownRenderOptions {
   /** 主题 tokens（决定组件配色）。缺省使用中性蓝默认配色。 */
   theme?: PaletteTokens
+  /** 组件级样式覆盖（theme.components）。 */
+  componentStyles?: ComponentStyleOverrides
   /** 组件渲染诊断回调（未知组件、缺参数等）。 */
   onDiagnostic?: (diagnostic: ComponentDiagnostic) => void
 }
@@ -182,6 +184,8 @@ export function markdownToHtml(markdown: string, options: MarkdownRenderOptions 
   const ctx: RenderContext = {
     renderMarkdown: renderMarkdownSegment,
     renderChildren: () => '',
+    slot: (name: string) => (ctx.slotEnabled ? ` data-swx-slot="${name}"` : ''),
+    componentStyles: options.componentStyles,
     palette: buildPalette(options.theme ?? DEFAULT_TOKENS),
     headings: collectHeadings(markdown),
     diagnostics,

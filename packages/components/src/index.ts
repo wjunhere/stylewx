@@ -1,5 +1,6 @@
 export * from './types.js'
 export * from './parse.js'
+export * from './overrides.js'
 export * from './reverse.js'
 export * from './render.js'
 export * from './catalog.js'

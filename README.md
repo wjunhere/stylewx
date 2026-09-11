@@ -192,6 +192,10 @@ pnpm --filter @stylewx/api dev
 ::::
 ```
 
+组件样式可由主题统一定制：`components.<组件名>.<部位>` 可覆盖 `root`（最外层）、`*`（内部所有元素）
+与语义部位（`title` / `body` / `footer` …），也可用实例级 `style` 一次性微调；
+自由度只受微信白名单限制。细节见 [docs/COMPONENTS.md](./docs/COMPONENTS.md)。
+
 完整组件清单、参数与微信端约束见 [docs/COMPONENTS.md](./docs/COMPONENTS.md)，
 或调用 MCP 工具 `list_components`。完整示例见 [examples/component-showcase.md](./examples/component-showcase.md)。
 
@@ -240,7 +244,7 @@ save_article → 返回 editorUrl → 你在本地编辑器微调
 | `list_themes` | 列出预置 + 已保存主题（含完整 token/block，可直接复用） | — |
 | `list_saved_themes` | 列出本地已保存的自定义/AI 主题（`~/.stylewx/themes.json`） | — |
 | `generate_theme` | LLM 生成主题（可 `save` 存档），内置自检修复循环，失败时降级并标记 `fallback` | `prompt` / `article` / `baseTheme` / `save` |
-| `tweak_theme` | 在现有主题上做**确定性微调**（改 token 或元素 CSS），秒回、不烧 LLM | `theme`, `tokens` / `blocks` |
+| `tweak_theme` | 在现有主题上做**确定性微调**（改 token / Markdown 元素 CSS / **组件部位样式**），秒回、不烧 LLM | `theme`, `tokens` / `blocks` / `components` |
 | `save_theme` | 保存主题到本地主题库（过 Schema + 微信白名单校验） | `theme` / `name` |
 | `export_theme` | 导出主题为完整 JSON（已存/预置/对象） | `theme` |
 

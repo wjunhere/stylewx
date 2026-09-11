@@ -108,7 +108,7 @@ function renderSectionTitle(node: ComponentNode, ctx: RenderContext): string {
   const center = prop(p, 'align', 'left') === 'center'
 
   const indexHtml = index
-    ? `<div style="${css({
+    ? `<div${ctx.slot('index')} style="${css({
         'font-size': '30px',
         'font-weight': '800',
         color: tone.base,
@@ -119,7 +119,7 @@ function renderSectionTitle(node: ComponentNode, ctx: RenderContext): string {
       })}">${escapeHtml(index)}</div>`
     : ''
 
-  const titleHtml = `<div style="${css({
+  const titleHtml = `<div${ctx.slot('title')} style="${css({
     'font-size': '19px',
     'font-weight': '700',
     color: palette.text,
@@ -127,7 +127,7 @@ function renderSectionTitle(node: ComponentNode, ctx: RenderContext): string {
     'letter-spacing': '0.5px',
   })}">${escapeHtml(title)}</div>`
 
-  const underline = `<div style="${css({
+  const underline = `<div${ctx.slot('underline')} style="${css({
     width: '36px',
     height: '3px',
     'border-radius': '2px',
@@ -136,7 +136,7 @@ function renderSectionTitle(node: ComponentNode, ctx: RenderContext): string {
   })}"></div>`
 
   const subtitleHtml = subtitle
-    ? `<div style="${css({
+    ? `<div${ctx.slot('subtitle')} style="${css({
         'font-size': '12.5px',
         color: palette.weak,
         'letter-spacing': '1.5px',
@@ -204,7 +204,7 @@ function renderCallout(node: ComponentNode, ctx: RenderContext): string {
     'border-radius': palette.radiusSm,
     padding: '12px 16px',
   })}">` +
-    `<div style="${css({
+    `<div${ctx.slot('title')} style="${css({
       display: 'flex',
       'align-items': 'center',
       gap: '7px',
@@ -225,7 +225,7 @@ function renderCallout(node: ComponentNode, ctx: RenderContext): string {
       'flex-shrink': 0,
     })}">${escapeHtml(icon)}</span>` +
     `<span>${escapeHtml(title)}</span></div>` +
-    `<div data-swx-body="1" style="${css({ 'font-size': '13.5px', color: palette.text, 'line-height': '1.75' })}">${ctx.renderChildren(
+    `<div data-swx-body="1"${ctx.slot('body')} style="${css({ 'font-size': '13.5px', color: palette.text, 'line-height': '1.75' })}">${ctx.renderChildren(
       node,
     )}</div></div>`
 }

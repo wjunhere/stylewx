@@ -19,6 +19,8 @@ export interface ComponentSpec {
   example: string
   props?: ComponentPropSpec[]
   notes?: string
+  /** 支持的样式覆盖寻址键（root / * / 语义部位），由 COMPONENT_SLOTS 提供。 */
+  slots?: string[]
 }
 
 export const CATEGORY_LABELS: Record<ComponentCategory, string> = {
@@ -369,11 +371,41 @@ export function catalogToMarkdown(categories?: ComponentCategory[]): string {
     if (items.length === 0) continue
     lines.push(`### ${CATEGORY_LABELS[category]}`)
     for (const item of items) {
-      lines.push(`- \`:::${item.name}\` — ${item.summary}`)
+      const slots = slotsForComponent(item.name).filter((x) => x !== 'root' && x !== '*')
+      lines.push(`- \`:::${item.name}\` — ${item.summary}${slots.length ? `（可定制部位：root / * / ${slots.join(' / ')}）` : '（可定制：root / *）'}`)
       lines.push('```')
       lines.push(item.example)
       lines.push('```')
     }
   }
   return lines.join('\n')
+}
+
+/**
+ * 各组件支持的样式覆盖寻址键（主题 `components.<组件名>.<部位>`）。
+ *
+ * - `root` 组件最外层；`*` 组件内所有元素（这两个所有组件都有）
+ * - 其余是语义部位，由渲染器用 `data-swx-slot` 标记
+ *
+ * 未登记的组件只支持 `root` 与 `*`。该表由 `components.test.ts` 逐项自校验：
+ * 声明的每个部位都必须能被覆盖真实命中，防止登记表与实现漂移。
+ */
+export const COMPONENT_SLOTS: Record<string, string[]> = {
+  card: ['root', '*', 'title', 'titleIcon', 'body', 'footer'],
+  callout: ['root', '*', 'title', 'body'],
+  quote: ['root', '*', 'text', 'author'],
+  'section-title': ['root', '*', 'index', 'title', 'underline', 'subtitle'],
+  image: ['root', '*', 'img', 'caption'],
+  'end-card': ['root', '*', 'title', 'text', 'footer'],
+  follow: ['root', '*', 'title', 'text', 'footer'],
+}
+
+/** 取某组件支持的寻址键；未登记则返回通用的 root / *。 */
+export function slotsForComponent(name: string): string[] {
+  return COMPONENT_SLOTS[name] ?? ['root', '*']
+}
+
+// 把槽位挂到目录条目上（list_components 直接返回，agent 不用猜）
+for (const spec of COMPONENT_CATALOG) {
+  spec.slots = slotsForComponent(spec.name)
 }

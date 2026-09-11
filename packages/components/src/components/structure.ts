@@ -39,7 +39,7 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
   const variant = prop(p, 'variant', 'soft')
 
   const header = title
-    ? `<div style="${css({
+    ? `<div${ctx.slot('title')} style="${css({
         display: 'flex',
         'align-items': 'center',
         gap: '7px',
@@ -51,7 +51,7 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
         'margin-bottom': '11px',
       })}">${
         icon
-          ? `<span style="${css({ 'font-size': '16px', 'line-height': '1' })}">${escapeHtml(icon)}</span>`
+          ? `<span${ctx.slot('titleIcon')} style="${css({ 'font-size': '16px', 'line-height': '1' })}">${escapeHtml(icon)}</span>`
           : `<span style="${css({
               width: '4px',
               height: '15px',
@@ -65,7 +65,7 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
 
   const inner = ctx.renderChildren(node)
   const footerHtml = footer
-    ? `<div style="${css({
+    ? `<div${ctx.slot('footer')} style="${css({
         'font-size': '12.5px',
         color: palette.weak,
         'margin-top': '10px',
@@ -84,7 +84,7 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
     'box-shadow': variant === 'raised' ? `0 6px 20px ${tone.soft}` : undefined,
   })
 
-  return `<div style="${outer}">${header}<div data-swx-body="1">${inner}</div>${footerHtml}</div>`
+  return `<div style="${outer}">${header}<div data-swx-body="1"${ctx.slot('body')}>${inner}</div>${footerHtml}</div>`
 }
 
 /** 时间线。 */
@@ -310,7 +310,7 @@ function renderQuote(node: ComponentNode, ctx: RenderContext): string {
 
   const inner = ctx.renderChildren(node)
   const attribution = author || source
-    ? `<div style="${css({
+    ? `<div${ctx.slot('author')} style="${css({
         'font-size': '12.5px',
         color: palette.muted,
         'margin-top': '10px',
@@ -333,7 +333,7 @@ function renderQuote(node: ComponentNode, ctx: RenderContext): string {
       color: tone.base,
       'margin-bottom': '6px',
     })}">“</div>` +
-    `<div data-swx-body="1" style="${css({ 'font-size': '14px', color: palette.text, 'line-height': '1.8' })}">${inner}</div>` +
+    `<div data-swx-body="1"${ctx.slot('text')} style="${css({ 'font-size': '14px', color: palette.text, 'line-height': '1.8' })}">${inner}</div>` +
     attribution +
     `</div>`
 }

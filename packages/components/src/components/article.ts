@@ -135,7 +135,7 @@ function renderEndCard(node: ComponentNode, ctx: RenderContext): string {
     'text-align': 'center',
   })}">` +
     `<div style="${css({ 'margin-bottom': '12px' })}">${dots}</div>` +
-    `<div style="${css({
+    `<div${ctx.slot('title')} style="${css({
       'font-size': '17px',
       'font-weight': '700',
       color: tone.strong,
@@ -147,10 +147,10 @@ function renderEndCard(node: ComponentNode, ctx: RenderContext): string {
           'font-size': '13.5px',
           color: palette.muted,
           'line-height': '1.85',
-        })}"><span data-swx-body="1">${text ? ctx.renderMarkdown(text) : ctx.renderChildren(node)}</span></div>`
+        })}"><span data-swx-body="1"${ctx.slot('text')}>${text ? ctx.renderMarkdown(text) : ctx.renderChildren(node)}</span></div>`
       : '') +
     (footer
-      ? `<div style="${css({
+      ? `<div${ctx.slot('footer')} style="${css({
           'font-size': '12px',
           color: palette.weak,
           'margin-top': '14px',

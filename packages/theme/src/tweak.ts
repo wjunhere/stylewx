@@ -34,6 +34,12 @@ export interface ThemePatch {
   tokens?: Partial<Record<TweakableToken, string | number>>
   /** 直接覆盖某个 block 的 CSS 声明，例如 { p: { 'font-size': '16px' } }。 */
   blocks?: Record<string, Record<string, string>>
+  /**
+   * 组件级样式覆盖，例如 { card: { root: { padding: '20px' }, title: { 'font-size': '19px' } } }。
+   * 寻址方式：root（组件最外层）/ *（组件内所有元素）/ 语义槽位（title、body…）。
+   * 传 null 可清空该组件的覆盖。
+   */
+  components?: Record<string, Record<string, Record<string, string>> | null>
 }
 
 export interface TweakThemeResult {
@@ -54,6 +60,7 @@ export function tweakTheme(base: Theme, patch: ThemePatch): TweakThemeResult {
     description: string
     tokens: Record<string, unknown>
     blocks: Record<string, Record<string, string>>
+    components?: Record<string, Record<string, Record<string, string>>>
   }
   const changed: string[] = []
 
@@ -83,6 +90,32 @@ export function tweakTheme(base: Theme, patch: ThemePatch): TweakThemeResult {
       block[property] = value
       changed.push(`blocks.${blockName}.${property}`)
     }
+  }
+
+  // 组件级覆盖：逐槽位合并，传 null 表示清空该组件
+  if (patch.components) {
+    const current = (theme.components ?? {}) as Record<string, Record<string, Record<string, string>>>
+    for (const [componentName, slots] of Object.entries(patch.components)) {
+      if (slots === null) {
+        if (componentName in current) {
+          delete current[componentName]
+          changed.push(`components.${componentName}`)
+        }
+        continue
+      }
+      const target = current[componentName] ?? (current[componentName] = {})
+      for (const [slotName, declarations] of Object.entries(slots)) {
+        if (!declarations || typeof declarations !== "object") continue
+        const slotTarget = target[slotName] ?? (target[slotName] = {})
+        for (const [property, value] of Object.entries(declarations)) {
+          if (value === undefined || value === "") continue
+          if (slotTarget[property] === value) continue
+          slotTarget[property] = value
+          changed.push(`components.${componentName}.${slotName}.${property}`)
+        }
+      }
+    }
+    theme.components = current
   }
 
   const parsed = themeSchema.safeParse(theme)

@@ -25,6 +25,7 @@
   "dependencies": {
     "@stylewx/theme": "workspace:*",
     "rehype-parse": "^9.0.1",
+    "rehype-stringify": "^10.0.1",
     "unified": "^11.0.5"
   },
   "publishConfig": {

@@ -1,3 +1,4 @@
+import type { ComponentStyleOverrides } from './overrides.js'
 /**
  * 组件 AST 类型。
  * 组件用 `:::name{props}` … `:::` 语法书写；冒号数量用于支持嵌套（外层用更多冒号）。
@@ -32,6 +33,15 @@ export interface RenderContext {
   renderMarkdown: (markdown: string) => string
   /** 渲染组件的子节点（含嵌套组件）。由 core 注入，避免循环依赖。 */
   renderChildren: (node: ComponentNode) => string
+  /** 主题级组件样式覆盖（components.<组件名>.<部位>）。 */
+  componentStyles?: ComponentStyleOverrides
+  /**
+   * 给组件部位打标记（渲染期临时属性，应用覆盖后会被剥离）。
+   * 仅当该组件确实存在样式覆盖时才产出标记，未使用时输出与之前完全一致。
+   */
+  slot: (name: string) => string
+  /** 内部使用：当前组件是否存在样式覆盖（决定是否产出部位标记）。 */
+  slotEnabled?: boolean
   /** 组件配色（由主题 tokens 派生）。 */
   palette: ComponentPalette
   /** 文档中出现过的标题（供 toc 组件使用）。 */

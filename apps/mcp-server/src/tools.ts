@@ -145,6 +145,7 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
       description:
         '在现有主题上做确定性微调：改主色/文字色/字号/行距/字体/圆角/卡片底等 token，或直接覆盖某个元素的 CSS 声明。' +
         '秒级返回、不调用 LLM，适合「改一点再试一下」的迭代；要从零生成新主题请用 generate_theme。' +
+        '也可以传 components 做组件级样式覆盖（root / * / 语义部位）。' +
         '改动后会再过一次 Schema + 微信白名单校验，非法值返回明确错误。',
       inputSchema: {
         theme: z.union([z.string(), themeObjSchema]).describe('基础主题：预置主题名 / 已保存主题名 / 完整主题对象。'),
@@ -162,13 +163,21 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
           ),
         name: z.string().optional().describe('改主题名（保存不同版本时用）。'),
         description: z.string().optional().describe('改主题描述。'),
+        components: z
+          .record(z.string(), z.record(z.string(), z.record(z.string(), z.string())))
+          .optional()
+          .describe(
+            '组件级样式覆盖，寻址键为 root（组件最外层）/ *（组件内所有元素）/ 语义部位（title、body…）。' +
+              '例如 { card: { root: { padding: "20px" }, title: { "font-size": "19px" } } }。' +
+              '可用部位见 list_components 返回的 slots 字段；写错部位会收到诊断。',
+          ),
         preview: z.boolean().optional().describe('是否返回示例文章截图（默认 false，秒回）。'),
       },
     },
-    wrap(async ({ theme, tokens, blocks, name, description, preview }) => {
+    wrap(async ({ theme, tokens, blocks, name, description, components, preview }) => {
       const result = await tweakTheme({
         theme: theme as string | Theme,
-        patch: { tokens, blocks, name, description },
+        patch: { tokens, blocks, name, description, components },
         preview,
       })
       const content: ToolResult['content'] = [

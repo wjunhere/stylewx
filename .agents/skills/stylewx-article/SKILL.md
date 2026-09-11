@@ -89,6 +89,56 @@ save_article{markdown, title}
 把 `editorUrl` 给用户，他在本地编辑器里改。改完你可以直接读同一个 `.md` 继续迭代。
 写入范围默认限制在当前工作目录（可用 `STYLEWX_ARTICLES_DIR` 调整）。
 
+## 自定义组件样式
+
+组件样式分三层，**自由度只受微信白名单限制**：
+
+### 1. 主题级（可复用，首选）→ `tweak_theme` 的 `components`
+
+按 `组件名 → 部位 → 声明` 三层寻址：
+
+```json
+{
+  "theme": "tech-minimal",
+  "components": {
+    "card": {
+      "root":  { "padding": "20px 24px", "border-left-width": "6px" },
+      "title": { "font-size": "19px", "letter-spacing": "1px" },
+      "*":     { "line-height": "1.9" }
+    },
+    "badge": { "root": { "border-radius": "6px" } }
+  }
+}
+```
+
+| 寻址键 | 命中 |
+| --- | --- |
+| `root` | 组件最外层 |
+| `*` | 组件内所有元素（适合统一字体/颜色/行高） |
+| 语义部位 | `title` `body` `footer` … 具体见 `list_components` 的 `slots` |
+
+**动笔前先看 `list_components` 的 `slots` 字段**，别猜部位名。
+写了不存在的部位会收到诊断（不会静默失效），例如：
+`主题里为 :::card 配置了「nosuch」部位，但该组件没有这个部位，覆盖未生效。`
+
+### 2. 实例级（一次性微调）→ 组件的 `style` 参数
+
+```
+:::card{title="核心结论" style="border-left-width:5px;padding:18px 20px"}
+正文
+:::
+```
+
+只作用于该实例的最外层，优先级高于主题覆盖。
+
+### 3. 优先级与边界
+
+- 优先级：`*` → `root` 或语义部位 → 实例 `style`（后者覆盖前者）。
+- 覆盖值同样要过微信白名单：`position`、`filter` 会被直接拒绝。
+- `*` 不会进入嵌套组件内部，别指望用外层 `*` 去改内层组件。
+- 不要为了改一处样式重新 `generate_theme`；用 `tweak_theme` 的 `components` 秒回。
+
+---
 ## 组件选择速查
 
 | 内容 | 推荐组件 |

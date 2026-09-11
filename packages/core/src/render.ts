@@ -63,6 +63,7 @@ export function renderMarkdownToHtml(markdown: string, theme: Theme): RenderResu
   const diagnostics: ComponentDiagnostic[] = []
   const bodyHtml = markdownToHtml(markdown, {
     theme: safeTheme.tokens,
+    componentStyles: safeTheme.components,
     onDiagnostic: (d) => diagnostics.push(d),
   })
   const baseStyle = compileRootBaseStyle(safeTheme)

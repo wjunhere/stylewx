@@ -4,7 +4,7 @@ import { renderDocument, renderNodes, extractHeadings, COMPONENT_NAMES } from '.
 import { buildPalette } from './palette.js'
 import { contrastText, darken, lighten, mix, parseColor } from './color.js'
 import { measureEm, truncateEm, wrapText } from './text.js'
-import { COMPONENT_CATALOG, catalogToMarkdown, getComponentSpec } from './catalog.js'
+import { COMPONENT_CATALOG, COMPONENT_SLOTS, catalogToMarkdown, getComponentSpec } from './catalog.js'
 import { formatProps, htmlToMarkdown } from './reverse.js'
 import type { ComponentNode, RenderContext } from './types.js'
 
@@ -20,6 +20,7 @@ function makeCtx(): RenderContext {
   const ctx: RenderContext = {
     renderMarkdown: fakeMarkdown,
     renderChildren: () => '',
+    slot: (name: string) => (ctx.slotEnabled ? ' data-swx-slot="' + name + '"' : ''),
     palette: buildPalette({
       primaryColor: '#0b6bff',
       textColor: '#1f2329',
@@ -324,5 +325,65 @@ describe('组件目录', () => {
     expect(md).toContain(':::carousel')
     expect(md).toContain('### 图片')
     expect(getComponentSpec('card')?.summary).toContain('卡片')
+  })
+})
+
+describe('组件样式覆盖（root / * / 语义槽位）', () => {
+  // 每个组件一份「把所有部位都写出来」的样本，确保登记表里的槽位都真的可达
+  const SLOT_SAMPLES: Record<string, string> = {
+    card: ':::card{title="标题" icon="★" footer="页脚"}\n正文\n:::',
+    callout: ':::callout{type="tip" title="标题"}\n正文\n:::',
+    quote: ':::quote{author="作者" source="出处"}\n正文\n:::',
+    'section-title': ':::section-title{index="01" title="标题" subtitle="副标题"}\n:::',
+    image: ':::image{src="https://x/a.jpg" caption="图注"}\n:::',
+    'end-card': ':::end-card{title="标题" footer="页脚"}\n正文\n:::',
+    follow: ':::follow{title="标题" footer="页脚"}\n正文\n:::',
+  }
+
+  it('登记表里的每个组件都有覆盖全部部位的测试样本（防止漏测）', () => {
+    for (const name of Object.keys(COMPONENT_SLOTS)) {
+      expect(SLOT_SAMPLES[name], `COMPONENT_SLOTS.${name} 缺少样本`).toBeDefined()
+    }
+  })
+
+  it('声明了槽位的组件，每个槽位都能被真实命中', () => {
+    for (const [name, slots] of Object.entries(COMPONENT_SLOTS)) {
+      for (const slotName of slots) {
+        if (slotName === 'root' || slotName === '*') continue
+        const ctx = makeCtx()
+        ctx.componentStyles = { [name]: { [slotName]: { 'letter-spacing': '7px' } } }
+        const html = render(SLOT_SAMPLES[name] ?? '', ctx)
+        expect(html, `${name}.${slotName} 未命中（登记表与实现漂移）`).toContain('letter-spacing:7px')
+      }
+    }
+  })
+
+  it('root 覆盖组件最外层，* 覆盖内部所有元素', () => {
+    const ctx = makeCtx()
+    ctx.componentStyles = { card: { root: { padding: '20px' }, '*': { 'line-height': '1.95' } } }
+    const html = render(':::card{title="标题"}\n正文\n:::', ctx)
+    expect(html).toContain('padding:20px')
+    expect(html).toContain('line-height:1.95')
+  })
+
+  it('实例级 style 优先级高于主题覆盖，只作用于根元素', () => {
+    const ctx = makeCtx()
+    ctx.componentStyles = { card: { root: { padding: '20px', 'margin-top': '0' } } }
+    const html = render(':::card{title="标题" style="padding:4px"}\n正文\n:::', ctx)
+    expect(html).toContain('padding:4px')
+    expect(html).not.toContain('padding:20px')
+    expect(html).toContain('margin-top:0')
+  })
+
+  it('没有覆盖时不产出任何 slot 标记，输出与之前一致', () => {
+    const html = render(':::card{title="标题"}\n正文\n:::', makeCtx())
+    expect(html).not.toContain('data-swx-slot')
+  })
+
+  it('写错槽位时给出诊断', () => {
+    const ctx = makeCtx()
+    ctx.componentStyles = { card: { nosuchslot: { color: '#f00' } } }
+    render(':::card{title="标题"}\n正文\n:::', ctx)
+    expect(ctx.diagnostics.some((d) => d.message.includes('nosuchslot'))).toBe(true)
   })
 })

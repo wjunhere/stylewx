@@ -257,4 +257,30 @@ describe('stylewx MCP Server (in-memory)', () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+  it('tweak_theme 支持组件级样式覆盖（components）', async () => {
+    const { client } = await startClient()
+    const res = await client.callTool({
+      name: 'tweak_theme',
+      arguments: {
+        theme: 'tech-minimal',
+        components: { card: { root: { padding: '20px' }, title: { 'font-size': '19px' } } },
+      },
+    })
+    const data = parseText(res as never)
+    expect(data.ok).toBe(true)
+    expect(data.theme.components.card.root.padding).toBe('20px')
+    expect(data.changed).toContain('components.card.title.font-size')
+  })
+
+  it('list_components 返回每个组件可定制的部位', async () => {
+    const { client } = await startClient()
+    const res = await client.callTool({ name: 'list_components', arguments: {} })
+    const data = parseText(res as never)
+    const card = data.components.find((c: { name: string }) => c.name === 'card')
+    expect(card.slots).toContain('title')
+    expect(card.slots).toContain('body')
+    const badge = data.components.find((c: { name: string }) => c.name === 'badge')
+    expect(badge.slots).toEqual(['root', '*'])
+  })
+
 })

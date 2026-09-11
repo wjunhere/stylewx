@@ -80,14 +80,41 @@ export const themeTokensSchema = z.object({
  * 主题 Schema。
  * blocks 内每个声明键（CSS 属性）必须落在微信白名单内；值可通过 `{{token}}` 引用 tokens。
  */
+/**
+ * 组件级样式覆盖：{ card: { root: {...}, title: {...}, "*": {...} } }。
+ * 三种寻址：root（组件最外层）、*（组件内所有元素）、语义槽位（title / body / dot …）。
+ * 具体可用槽位见 list_components；写错槽位会由 components 层给出诊断。
+ */
+export const componentStylesSchema = z.record(
+  z.string(),
+  z.record(z.string(), z.record(z.string(), z.string())),
+)
+
 export const themeSchema = z
   .object({
     name: z.string().min(1).max(60),
     description: z.string().min(1).max(500),
     tokens: themeTokensSchema,
     blocks: themeBlocksSchema,
+    /** 组件级样式覆盖（可选）。 */
+    components: componentStylesSchema.optional(),
   })
   .superRefine((theme, ctx) => {
+    // 组件级覆盖：逐个声明检查微信白名单（硬禁止属性直接报错）
+    for (const [componentName, slots] of Object.entries(theme.components ?? {})) {
+      for (const [slotName, declarations] of Object.entries(slots)) {
+        for (const property of Object.keys(declarations)) {
+          if (!isCssPropertyAllowed(property)) {
+            ctx.addIssue({
+              code: 'custom',
+              path: [`components.${componentName}.${slotName}.${property}`],
+              message: `CSS 属性「${property}」已被真实微信实测会过滤（如 position / filter 等），请移除或改用微信保留的属性。`,
+            })
+          }
+        }
+      }
+    }
+
     for (const blockName of BLOCK_NAMES) {
       const block = theme.blocks[blockName]
       for (const [property, rawValue] of Object.entries(block)) {

@@ -263,3 +263,31 @@ describe('tweakTheme（确定性微调）', () => {
     expect(r.theme?.name).toBe(validTheme.name)
   })
 })
+
+describe('主题的组件级样式覆盖（components）', () => {
+  it('可写入并回传改动路径', () => {
+    const r = tweakTheme(validTheme, { components: { card: { root: { padding: '20px' }, title: { 'font-size': '19px' } } } })
+    expect(r.ok).toBe(true)
+    expect(r.theme?.components?.card?.root?.padding).toBe('20px')
+    expect(r.changed).toContain('components.card.root.padding')
+    expect(r.changed).toContain('components.card.title.font-size')
+  })
+
+  it('传 null 可清空某组件的覆盖', () => {
+    const withOverride = tweakTheme(validTheme, { components: { card: { root: { padding: '20px' } } } }).theme!
+    const cleared = tweakTheme(withOverride, { components: { card: null } })
+    expect(cleared.ok).toBe(true)
+    expect(cleared.theme?.components?.card).toBeUndefined()
+  })
+
+  it('微信硬禁止属性被拒绝', () => {
+    const r = tweakTheme(validTheme, { components: { card: { root: { position: 'absolute' } } } })
+    expect(r.ok).toBe(false)
+    expect(r.issues.some((i) => i.message.includes('position'))).toBe(true)
+  })
+
+  it('组件覆盖可参与主题序列化（JSON Schema 里存在 components）', () => {
+    const json = themeToJsonSchema() as { properties?: Record<string, unknown> }
+    expect(json.properties && 'components' in json.properties).toBe(true)
+  })
+})
