@@ -62,6 +62,15 @@
   .comp-src summary{padding:8px 18px;font-size:12px;color:var(--muted);cursor:pointer}
   .comp-src pre{margin:0;padding:0 18px 14px;font:12px/1.65 var(--mono);color:var(--ink2);white-space:pre-wrap;word-break:break-all}
   .comp-empty{padding:40px 18px;font-size:13px;color:var(--muted);text-align:center}
+  /* 主题预览页 */
+  .theme-prev{width:560px;max-width:100%;align-self:flex-start}
+  .th-inline{display:flex;align-items:center;gap:6px}
+  .th-dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.1);display:inline-block;flex:none}
+  .th-swatches{display:flex;flex-wrap:wrap;gap:12px 16px;padding:12px 16px 4px}
+  .th-swatch{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink2)}
+  .th-swatch i{width:18px;height:18px;border-radius:5px;border:1px solid rgba(0,0,0,.09);display:inline-block;flex:none}
+  .th-swatch .hex{color:var(--muted);font-size:11px;font-family:var(--mono)}
+  .th-font{padding:6px 16px 14px;font-size:12px;color:var(--muted);line-height:1.7}
   .subnav{padding:0 12px 12px;display:flex;flex-direction:column;gap:3px}
   .subnav button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:0;border-radius:9px;padding:9px 10px;font-size:13px;color:var(--ink2);cursor:pointer;transition:.12s}
   .subnav button:hover{background:#f2f4f7}
@@ -247,6 +256,7 @@
         <div class="menu-items">
           <button class="menu-item" id="genBtn" title="按当前文章用 AI 生成主题"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/><path d="M5 15l.7 1.8 1.8.7-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>生成主题</button>
           <button class="menu-item" id="saveBtn" title="保存当前主题"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>保存主题</button>
+          <button class="menu-item" id="thPreviewBtn" title="用统一示例文章对比所有主题的排版效果"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>主题预览…</button>
         </div>
         <div class="menu-sep"></div>
         <h4>已保存的自定义主题</h4>
@@ -353,6 +363,31 @@
   </div>
 </div>
 
+<div class="overlay" id="themeOverlay">
+  <div class="modal comp-modal">
+    <div class="modal-head"><b>主题预览</b><span class="key-hint" id="thCount" style="margin-left:10px"></span><button class="modal-close" data-close-th>&times;</button></div>
+    <div class="modal-body comp-body">
+      <aside class="comp-side">
+        <input class="comp-search" id="thSearch" placeholder="搜索主题…" />
+        <div class="comp-list" id="thList"></div>
+      </aside>
+      <section class="comp-detail">
+        <div class="comp-head">
+          <div class="comp-name" id="thName">选择一个主题</div>
+          <div class="comp-desc" id="thDesc">左侧列表可以搜索、点击查看排版效果</div>
+          <div class="comp-slots" id="thMeta"></div>
+          <div class="comp-actions">
+            <button class="btn primary" id="thApply" disabled>应用此主题</button>
+            <button class="btn" id="thCopyName" disabled>复制名称</button>
+          </div>
+        </div>
+        <div class="comp-preview-wrap"><div class="comp-empty" id="thEmpty">正在渲染…</div><iframe class="comp-preview theme-prev" id="thPreview" style="display:none" sandbox="allow-same-origin"></iframe></div>
+        <details class="comp-src"><summary>调色板与字体</summary><div class="th-swatches" id="thSwatches"></div><div class="th-font" id="thFont"></div></details>
+      </section>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="impOverlay">
   <div class="modal">
     <div class="modal-head"><b>导入 HTML</b><button class="modal-close" data-close-imp>&times;</button></div>
@@ -440,7 +475,7 @@ function busy(btn, waiting){
 
 // ---- 通用：模态框打开/关闭 + 焦点记忆 + Esc 退出 + Tab 焦点圈定 ----
 let _lastFocus=null;
-const MODALS=['#imgHostOverlay','#aiOverlay','#keyOverlay','#impOverlay','#compOverlay'];
+const MODALS=['#imgHostOverlay','#aiOverlay','#keyOverlay','#impOverlay','#compOverlay','#themeOverlay'];
 function openModal(id, focusSel){
   const o=$(id); if(!o) return; _lastFocus=document.activeElement; o.classList.add('show');
   const el=o.querySelector(focusSel||'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])');
@@ -1058,6 +1093,68 @@ $('#compCopy').onclick=async()=>{
 };
 document.querySelectorAll('[data-close-comp]').forEach(b=>b.onclick=()=>closeModal('#compOverlay'));
 $('#compOverlay').addEventListener('click',e=>{ if(e.target.id==='compOverlay') closeModal('#compOverlay'); });
+
+// ---- 主题预览页 ----
+let thPreviews=[]; let thCurrent=null;
+function thRenderList(filter){
+  const kw=(filter||'').trim().toLowerCase();
+  const hit=(t)=>!kw || t.name.toLowerCase().includes(kw) || (t.description||'').toLowerCase().includes(kw);
+  const saved=thPreviews.filter(t=>t.origin==='saved'&&hit(t));
+  const presets=thPreviews.filter(t=>t.origin!=='saved'&&hit(t));
+  const dots=(t)=>'<span class="th-inline" style="display:inline-flex;gap:4px;margin-left:6px">'+(t.swatches||[]).slice(0,3).map(s=>'<span class="th-dot" style="background:'+s.color+'"></span>').join('')+'</span>';
+  const item=(t)=>'<button class="comp-item'+(thCurrent&&thCurrent.name===t.name?' on':'')+'" data-name="'+esc(t.name)+'" title="'+esc(t.description||'')+'">'+esc(t.name)+dots(t)+'<span class="sub">'+esc((t.description||'').slice(0,72))+'</span></button>';
+  let html='';
+  if(saved.length) html+='<div class="comp-group">我的主题（'+saved.length+'）</div>'+saved.map(item).join('');
+  if(presets.length) html+='<div class="comp-group">内置主题（'+presets.length+'）</div>'+presets.map(item).join('');
+  if(!html) html='<div class="comp-empty">没有匹配的主题</div>';
+  $('#thList').innerHTML=html;
+}
+function thSelect(name){
+  const t=thPreviews.find(x=>x.name===name); if(!t) return;
+  thCurrent=t;
+  $('#thName').innerHTML=''+esc(t.name)+(t.origin==='saved'?'<code>我的主题</code>':'<code>内置</code>');
+  $('#thDesc').textContent=t.description||'';
+  $('#thMeta').textContent='统一示例文章 · 所有主题渲染同一份内容';
+  $('#thSwatches').innerHTML=(t.swatches||[]).map(s=>'<span class="th-swatch"><i style="background:'+s.color+'"></i>'+esc(s.label)+' <span class="hex">'+esc(s.color)+'</span></span>').join('');
+  $('#thFont').textContent='字体：'+(t.font||'');
+  const f=$('#thPreview'); f.style.display='';
+  f.srcdoc='<html><head><meta charset="utf-8"></head><body style="margin:0;padding:26px 30px;background:#fff;font-size:15px;line-height:1.7">'+(t.html||'')+'</body></html>';
+  $('#thApply').disabled=false; $('#thCopyName').disabled=false;
+  thRenderList($('#thSearch').value);
+}
+async function openThemeLibrary(){
+  openModal('#themeOverlay','#thSearch');
+  $('#thEmpty').style.display=''; $('#thEmpty').textContent='正在渲染…';
+  $('#thPreview').style.display='none';
+  $('#thList').innerHTML='';
+  $('#thApply').disabled=true; $('#thCopyName').disabled=true;
+  try{
+    const d=await api('/editor/api/theme-previews',{});
+    thPreviews=d.previews||[];
+    $('#thCount').textContent='共 '+thPreviews.length+' 个主题';
+    thRenderList('');
+    if(thPreviews[0]) thSelect(thPreviews[0].name);
+    else $('#thEmpty').textContent='主题库为空';
+  }catch(e){ $('#thEmpty').textContent='渲染失败：'+e.message; }
+}
+$('#thPreviewBtn').onclick=()=>{ $('#themePanel').open=false; openThemeLibrary(); };
+$('#thSearch').addEventListener('input',e=>thRenderList(e.target.value));
+$('#thList').addEventListener('click',e=>{
+  const b=e.target.closest('.comp-item'); if(!b) return;
+  thSelect(b.dataset.name);
+});
+$('#thApply').onclick=()=>{
+  if(!thCurrent) return;
+  const sel=$('#themeSel'); sel.value=thCurrent.name; sel.dispatchEvent(new Event('change'));
+  closeModal('#themeOverlay'); toast('已应用主题：'+thCurrent.name);
+};
+$('#thCopyName').onclick=async()=>{
+  if(!thCurrent) return;
+  try{ await navigator.clipboard.writeText(thCurrent.name); toast('已复制主题名'); }
+  catch(e){ toast('复制失败：'+e.message,false); }
+};
+document.querySelectorAll('[data-close-th]').forEach(b=>b.onclick=()=>closeModal('#themeOverlay'));
+$('#themeOverlay').addEventListener('click',e=>{ if(e.target.id==='themeOverlay') closeModal('#themeOverlay'); });
 
 // 主题切换后，组件库预览跟随刷新（下次打开即为当前主题）
 

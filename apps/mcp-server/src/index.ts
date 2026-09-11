@@ -29,6 +29,7 @@ import {
   listSavedComponents,
   deleteUserComponent,
   renderComponentPreviews,
+  renderThemePreviews,
 } from '@stylewx/service'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
 import { htmlToMarkdown } from '@stylewx/components'
@@ -161,6 +162,16 @@ async function handleEditorApi(
         const theme = resolveTheme(b.theme ?? 'magazine')
         const names = Array.isArray(b.names) ? b.names.filter((x): x is string => typeof x === 'string') : undefined
         return sendJson(res, renderComponentPreviews(theme, { names }))
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
+    }
+    // 主题库预览：用统一示例文章渲染所有主题（供编辑器「主题预览」页对比）
+    if (path === '/editor/api/theme-previews' && req.method === 'POST') {
+      try {
+        const b = await readJsonBody(req)
+        const names = Array.isArray(b.names) ? b.names.filter((x): x is string => typeof x === 'string') : undefined
+        return sendJson(res, renderThemePreviews({ names }))
       } catch (error) {
         return respondErrorOrSend(res, error)
       }
