@@ -83,6 +83,42 @@ const md = await page.inputValue('#md')
 console.log('插入后正文含自定义组件:', md.includes(':::brand-quote'))
 console.log('弹窗已关闭:', !(await page.locator('#compOverlay').isVisible()))
 
+// 布局：弹窗必须是「大页面」而不是默认的 420px 小弹窗（曾经被 .modal 覆盖过）
+// 注意：上面插入后弹窗已关闭，这里重新打开再量
+await page.click('#navComp')
+await page.waitForTimeout(2600)
+const layout = await page.evaluate(() => {
+  const r = (s) => {
+    const el = document.querySelector(s)
+    if (!el) return null
+    const b = el.getBoundingClientRect()
+    return { w: Math.round(b.width), h: Math.round(b.height), bottom: Math.round(b.bottom) }
+  }
+  const modal = document.querySelector('#compOverlay .modal')
+  const body = document.querySelector('.comp-body')
+  const wrap = document.querySelector('.comp-preview-wrap')
+  return {
+    modal: r('#compOverlay .modal'),
+    body: r('.comp-body'),
+    previewWrap: r('.comp-preview-wrap'),
+    iframe: r('#compPreview'),
+    bodyPadding: getComputedStyle(body).padding,
+    bodyOverflow: getComputedStyle(body).overflow,
+    modalOverflow: getComputedStyle(modal).overflow,
+    clipped: wrap ? Math.max(0, wrap.scrollHeight - wrap.clientHeight) : 0,
+    viewportH: window.innerHeight,
+  }
+})
+console.log('弹窗尺寸   :', layout.modal.w + 'x' + layout.modal.h, '| 预览区高:', layout.previewWrap.h)
+console.log('body 内边距:', layout.bodyPadding, '| overflow:', layout.bodyOverflow)
+const layoutOk =
+  layout.modal.w >= 1000 &&
+  layout.previewWrap.h >= 400 &&
+  layout.bodyPadding === '0px' &&
+  layout.clipped === 0 &&
+  layout.iframe.bottom <= layout.viewportH
+console.log('布局断言   :', layoutOk)
+
 console.log('控制台错误数:', errors.length)
 for (const e of errors.slice(0, 3)) console.log('  [err]', e.slice(0, 140))
 

@@ -395,3 +395,17 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 
 `test-editor-component-library.mjs`（Playwright）：入口可见、共 24 个组件、分组正确、
 默认渲染非空且带内联样式、切到 gallery 有 flex 布局、搜索命中 2 条、插入后正文含该组件、0 控制台报错。
+
+### 18.1 踩过的坑：CSS 优先级被基础样式覆盖
+
+第一版预览页出来是「弹窗只有 420px 宽、右侧内容被裁」——因为 `.comp-modal` / `.comp-body`
+写在了样式表**前面**（第 40 行），而基础样式 `.modal{width:420px}` / `.modal-body{max-height:60vh}` 在
+**后面**（第 147 行）。同样是单类选择器，**后者胜出**。
+
+改用 `.modal.comp-modal` / `.modal-body.comp-body`（特异性 0,2,0）后不再依赖书写顺序，
+同时显式重置 `max-width:none` / `max-height:none` / `overflow:hidden` / `padding:0`。
+
+教训：给既有组件加变体类时，**不要靠「写在后面」赢**——要么提高特异性，要么把变体样式放到基础样式之后。
+现在 `test-editor-component-library.mjs` 会断言弹窗尺寸（≥1000px）、预览区高度（≥400px）、
+`padding=0`、无裁切，`capture-hero.mjs` 也会在截组件库配图前断言弹窗真的打开了——
+这类「看起来能用但被静默压扁」的问题不会再溜过去。

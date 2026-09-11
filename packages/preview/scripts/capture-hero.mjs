@@ -39,6 +39,17 @@ await shot({
   await page.click('#navComp')
   await page.waitForTimeout(3000)
   await page.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()))
+  // 断言弹窗真的打开了，避免截到一张没有内容的图
+  const box = await page.evaluate(() => {
+    const el = document.querySelector('#compOverlay .modal')
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    return { w: Math.round(r.width), h: Math.round(r.height), items: document.querySelectorAll('#compList .comp-item').length }
+  })
+  if (!box || box.w < 1000 || box.items < 10) {
+    throw new Error('组件库弹窗未正常打开：' + JSON.stringify(box))
+  }
+  console.log(`[capture] 组件库弹窗 ${box.w}x${box.h}，列出 ${box.items} 个组件`)
   const file = resolve(outDir, 'component-library.png')
   await page.screenshot({ path: file, type: 'png' })
   console.log(`${file}  ${(statSync(file).size / 1024).toFixed(0)} KB`)

@@ -52,6 +52,6 @@ for (const e of realErrors.slice(0, 5)) console.log('  [err]', e.slice(0, 160))
 await browser.close()
 rmSync(dir, { recursive: true, force: true })
 
-const ok = loaded.includes(':::cover') && title === '交接验证文章' && denied?.error?.code === 'path_not_allowed' && errors.length === 0
+const ok = loaded.includes(':::cover') && title === '交接验证文章' && denied?.error?.code === 'path_not_allowed' && realErrors.length === 0
 console.log('\n断言：载入成功=' + loaded.includes(':::cover') + ' 标题正确=' + (title === '交接验证文章') + ' 越权被拒=' + (denied?.error?.code === 'path_not_allowed') + ' 无报错=' + (realErrors.length === 0))
 process.exit(ok ? 0 : 1)
