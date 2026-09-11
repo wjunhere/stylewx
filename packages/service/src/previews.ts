@@ -24,6 +24,56 @@ export interface ComponentPreview {
   diagnostics: ComponentDiagnostic[]
 }
 
+/**
+ * 预览用占位图（内联 SVG data URI）。
+ * 组件示例里的图片 URL 是 `https://example.com/…` 这种占位链接，浏览器加载不出来，
+ * 预览就会是一片空白。这里在**仅渲染预览**时替换成内联占位图：无需联网、必定渲染，
+ * 而返回给「复制示例」的 sample 仍是干净的原文。
+ */
+const PLACEHOLDER_COLORS = [
+  ['#dbeafe', '#93c5fd'],
+  ['#fee2e2', '#fca5a5'],
+  ['#dcfce7', '#86efac'],
+  ['#fef9c3', '#fde047'],
+  ['#ede9fe', '#c4b5fd'],
+  ['#cffafe', '#67e8f9'],
+]
+
+export function placeholderImageUrl(index: number, label: string): string {
+  const pair = PLACEHOLDER_COLORS[(Math.max(1, index) - 1) % PLACEHOLDER_COLORS.length] as [string, string]
+  const bg = pair[0]
+  const fg = pair[1]
+  const text = String(label || `${index}`).replace(/[<>&"]/g, "")
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">' +
+    `<rect width="600" height="400" fill="${bg}"/>` +
+    `<rect width="600" height="6" y="394" fill="${fg}"/>` +
+    '<g fill="none" stroke="' + fg + '" stroke-width="6" stroke-linejoin="round">' +
+    '<rect x="235" y="165" width="130" height="95" rx="10"/>' +
+    '<path d="M245 245l40-38 28 24 34-34 28 48z"/>' +
+    '<circle cx="270" cy="192" r="10"/>' +
+    '</g>' +
+    `<text x="300" y="300" text-anchor="middle" font-family="sans-serif" font-size="26" fill="#64748b">${text}</text>` +
+    '</svg>'
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+/** 把示例里的图片地址换成占位图（只用于渲染预览）。 */
+function withPlaceholderImages(sample: string): string {
+  let n = 0
+  return sample
+    // Markdown 图片：![图一](https://example.com/1.jpg)
+    .replace(/!\[([^\]]*)\]\(\s*([^\s)]+)[^)]*\)/g, (_m, alt: string) => {
+      n += 1
+      return `![${alt}](${placeholderImageUrl(n, alt || `示例图 ${n}`)})`
+    })
+    // 组件参数：src="..." 与 image="..."（cover 用的是 image 参数）
+    .replace(/(?<![-\w])(src|image)="[^"]*"/g, (_m, name: string) => {
+      n += 1
+      return `${name}="${placeholderImageUrl(n, `示例图 ${n}`)}"`
+    })
+}
+
 /** 把 props 拼成 `{k="v" k2=v2}`。 */
 function propString(props: Record<string, string>): string {
   const parts = Object.entries(props)
@@ -106,7 +156,7 @@ export function renderComponentPreviews(
 
   const previews: ComponentPreview[] = entries.map((entry) => {
     try {
-      const { html, diagnostics } = renderMarkdownToHtml(entry.sample, safeTheme)
+      const { html, diagnostics } = renderMarkdownToHtml(withPlaceholderImages(entry.sample), safeTheme)
       return { ...entry, html, diagnostics: diagnostics ?? [] }
     } catch (error) {
       return {
