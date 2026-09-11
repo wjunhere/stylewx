@@ -322,7 +322,16 @@ async function runStdio(): Promise<void> {
 async function runHttp(port: number): Promise<void> {
   const transports = new Map<string, StreamableHTTPServerTransport>()
   const deps = buildDeps()
-  const editorHtmlPath = resolve(dirname(fileURLToPath(import.meta.url)), '../editor.html')
+  const editorDir = dirname(fileURLToPath(import.meta.url))
+  const editorHtmlPath = resolve(editorDir, '../editor.html')
+  // 版本号只在 package.json 维护一处，编辑器页脚从包元数据注入（避免页脚与包版本不一致）
+  let editorVersion = 'dev'
+  try {
+    const pkg = JSON.parse(readFileSync(resolve(editorDir, '../package.json'), 'utf8')) as { version?: string }
+    if (pkg.version) editorVersion = pkg.version
+  } catch {
+    // 读不到就走 dev（非常规打包方式下仍可打开编辑器）
+  }
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
@@ -330,7 +339,7 @@ async function runHttp(port: number): Promise<void> {
     // 本地 Web 编辑器（WeMD 风格）；每次读取，改 editor.html 后即时生效
     if (path === '/editor') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-      res.end(readFileSync(editorHtmlPath, 'utf8'))
+      res.end(readFileSync(editorHtmlPath, 'utf8').replace(/\{\{VERSION\}\}/g, editorVersion))
       return
     }
     if (path.startsWith('/editor/api/')) {
