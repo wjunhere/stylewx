@@ -1,7 +1,25 @@
 {
   "name": "@stylewx/validator",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "stylewx validator: WeChat compatibility checker (CSS whitelist, HTML structure, content limits). Outputs a structured report. Isomorphic (no DOM / no Node-only APIs).",
+  "keywords": [
+    "wechat",
+    "wechat-article",
+    "html",
+    "validator",
+    "lint"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "wjunhere",
+    "url": "https://github.com/wjunhere"
+  },
+  "homepage": "https://github.com/wjunhere/stylewx#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wjunhere/stylewx.git",
+    "directory": "packages/validator"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,7 +32,6 @@
   "files": [
     "dist"
   ],
-  "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -30,5 +47,9 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false
 }

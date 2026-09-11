@@ -1,7 +1,25 @@
 {
   "name": "@stylewx/api",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "stylewx REST API: mirrors the MCP tools as HTTP endpoints, reusing the same service layer.",
+  "keywords": [
+    "wechat",
+    "wechat-article",
+    "rest-api",
+    "hono",
+    "markdown"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "wjunhere",
+    "url": "https://github.com/wjunhere"
+  },
+  "homepage": "https://github.com/wjunhere/stylewx#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wjunhere/stylewx.git",
+    "directory": "apps/api"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -33,5 +51,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -1,7 +1,26 @@
 {
   "name": "@stylewx/publisher",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "stylewx publisher: WeChat Official Account API wrapper (access_token, image upload, draft/add) + external-image relocation. Node-only by design.",
+  "keywords": [
+    "wechat",
+    "wechat-article",
+    "official-account",
+    "draft",
+    "publish",
+    "微信公众号"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "wjunhere",
+    "url": "https://github.com/wjunhere"
+  },
+  "homepage": "https://github.com/wjunhere/stylewx#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wjunhere/stylewx.git",
+    "directory": "packages/publisher"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,7 +33,6 @@
   "files": [
     "dist"
   ],
-  "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -29,5 +47,9 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false
 }

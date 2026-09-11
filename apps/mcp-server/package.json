@@ -1,11 +1,28 @@
 {
   "name": "@stylewx/mcp-server",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "stylewx MCP Server: exposes styling/validate/publish capabilities to AI agents (Kimi Code / Claude Code / Cursor). stdio + Streamable HTTP.",
-  "type": "module",
-  "bin": {
-    "stylewx-mcp": "dist/index.js"
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "wechat",
+    "wechat-article",
+    "markdown",
+    "ai-agent",
+    "微信公众号"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "wjunhere",
+    "url": "https://github.com/wjunhere"
   },
+  "homepage": "https://github.com/wjunhere/stylewx#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wjunhere/stylewx.git",
+    "directory": "apps/mcp-server"
+  },
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -13,6 +30,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
+  },
+  "bin": {
+    "stylewx-mcp": "dist/index.js"
   },
   "files": [
     "dist",
@@ -39,5 +59,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
