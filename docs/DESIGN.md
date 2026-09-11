@@ -332,3 +332,36 @@ editorUrl = <STYLEWX_EDITOR_URL>/editor?file=<绝对路径>
 - **组件库文件**：`~/.stylewx/components.json`，与主题库同一套模式（fs 只在 service 层）。
 - **工具面**：`save_component` / `delete_component`；`list_components` 合并自定义组件并用
   `origin: "user" | "builtin"` 区分。
+
+## 17. 自定义组件在编辑器里可见（打通 agent 与人的汇合点）
+
+### 问题
+
+自定义组件定义后存进了 `~/.stylewx/components.json`，MCP 侧 `list_components` 也能查到，
+但编辑器的「富组件」面板是一份**写死在 `editor.html` 里的 22 项静态数组**——
+人在编辑器里既看不到 agent 定义的组件，也不知道自己有哪些可用。两条链路是断开的。
+
+### 改法
+
+**不把内置列表搬到后端**：编辑器手写的 22 个片段带中文标签和贴心的占位值
+（「封面头图」「整篇画布（包裹全文）」），比自动生成的 `:::cover{...}` 更好用。
+所以只让**自定义组件**走后端：
+
+```
+GET  /editor/api/components          → { components: [...本地自定义组件] }
+POST /editor/api/delete-component    → { name }
+```
+
+编辑器打开面板时实时拉取，拼成「内置 22 项 + 我的组件分组」。
+自定义组件项由 `defaults` 预填参数，并在面板里直接带一个 `×` 删除（删除不需要回 MCP 工具）。
+
+### 为什么值得单独做
+
+这是「agent 生成 → 人微调」闭环里最容易漏掉的一环：agent 造了组件，人却看不见。
+修好之后，人的**可调范围**从「内置 22 个」扩到了「内置 + agent 造的任意组件」，
+而且新增组件**刷新即见**（每次打开面板都重新拉取，无需重启）。
+
+### 顺带修的一个控制台报错
+
+清空编辑器后仍会去打 `/editor/api/render`，后端对空 markdown 返回 400，
+控制台白刷一条错误。已在前端加空文档短路。

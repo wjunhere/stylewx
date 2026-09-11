@@ -94,7 +94,11 @@
   .table-picker .tcell{background:#eef1f5;border-radius:3px;cursor:pointer}
   .table-picker .tcell.on{background:var(--brand)}
   .table-picker .tcell:hover{background:var(--brand);opacity:.75}
-  .tm-picker{position:fixed;z-index:70;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;display:none;min-width:158px}
+  .tm-picker{position:fixed;z-index:70;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;display:none;min-width:190px;max-height:62vh;overflow:auto}
+  .tm-head{padding:7px 10px 4px;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.5px}
+  .tm-opt .tm-sub{margin-left:6px;font-size:11px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tm-opt .tm-del{margin-left:auto;border:0;background:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 4px;border-radius:4px}
+  .tm-opt:hover .tm-del{color:var(--err);background:var(--line2)}
   .tm-opt{display:flex;align-items:center;gap:7px;width:100%;padding:7px 10px;border:0;background:none;border-radius:8px;color:var(--ink);font-size:12.5px;text-align:left;cursor:pointer}
   .tm-opt:hover{background:var(--line2)}
   .tb-sep{width:1px;height:16px;background:var(--line);margin:0 5px}
@@ -630,6 +634,13 @@ async function render(){
   clearTimeout(timer);
   timer=setTimeout(async()=>{
     const markdown=$('#md').value, theme=$('#themeSel').value;
+    // 空文档不必打后端（否则会拿到 400，白刷一条控制台报错）
+    if(!markdown.trim()){
+      lastHtml=''; $('#pv').srcdoc=''; $('#pv').style.display='none'; $('#pvEmpty').style.display='';
+      $('#wc').textContent='字数 0'; $('#rt').textContent='0 分钟阅读';
+      setVal([{kind:'warn',text:'编辑器为空，输入 Markdown 后自动预览'}]);
+      return;
+    }
     try{
       const d=await api('/editor/api/render',{markdown,theme});
       lastHtml=d.html;
@@ -675,7 +686,7 @@ $('#toolbar').addEventListener('click',e=>{
   if(a==='heading'){ showTmPicker(btn, HEAD_OPTS); return; }
   if(a==='list'){ showTmPicker(btn, LIST_OPTS); return; }
   if(a==='callout'){ showTmPicker(btn, CALLOUT_OPTS); return; }
-  if(a==='component'){ showTmPicker(btn, COMPONENT_OPTS); return; }
+  if(a==='component'){ openComponentPicker(btn); return; }
   if(ACTIONS[a]) ACTIONS[a]();
 });
 
@@ -720,14 +731,30 @@ const CALLOUT_OPTS=[
 function showTmPicker(btn, options){
   hideTmPicker();
   const p=$('#tmPicker'); p._opts=options;
-  p.innerHTML=options.map((o,i)=>'<button class="tm-opt" data-i="'+i+'">'+o.label+'</button>').join('');
+  p.innerHTML=options.map((o,i)=>{
+    if(o.head) return '<div class="tm-head">'+esc(o.label)+'</div>';
+    return '<button class="tm-opt" data-i="'+i+'"'+(o.hint?' title="'+esc(o.hint)+'"':'')+'>'
+      +'<span>'+esc(o.label)+'</span>'
+      +(o.hint?'<span class="tm-sub">'+esc(o.hint)+'</span>':'')
+      +(o.onDelete?'<span class="tm-del" data-del="'+i+'" title="删除该自定义组件">×</span>':'')
+      +'</button>';
+  }).join('');
   const rect=btn.getBoundingClientRect();
   p.style.left=Math.min(rect.left, window.innerWidth-200)+'px';
   p.style.top=(rect.bottom+4)+'px';
   p.style.display='block';
 }
 function hideTmPicker(){ const p=$('#tmPicker'); if(p) p.style.display='none'; }
-$('#tmPicker').addEventListener('click',e=>{
+$('#tmPicker').addEventListener('click',async e=>{
+  const del=e.target.closest('.tm-del');
+  if(del){
+    e.stopPropagation();
+    const o=($('#tmPicker')._opts||[])[+del.dataset.del];
+    if(!o||!o.onDelete) return;
+    hideTmPicker();
+    try{ await o.onDelete(); }catch(err){ toast("删除失败："+err.message,false); }
+    return;
+  }
   const b=e.target.closest('.tm-opt'); if(!b) return;
   const o=($('#tmPicker')._opts||[])[+b.dataset.i]; hideTmPicker(); if(o&&o.action) o.action();
 });
@@ -754,6 +781,32 @@ function insertBlock(block, caretMarker){
   ta.selectionStart = ta.selectionEnd = pos;
   ta.focus(); render(); saveSnap();
 }
+// 自定义组件的插入片段：用 defaults 预填参数
+function userComponentOpt(c){
+  const props=Object.entries(c.defaults||{}).map(([k,v])=>k+'="'+String(v).replace(/"/g,'&quot;')+'"').join(' ');
+  const open=':::'+c.name+(props?'{'+props+'}':'');
+  return {
+    label: c.name,
+    hint: c.description||'自定义组件',
+    onDelete: async ()=>{
+      await api('/editor/api/delete-component',{name:c.name});
+      toast('已删除自定义组件：'+c.name);
+    },
+    action: ()=>insertBlock(open+'\n正文内容……\n:::', '正文内容……'),
+  };
+}
+
+// 打开组件面板：内置 22 个 + 本地自定义组件（实时从组件库读取）
+async function openComponentPicker(btn){
+  let user=[];
+  try{
+    const d=await api('/editor/api/components');
+    user=(d.components||[]).map(userComponentOpt);
+  }catch(e){ /* 组件库不可读时只显示内置组件 */ }
+  const opts=user.length? [...COMPONENT_OPTS, {head:true,label:"我的组件"}, ...user] : COMPONENT_OPTS;
+  showTmPicker(btn, opts);
+}
+
 const COMPONENT_OPTS=[
   {label:'封面头图', action:()=>insertBlock(':::cover{title="文章标题" subtitle="SUBTITLE" author="作者" date="2025 · 09"}\n:::', '文章标题')},
   {label:'目录（自动生成）', action:()=>insertBlock(':::toc{title="本文目录" max-level="2"}\n:::', '')},

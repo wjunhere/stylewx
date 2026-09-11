@@ -26,6 +26,8 @@ import {
   asServiceError,
   articlesRoot,
   isInside,
+  listSavedComponents,
+  deleteUserComponent,
 } from '@stylewx/service'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
 import { htmlToMarkdown } from '@stylewx/components'
@@ -85,6 +87,15 @@ async function readJsonBody(req: import('node:http').IncomingMessage): Promise<R
   }
 }
 
+/** 把 service 的统一错误对象转成 HTTP 响应。 */
+function respondErrorOrSend(
+  res: import('node:http').ServerResponse,
+  error: unknown,
+): void {
+  const e = asServiceError(error)
+  sendErr(res, e.error)
+}
+
 function sendJson(res: import('node:http').ServerResponse, obj: unknown, status = 200): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
   res.end(JSON.stringify(obj))
@@ -141,6 +152,28 @@ async function handleEditorApi(
       }
     }
 
+    // 本地自定义组件库（编辑器「富组件」面板里展示「我的组件」）
+    if (path === '/editor/api/components' && req.method === 'GET') {
+      try {
+        const { components } = listSavedComponents()
+        return sendJson(res, { components })
+      } catch (error) {
+        return sendErr(res, { code: 'list_failed', message: `读取组件库失败：${String(error)}`, hint: '请检查 ~/.stylewx/components.json 是否可读。' })
+      }
+    }
+
+    if (path === '/editor/api/delete-component' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      const name = typeof b.name === 'string' ? b.name.trim() : ''
+      if (!name) {
+        return sendErr(res, { code: 'missing_name', message: '缺少组件名 name。', hint: '请提供要删除的自定义组件名。' })
+      }
+      try {
+        return sendJson(res, deleteUserComponent(name))
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
+    }
     if (path === '/editor/api/load-file' && req.method === 'GET') {
       const url = new URL(req.url ?? '/', 'http://localhost')
       const requested = url.searchParams.get('file') ?? ''

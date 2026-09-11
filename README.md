@@ -145,7 +145,8 @@ node apps/mcp-server/scripts/editor.mjs [.env路径] [端口]   # 手动指定
 Windows 也可以直接双击仓库根的 `stylewx-editor.bat`。启动后打开
 http://localhost:3777/editor，同一进程还提供 http://localhost:3777/mcp。
 
-编辑器功能：左栏 Markdown 编辑与富文本工具栏（标题/列表/警告框/上下标等）、富组件插入面板、
+编辑器功能：左栏 Markdown 编辑与富文本工具栏（标题/列表/警告框/上下标等）、
+富组件插入面板（内置 22 个 + **agent 定义的自定义组件**，可在面板里直接删除）、
 主题选择/生成/保存、右栏 390px 实时预览、左右栏同步滚动（可开关，偏好持久化）、校验、
 复制 HTML 或复制到公众号、一键发布草稿箱、历史记录与图床设置，
 以及 **导入 HTML（带组件标记时精确还原为 `:::` 指令）/ 导入 Markdown / 导出 Markdown**，
