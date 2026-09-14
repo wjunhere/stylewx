@@ -277,6 +277,7 @@ async function handleEditorApi(
         path: requested || undefined,
         title: typeof b.title === 'string' ? b.title : undefined,
         theme: typeof b.theme === 'string' ? b.theme : undefined,
+        force: b.force === true,
       })
       return sendJson(res, {
         path: r.path,

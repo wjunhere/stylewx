@@ -2,7 +2,7 @@
  * 把最终 Markdown 落盘，并返回可直接打开的本地编辑器地址。
  * 这是「agent 生成 → 人在编辑器里微调」的交接点。
  */
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { serviceError } from './errors.js'
 import { parseFrontMatter, stringifyFrontMatter } from './front-matter.js'
@@ -19,6 +19,13 @@ export interface SaveArticleParams {
    * 这样用户拿编辑器打开/导入这个 md 时会自动选回该主题。
    */
   theme?: string
+  /**
+   * 允许「明显变短」的覆盖。
+   *
+   * 默认拒绝把一篇完整文章换成一小段内容（见 assertNotAccidentalShrink），
+   * 因为这种覆写几乎都是误操作，且不可逆。确认无误时传 true。
+   */
+  force?: boolean
 }
 
 export interface SaveArticleResult {
@@ -66,6 +73,28 @@ function firstHeading(markdown: string): string {
   return m?.[1]?.trim() ?? ''
 }
 
+/** 触发「缩水护栏」的阈值：原文件至少 1KB，且新内容不足它的 25%。 */
+const SHRINK_MIN_BYTES = 1000
+const SHRINK_RATIO = 0.25
+
+/**
+ * 阻止「把一篇完整文章换成一小段」的误覆盖。
+ *
+ * 这不是假想风险：实测中一次误点保存就把 12303 字节的文章写成了 71 字节，
+ * 全文丢掉且无任何提示。宁可多一次确认，也不静默丢数据。
+ */
+function assertNotAccidentalShrink(target: string, nextBytes: number, force: boolean | undefined): void {
+  if (force || !existsSync(target)) return
+  const prevBytes = statSync(target).size
+  if (prevBytes < SHRINK_MIN_BYTES || nextBytes >= prevBytes * SHRINK_RATIO) return
+  const percent = Math.round((nextBytes / prevBytes) * 100)
+  throw serviceError(
+    'content_shrunk',
+    `新内容只有原文件的 ${percent}%（${prevBytes} 字节 → ${nextBytes} 字节），已拒绝覆盖：${target}`,
+    '原文件未改动。确认就是要换成短内容时，带 force: true 重新保存（编辑器里会再问一次）。',
+  )
+}
+
 /**
  * 保存文章 Markdown 到磁盘。
  * 路径必须落在 `STYLEWX_ARTICLES_DIR`（默认 cwd）内，否则拒绝写入。
@@ -107,6 +136,9 @@ export function saveArticle(params: SaveArticleParams): SaveArticleResult {
   // 保证不传 theme 的调用与以前逐字节一致。
   const writeMeta = Boolean(theme) || Object.keys(incomingMeta).length > 0
   const contents = writeMeta ? stringifyFrontMatter({ title, theme }, body) : body
+
+  // 先做护栏再写：宁可整次操作失败，也不要写一半或静默覆盖。
+  assertNotAccidentalShrink(target, Buffer.byteLength(contents, 'utf8'), params.force)
 
   try {
     mkdirSync(dirname(target), { recursive: true })

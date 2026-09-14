@@ -709,7 +709,12 @@ loadKeys();
 async function api(path, body){
   const opts=body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{};
   const r=await fetch(path,opts); const d=await r.json().catch(()=>({error:{message:'HTTP '+r.status}}));
-  if(d.error) throw new Error(d.error.message||'请求失败');
+  if(d.error){
+    // 把 code / hint 一并挂到 Error 上，调用方可以按 code 分支（旧调用方只用 message，不受影响）
+    const err=new Error(d.error.message||'请求失败');
+    err.code=d.error.code||'unknown'; err.hint=d.error.hint||'';
+    throw err;
+  }
   return d;
 }
 
@@ -1249,7 +1254,7 @@ function updateSaveFileBtn(){
   const save=$('#saveFileBtn'); if(save) save.disabled = !has || !ready;
   const saveAs=$('#saveAsBtn'); if(saveAs) saveAs.disabled = !ready;
 }
-async function saveToFile(forcePrompt){
+async function saveToFile(forcePrompt, force){
   const md=$('#md').value;
   if(!md.trim()) return toast('正文为空，不写入文件',false);
   let target=forcePrompt?'':(linkedFile||'');
@@ -1259,9 +1264,20 @@ async function saveToFile(forcePrompt){
     if(!target.trim()) return;
   }
   const btn=$('#saveFileBtn'); busy(btn,true);
+  const payload={path:target,markdown:md,title:$('#title').value,theme:$('#themeSel').value};
+  let d;
   try{
-    const d=await api('/editor/api/save-file',{path:target,markdown:md,title:$('#title').value,theme:$('#themeSel').value});
-    linkedFile=d.path; fileDirty=false; updateSaveFileBtn();
+    try{
+      d=await api('/editor/api/save-file',payload);
+    }catch(e){
+      // 服务端的「缩水护栏」：新内容比原文件短很多时拒绝覆盖。这里再问一次人。
+      if(e && e.code==='content_shrunk' && !force){
+        const ok=window.confirm('新内容比原文件短很多，确定要覆盖吗？\n\n'+(e.message||'')+'\n\n（点「取消」则原文件保持不变）');
+        if(!ok){ toast('已取消，原文件未改动'); return; }
+        d=await api('/editor/api/save-file',{...payload,force:true});
+      } else throw e;
+    }
+    linkedFile=d.path; fileDirty=false;
     setVal([{kind:'ok',text:'已写入 '+d.path},
             {kind:'ok',text:'主题：'+(d.theme||'(未指定，未写入 front-matter)')}]);
     toast('已保存 '+String(d.path).split(/[\\/]/).pop());

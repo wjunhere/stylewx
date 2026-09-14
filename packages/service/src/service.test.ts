@@ -90,6 +90,40 @@ describe('front-matter（让 .md 自带 title / theme）', () => {
     rmSync(join(r.root, 'drafts'), { recursive: true, force: true })
   })
 
+  it('缩水护栏：拒绝把长文覆盖成一小段（回归：一次误保存丢过全文）', () => {
+    const long = '正文。\n'.repeat(500) // ~1500 字节
+    const first = saveArticle({ markdown: long, title: '缩水护栏', theme: 'magazine' })
+    let caught: unknown
+    try {
+      saveArticle({ markdown: '回归测试内容。', path: first.path, theme: 'magazine' })
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as { error?: { code?: string } })?.error?.code).toBe('content_shrunk')
+    // 关键：拒绝后原文件必须原封不动
+    const after = readFileSync(first.path, 'utf8')
+    expect(after.length).toBeGreaterThan(1000)
+    expect(after).toContain(long.trim().slice(0, 12))
+    rmSync(first.path, { force: true })
+  })
+
+  it('缩水护栏可用 force 绕过', () => {
+    const long = '正文。\n'.repeat(500)
+    const first = saveArticle({ markdown: long, title: '强制缩水', theme: 'magazine' })
+    const r = saveArticle({ markdown: '短内容。', path: first.path, theme: 'magazine', force: true })
+    expect(readFileSync(r.path, 'utf8')).toContain('短内容。')
+    rmSync(r.path, { force: true })
+  })
+
+  it('正常幅度的修改不会被护栏拦下', () => {
+    const long = '正文。\n'.repeat(500)
+    const first = saveArticle({ markdown: long, title: '正常修改', theme: 'magazine' })
+    // 删掉一半：仍高于 25% 阈值，不该拦
+    const r = saveArticle({ markdown: '正文。\n'.repeat(250), path: first.path, theme: 'magazine' })
+    expect(readFileSync(r.path, 'utf8').length).toBeGreaterThan(1000)
+    rmSync(r.path, { force: true })
+  })
+
   it('目录穿越被拒绝', () => {
     // 注意：serviceError 抛的是普通对象（{ error: { code, message, hint } }）而非 Error，
     // 所以不能用 toThrow(/正则/) 匹配——得自己接住再断言 code。

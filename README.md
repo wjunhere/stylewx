@@ -181,6 +181,15 @@ theme: dusk-convergence
 刻意**不做自动写盘**：编辑器里的改动先落 localStorage 快照，写回文件必须由人触发。
 写入范围仍受 `STYLEWX_ARTICLES_DIR`（默认 cwd）限制，目录穿越会被拒绝。
 
+#### 缩水护栏
+
+`save_article` / `save-file` 默认**拒绍把一篇完整文章换成一小段内容**：原文件 ≥ 1KB
+且新内容不足它的 25% 时返回 `content_shrunk`，**原文件分毫不动**。
+
+这不是假想风险：开发过程中一次误点保存就把 12303 字节的文章写成了 71 字节，
+全文丢掉且无任何提示。编辑器碰到这个错误会弹确认框，选择继续则带 `force: true` 重试。
+真需要大幅删减时，`save_article` 传 `force: true` 即可。
+
 ### REST API
 
 ```bash

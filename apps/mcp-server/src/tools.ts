@@ -527,9 +527,18 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
             '排版使用的主题名（如 dusk-convergence）。会写进 .md 的 front-matter，并附在 editorUrl 上，' +
               '让用户打开编辑器时自动选中该主题。',
           ),
+        force: z
+          .boolean()
+          .optional()
+          .describe(
+            '允许把已有文章覆盖成「明显更短」的内容。默认拒绝（原文件 ≥ 1KB 且新内容不足 25% 时报 content_shrunk），' +
+              '因为这种覆写几乎都是误操作；确认无误时传 true。',
+          ),
       },
     },
-    wrap(async ({ markdown, path, title, theme }) => textResult(saveArticle({ markdown, path, title, theme }))),
+    wrap(async ({ markdown, path, title, theme, force }) =>
+      textResult(saveArticle({ markdown, path, title, theme, force })),
+    ),
   )
 
   // ---- save_component ----
