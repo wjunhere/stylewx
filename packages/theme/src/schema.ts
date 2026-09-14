@@ -37,6 +37,14 @@ export const lengthSchema = z
   .string()
   .regex(/^\d+(\.\d+)?(px|em|rem|pt|%)$/, '尺寸必须带合法单位，例如 16px、1.5em。')
 
+/** 1~4 个值组成的盒模型简写，例如 `24px 28px`。 */
+export const boxShorthandSchema = z
+  .string()
+  .regex(
+    /^\d+(\.\d+)?(px|em|rem|pt|%)(\s+\d+(\.\d+)?(px|em|rem|pt|%)){0,3}$/,
+    '必须是 1~4 个带单位的尺寸，例如 24px 28px。',
+  )
+
 /** 各 block 的「声明值」必须是字符串字面量，或 `{{token}}` 引用。 */
 const declarationValueSchema = z.string().min(1)
 const blockSchema = z.record(declarationValueSchema, declarationValueSchema)
@@ -59,6 +67,18 @@ export const themeTokensSchema = z.object({
   spacing: z.object({
     block: lengthSchema,
   }),
+  // ---- 根节点级排版（此前只有 font-family/size/color/line-height 能落到根节点） ----
+  /** 全局字距（根节点 letter-spacing），例如 0.045em。 */
+  letterSpacing: lengthSchema.optional().describe('全局字距（根节点 letter-spacing），例如 0.045em。'),
+  /** 正文页边距（根节点 padding），例如 24px 28px。用了 :::canvas 时不要再叠加。 */
+  pagePadding: boxShorthandSchema
+    .optional()
+    .describe('正文页边距（根节点 padding），例如 24px 28px。注意不要与 :::canvas 组件的 padding 叠加。'),
+  /** 长英文 / URL 断行策略（根节点 word-break）。 */
+  wordBreak: z
+    .enum(['normal', 'break-word', 'break-all', 'keep-all'])
+    .optional()
+    .describe('长英文 / URL 断行策略（根节点 word-break），推荐 break-word。'),
   // ---- 以下为富组件扩展 token，全部可选（老主题不受影响） ----
   /** 强调色（卡片浅底、标签底色等），缺省由 primaryColor 派生。 */
   accentColor: colorSchema.optional().describe('强调色：卡片浅底、标签底色等，缺省由 primaryColor 派生。'),

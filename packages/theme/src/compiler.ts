@@ -65,6 +65,10 @@ export function compileRootBaseStyle(theme: Theme): string {
   parts.push(`font-size: ${t.fontSize};`)
   parts.push(`color: ${t.textColor};`)
   parts.push(`line-height: ${t.lineHeight};`)
+  // 以下三项此前无处可放，导致 WeMD 移植主题的根级 padding / letter-spacing / word-break 全部丢失。
+  if (t.letterSpacing) parts.push(`letter-spacing: ${t.letterSpacing};`)
+  if (t.pagePadding) parts.push(`padding: ${t.pagePadding};`)
+  if (t.wordBreak) parts.push(`word-break: ${t.wordBreak};`)
   // 注意：不要添加 -webkit-text-size-adjust 等不在微信白名单内的属性，否则会被 validator 拦截。
   return parts.join(' ')
 }

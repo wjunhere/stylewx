@@ -372,6 +372,6 @@ MIT License，详见 [LICENSE](./LICENSE)。
 代码为全新实现（MIT），不含参考项目源码。设计思路参考了以下开源项目（保留原作者版权声明）：
 
 - [doocs/md](https://github.com/doocs/md) — Markdown → 微信 HTML 渲染 / juice 内联思路
-- [WeMD](https://github.com/mdnice/WeMD) — 包拆分与主题设计器思路
+- [WeMD](https://github.com/tenngoxars/WeMD)（MIT）— 包拆分与主题设计器思路；20 套预置主题移植自其内置主题，见 `scripts/port-wemd-themes.mjs`
 - [caol64/wenyan-mcp](https://github.com/caol64/wenyan-mcp)（Apache-2.0）— 微信 API 封装 / MCP 远程模式
 - `gzh-design-skill` — 主题 JSON 结构与微信兼容性规则清单

@@ -1,7 +1,13 @@
 /**
- * WeMD 主题移植（自动生成自 tenngoxars/WeMD 的 CSS 主题）。
+ * WeMD 主题移植（自动生成自 tenngoxars/WeMD 的 CSS 主题，MIT）。
+ *
+ * 生成器：`node scripts/port-wemd-themes.mjs`（上游 commit 锁定，见脚本内 WEMD_SHA）。
  * 已转换为 stylewx 的结构化 Theme（tokens + blocks），只保留微信白名单内属性。
- * 样式为近似的「视觉迁移」：无法 1:1 还原 WeMD 的 class/flex/box-shadow 等微信会过滤的特性。
+ * 样式为近似的「视觉迁移」：无法 1:1 还原 WeMD 的 class / ::before/::after 伪元素 /
+ * 依赖 class 的 flex 布局 —— 这些微信正文都不支持。可内联表达的部分（含根节点的
+ * padding / letter-spacing / word-break）尽量保留。
+ *
+ * 请勿手工编辑本文件，改上游或改生成器后重新运行脚本。
  */
 import type { Theme } from './schema.js'
 
@@ -17,7 +23,8 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "Optima-Regular, Optima, PingFangSC-light, PingFangTC-light, 'PingFang SC', 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -361,7 +368,8 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "letterSpacing": "0.4px"
   },
   "blocks": {
     "h1": {
@@ -492,7 +500,8 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "\"Times New Roman\", \"Songti SC\", \"SimSun\", serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "5px 20px"
   },
   "blocks": {
     "h1": {
@@ -602,7 +611,9 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, BlinkMacSystemFont, \"Helvetica Neue\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "5px 20px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -725,7 +736,9 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, BlinkMacSystemFont, \"Microsoft YaHei\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "30px 22px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -841,7 +854,8 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, BlinkMacSystemFont, \"Microsoft YaHei\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "5px 20px"
   },
   "blocks": {
     "h1": {
@@ -956,7 +970,10 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "18px 24px",
+    "letterSpacing": "0.012em",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -1067,7 +1084,10 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "14px 20px",
+    "letterSpacing": "0.006em",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -1185,7 +1205,10 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "\"Songti SC\", \"STSong\", \"Noto Serif CJK SC\", SimSun, serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "24px 28px",
+    "letterSpacing": "0.045em",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -1295,7 +1318,8 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", \"PingFang SC\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "5px 24px"
   },
   "blocks": {
     "h1": {
@@ -1421,7 +1445,8 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "\"Songti SC\", \"SimSun\", \"STSong\", \"Georgia\", serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "5px 22px"
   },
   "blocks": {
     "h1": {
@@ -1536,7 +1561,8 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "\"Optima\", \"Georgia\", \"PingFang SC\", \"Microsoft YaHei\", serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "5px 22px"
   },
   "blocks": {
     "h1": {
@@ -1665,7 +1691,10 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "16px 24px",
+    "letterSpacing": "0.018em",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -1790,7 +1819,9 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, \"Helvetica Neue\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "5px 22px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -1926,7 +1957,9 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "\"Courier New\", \"SimSun\", \"Songti SC\", monospace",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "5px 20px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -2037,7 +2070,8 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "\"Songti SC\", \"SimSun\", \"STSong\", \"Georgia\", serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "5px 22px"
   },
   "blocks": {
     "h1": {
@@ -2163,7 +2197,8 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "-apple-system, BlinkMacSystemFont, \"Microsoft YaHei\", sans-serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "30px 20px"
   },
   "blocks": {
     "h1": {
@@ -2271,7 +2306,10 @@ export const WEMD_THEMES: Theme[] = [
     "fontFamily": "\"Songti SC\", \"STSong\", \"Noto Serif CJK SC\", SimSun, serif",
     "spacing": {
       "block": "16px"
-    }
+    },
+    "pagePadding": "30px 24px",
+    "letterSpacing": "0.035em",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {

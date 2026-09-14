@@ -38,3 +38,6 @@ packages/preview/*.png
 text_one_out/
 examples/showcase-out/
 examples/handoff-out/
+
+# 移植脚本的上游缓存（scripts/port-wemd-themes.mjs 用）
+.cache/
