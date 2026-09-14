@@ -75,6 +75,7 @@ export function renderMarkdownToHtml(
     theme: safeTheme.tokens,
     componentStyles: safeTheme.components,
     userComponents: options.userComponents,
+    decorations: safeTheme.decorations,
     onDiagnostic: (d) => diagnostics.push(d),
   })
   const baseStyle = compileRootBaseStyle(safeTheme)

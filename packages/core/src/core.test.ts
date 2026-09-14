@@ -90,6 +90,57 @@ describe('markdownToHtml', () => {
   })
 })
 
+describe('decorations（伪元素装饰的真实元素等价物）', () => {
+  const decoTheme: Theme = {
+    ...theme,
+    decorations: [
+      { target: 'h2', position: 'before', text: '◆', style: { display: 'block', color: '#a33a2b' } },
+      { target: 'h1', position: 'after', style: { display: 'block', width: '18px', height: '18px' } },
+      { target: 'blockquote', position: 'before', text: '“' },
+      { target: 'li', position: 'before', text: '[*] ' },
+    ],
+  }
+
+  it('微信不支持伪元素，所以必须落成真实的内联元素', () => {
+    const { html } = renderMarkdownToHtml(sampleMarkdown, decoTheme)
+    // 绝不能出现伪元素或 class 依赖
+    expect(html).not.toContain('::before')
+    expect(html).not.toContain('::after')
+    expect(html).not.toContain('class=')
+    // h2 前缀、h1 后缀块、引用块引号、列表项标记都必须在场
+    expect(html).toMatch(/<h2[^>]*><span style="display:block;color:#a33a2b">◆<\/span>/)
+    expect(html).toMatch(/<h1[^>]*>[\s\S]*<span style="display:block;width:18px;height:18px"><\/span><\/h1>/)
+    expect(html).toContain('“')
+    expect(html).toContain('[*] ')
+  })
+
+  it('counter 按文档出现顺序自增，等价于 CSS counter', () => {
+    const t: Theme = {
+      ...theme,
+      decorations: [
+        { target: 'h2', position: 'before', counter: 'decimal-leading-zero', style: { 'margin-right': '4px' } },
+      ],
+    }
+    const { html } = renderMarkdownToHtml('## 甲\n\n正文\n\n## 乙\n\n正文\n\n## 丙\n', t)
+    expect(html).toContain('>01</span>')
+    expect(html).toContain('>02</span>')
+    expect(html).toContain('>03</span>')
+  })
+
+  it('未声明 decorations 时输出与之前完全一致', () => {
+    const withOut = renderMarkdownToHtml(sampleMarkdown, theme).html
+    const withEmpty = renderMarkdownToHtml(sampleMarkdown, { ...theme, decorations: [] }).html
+    expect(withEmpty).toBe(withOut)
+  })
+
+  it('预置主题 eastern-notes / modern-editorial / receipt 带上了上游的伪元素装饰', () => {
+    for (const name of ['eastern-notes', 'modern-editorial', 'receipt']) {
+      const t = getPresetTheme(name) as Theme
+      expect(t.decorations?.length, `${name} 应有 decorations`).toBeGreaterThan(0)
+    }
+  })
+})
+
 describe('renderMarkdownToHtml', () => {
   it('输出不含 <style> / <link> / class 依赖（属性内联率 100%）', () => {
     const { html } = renderMarkdownToHtml(sampleMarkdown, theme)
@@ -114,8 +165,7 @@ describe('renderMarkdownToHtml', () => {
     expect(html).not.toContain('{{')
   })
 
-  it('根节点 style 属性里的字体名已转义，不会截断属性（回归）', () => {
-    const { html } = renderMarkdownToHtml('# 标题', theme)
+  it('根节点 style 属性里的字体名已转义，不会截断属性（回归）', () => {    const { html } = renderMarkdownToHtml('# 标题', theme)
     const match = /^<section style="([^"]*)">/.exec(html)
     expect(match).not.toBeNull()
     const style = match?.[1] ?? ''

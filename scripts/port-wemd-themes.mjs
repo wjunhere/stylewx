@@ -11,6 +11,7 @@
  * 用法：
  *   node scripts/port-wemd-themes.mjs            # 拉取上游并重写 wemd-presets.ts
  *   node scripts/port-wemd-themes.mjs --check    # 只报告差异，不写文件
+ *   node scripts/port-wemd-themes.mjs --refresh  # 忽略本地缓存，重新拉取上游
  *
  * 上游按 commit 锁定，保证可复现。
  */
@@ -37,9 +38,13 @@ const SKIP_FILES = new Set(['index'])
 
 const checkOnly = process.argv.includes('--check')
 
+const refresh = process.argv.includes('--refresh')
+
 async function fetchUpstream(name) {
   mkdirSync(CACHE, { recursive: true })
   const cached = join(CACHE, `${name}.ts`)
+  // 默认优先用缓存，避免每次重跑都打 GitHub；--refresh 强制重新拉取。
+  if (!refresh && existsSync(cached)) return readFileSync(cached, 'utf8')
   const url = `https://raw.githubusercontent.com/tenngoxars/WeMD/${WEMD_SHA}/${UPSTREAM_DIR}/${name}.ts`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`拉取失败 ${url} → HTTP ${res.status}`)
@@ -54,14 +59,17 @@ function cssOf(src) {
   return m ? m[1] : src
 }
 
-/** 解析 `#wemd { … }` 根块。 */
-function rootDecls(css) {
-  const m = css.match(/#wemd\s*\{([^}]*)\}/)
-  if (!m) return {}
+/** 去掉 CSS 注释（上游习惯把中文注释写在声明中间，会污染键名解析）。 */
+function stripCssComments(s) {
+  return s.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/** 解析 `a: b; c: d` 为对象。 */
+function parseDecls(body) {
   const out = {}
-  for (const part of m[1].split(';')) {
+  for (const part of stripCssComments(body).split(';')) {
     const s = part.trim()
-    if (!s || s.startsWith('/*')) continue
+    if (!s) continue
     const i = s.indexOf(':')
     if (i < 0) continue
     out[s.slice(0, i).trim()] = s.slice(i + 1).trim()
@@ -69,8 +77,14 @@ function rootDecls(css) {
   return out
 }
 
-/** 从上游根块提取可以落到根节点的值。 */
-function rootTokens(decls) {
+/** 解析 `#wemd { … }` 根块。 */
+function rootDecls(css) {
+  const m = css.match(/#wemd\s*\{([^}]*)\}/)
+  if (!m) return {}
+  return parseDecls(m[1])
+}
+
+/** 从上游根块提取可以落到根节点的值。 */function rootTokens(decls) {
   const tokens = {}
   const pad = decls['padding']
   // 只接受 1~4 个带单位的尺寸（schema 的 boxShorthandSchema），`0` 之类直接跳过。
@@ -86,8 +100,97 @@ function rootTokens(decls) {
   return tokens
 }
 
-function parseThemes(fileText) {
-  const start = fileText.indexOf('= [') + 2
+/** decorations 里允许保留的 CSS 属性（均在微信白名单内）。 */
+const DECOR_KEEP = new Set([
+  'display',
+  'width',
+  'height',
+  'min-width',
+  'max-width',
+  'margin',
+  'margin-top',
+  'margin-bottom',
+  'margin-left',
+  'margin-right',
+  'padding',
+  'color',
+  'background',
+  'background-color',
+  'border-radius',
+  'font-family',
+  'font-size',
+  'font-weight',
+  'font-style',
+  'letter-spacing',
+  'line-height',
+  'text-align',
+  'vertical-align',
+  'opacity',
+])
+
+/** 上游的伪元素选择器 → stylewx 的装饰目标元素。不认识的返回 null（跳过）。 */
+function decorTarget(selector) {
+  const s = selector.replace(/^#wemd/, '').trim()
+  if (!s) return null
+  const parts = s.split(/\s+/)
+  const head = parts[0]
+  if (/^h[1-6]$/.test(head)) return head
+  if (head === 'blockquote' || head.startsWith('.multiquote')) return 'blockquote'
+  if (head === 'li') return 'li'
+  // `ul li` / `ol li` 算列表项；`ul ul li` 这类嵌套不上（模型里区分不了层级，宁可不做）
+  if ((head === 'ul' || head === 'ol') && parts.length === 2 && parts[1] === 'li') return 'li'
+  return null
+}
+
+/**
+ * 从上游 CSS 提取 `::before` / `::after` 装饰，转成 decorations 规则。
+ *
+ * 微信正文不支持伪元素，这些规则会被渲染成真实的内联 span，效果等价。
+ */
+function extractDecorations(css) {
+  const out = []
+  const seen = new Set()
+  const re = /(#wemd[^{]*?)::(before|after)\s*\{([^}]*)\}/g
+  let m
+  while ((m = re.exec(css))) {
+    const target = decorTarget(m[1].trim())
+    if (!target) continue
+    const position = m[2]
+
+    const decls = parseDecls(m[3])
+
+    const rule = { target, position }
+    const content = (decls.content || '').replace(/!important/g, '').trim()
+    const counter = content.match(/^counter\(\s*[^,]+,\s*([a-z-]+)\s*\)$/i)
+    if (counter && ['decimal', 'decimal-leading-zero', 'lower-alpha', 'upper-alpha'].includes(counter[1])) {
+      rule.counter = counter[1]
+    } else {
+      const str = content.match(/^["']([\s\S]*)["']$/)
+      if (str && str[1]) rule.text = str[1]
+    }
+
+    const style = {}
+    for (const [k, v] of Object.entries(decls)) {
+      if (k === 'content' || k.startsWith('counter')) continue
+      if (!DECOR_KEEP.has(k)) continue
+      const val = v.replace(/!important/g, '').trim()
+      if (val) style[k] = val
+    }
+
+    // 既没有文字/序号，也没有可见块（宽高或底色）—— 比如 `content:""; display:none`，跳过
+    const visual = !!(style.background || style['background-color'] || style.width || style.height || style['border-radius'])
+    if (!rule.text && !rule.counter && !visual) continue
+    if (Object.keys(style).length) rule.style = style
+
+    const key = `${target}|${position}|${rule.text ?? rule.counter ?? 'block'}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(rule)
+  }
+  return out.slice(0, 16)
+}
+
+function parseThemes(fileText) {  const start = fileText.indexOf('= [') + 2
   return JSON.parse(fileText.slice(start, fileText.lastIndexOf(']') + 1))
 }
 
@@ -133,6 +236,18 @@ for (const theme of themes) {
       theme.tokens[k] = v
     }
   }
+
+  const decos = extractDecorations(cssOf(src))
+  if (decos.length) {
+    if (JSON.stringify(theme.decorations ?? null) !== JSON.stringify(decos)) {
+      theme.decorations = decos
+      added.push(`decorations×${decos.length}`)
+    }
+  } else if (theme.decorations) {
+    delete theme.decorations
+    added.push('decorations 清空')
+  }
+
   report.push({ name: theme.name, added })
 }
 

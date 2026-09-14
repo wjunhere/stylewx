@@ -110,6 +110,33 @@ export const componentStylesSchema = z.record(
   z.record(z.string(), z.record(z.string(), z.string())),
 )
 
+/** decorations 可作用的元素。 */
+export const DECORATION_TARGETS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'li'] as const
+
+/**
+ * 伪元素装饰的「真实元素」等价物。
+ *
+ * 微信正文会剥离 class 选择器与 `::before` / `::after`，所以 WeMD 一类主题靠伪元素做的
+ * 装饰（标题前的 ◆、带序号的章节标记、引用块的引号、清单的 [*]）在微信里全部失效。
+ * 主题用 decorations 声明它们，渲染时会注入**真实的内联元素**，效果等价。
+ */
+export const decorationRuleSchema = z.object({
+  /** 作用在哪个元素上。 */
+  target: z.enum(DECORATION_TARGETS),
+  /** 插到元素内容之前还是之后。 */
+  position: z.enum(['before', 'after']).default('before'),
+  /** 固定字符，如 "◆"、"「"、"[*]"。与 counter 二选一；两者都不给则得到一个纯装饰块。 */
+  text: z.string().max(24).optional(),
+  /** 自增序号（按文档中出现顺序）。与 text 二选一。 */
+  counter: z.enum(['decimal', 'decimal-leading-zero', 'lower-alpha', 'upper-alpha']).optional(),
+  /** 注入元素的内联样式；键必须落在微信白名单内。 */
+  style: z.record(z.string(), z.string()).optional(),
+})
+
+export const themeDecorationsSchema = z.array(decorationRuleSchema).max(16)
+
+export type DecorationRule = z.infer<typeof decorationRuleSchema>
+
 export const themeSchema = z
   .object({
     name: z.string().min(1).max(60),
@@ -118,8 +145,22 @@ export const themeSchema = z
     blocks: themeBlocksSchema,
     /** 组件级样式覆盖（可选）。 */
     components: componentStylesSchema.optional(),
+    /** 伪元素装饰的真实元素等价物（可选）。 */
+    decorations: themeDecorationsSchema.optional(),
   })
   .superRefine((theme, ctx) => {
+    // 装饰注入的元素样式：同样要过微信白名单
+    ;(theme.decorations ?? []).forEach((rule, i) => {
+      for (const property of Object.keys(rule.style ?? {})) {
+        if (!isCssPropertyAllowed(property)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [`decorations.${i}.style.${property}`],
+            message: `CSS 属性「${property}」已被真实微信实测会过滤（如 position / filter 等），请移除或改用微信保留的属性。`,
+          })
+        }
+      }
+    })
     // 组件级覆盖：逐个声明检查微信白名单（硬禁止属性直接报错）
     for (const [componentName, slots] of Object.entries(theme.components ?? {})) {
       for (const [slotName, declarations] of Object.entries(slots)) {

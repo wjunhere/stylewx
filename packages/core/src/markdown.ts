@@ -24,12 +24,89 @@ import type {
   RenderContext,
 } from '@stylewx/components'
 import type { PaletteTokens, ComponentStyleOverrides, UserComponentDef } from '@stylewx/components'
+import type { DecorationRule } from '@stylewx/theme'
 
 interface HastLike {
   type?: string
+  tagName?: string
   value?: string
   properties?: Record<string, unknown>
   children?: HastLike[]
+}
+
+/** 把 decorations 的样式对象转成内联 style 字符串。 */
+function decorationStyle(style: Record<string, string> | undefined): string | undefined {
+  if (!style) return undefined
+  const parts = Object.entries(style).map(([k, v]) => `${k}:${v}`)
+  return parts.length ? parts.join(';') : undefined
+}
+
+/** 序号格式（对应 CSS counter 的几个常用 style）。 */
+function formatCounter(n: number, kind: string): string {
+  switch (kind) {
+    case 'decimal-leading-zero':
+      return String(n).padStart(2, '0')
+    case 'lower-alpha':
+      return String.fromCharCode(96 + ((n - 1) % 26) + 1)
+    case 'upper-alpha':
+      return String.fromCharCode(64 + ((n - 1) % 26) + 1)
+    default:
+      return String(n)
+  }
+}
+
+/**
+ * 把主题里的 `decorations` 注入为**真实元素**。
+ *
+ * 微信正文不支持 `::before` / `::after`（class 与伪元素都会被剔掉），所以 WeMD 一类主题里
+ * 靠伪元素做的装饰在微信里会直接消失。这里改用真实 `<span>` 承载同样的文字与内联样式。
+ * 序号（counter）按文档中出现顺序自增，等价于 CSS counter。
+ */
+export function rehypeDecorationsPlugin(decorations: DecorationRule[] = []) {
+  return (tree: HastLike): void => {
+    if (!decorations.length) return
+    const counters: Record<string, number> = {}
+
+    const makeSpan = (rule: DecorationRule, n: number): HastLike => {
+      const text = rule.counter ? formatCounter(n, rule.counter) : (rule.text ?? '')
+      const style = decorationStyle(rule.style)
+      return {
+        type: 'element',
+        tagName: 'span',
+        properties: style ? { style } : {},
+        children: text ? [{ type: 'text', value: text }] : [],
+      }
+    }
+
+    const walk = (node: HastLike): void => {
+      if (node.type === 'element' && node.tagName && Array.isArray(node.children)) {
+        const tag = node.tagName
+        const before: DecorationRule[] = []
+        const after: DecorationRule[] = []
+        for (const rule of decorations) {
+          if (rule.target !== tag) continue
+          if (rule.position === 'after') after.push(rule)
+          else before.push(rule)
+        }
+        if (before.length || after.length) {
+          counters[tag] = (counters[tag] ?? 0) + 1
+          const n = counters[tag]
+          // 先快照children，避免把刚注入的 span 再走一遍
+          const origin = node.children.slice()
+          node.children = [
+            ...before.map((r) => makeSpan(r, n)),
+            ...origin,
+            ...after.map((r) => makeSpan(r, n)),
+          ]
+          for (const child of origin) walk(child)
+          return
+        }
+      }
+      if (Array.isArray(node.children)) for (const child of node.children) walk(child)
+    }
+
+    walk(tree)
+  }
 }
 
 /** 递归移除所有节点上的 className（去除 language-* 等，避免任何 class 依赖）。 */
@@ -151,18 +228,21 @@ export interface MarkdownRenderOptions {
   componentStyles?: ComponentStyleOverrides
   /** 用户自定义组件（本地组件库）。 */
   userComponents?: Record<string, UserComponentDef>
+  /** 伪元素装饰的真实元素等价物（theme.decorations）。 */
+  decorations?: DecorationRule[]
   /** 组件渲染诊断回调（未知组件、缺参数等）。 */
   onDiagnostic?: (diagnostic: ComponentDiagnostic) => void
 }
 
 /** 纯 Markdown 段落的渲染（不含组件解析），供组件内部递归调用。 */
-export function renderMarkdownSegment(markdown: string): string {
+export function renderMarkdownSegment(markdown: string, decorations: DecorationRule[] = []): string {
   const normalized = preprocessSuperSub(normalizeNoSpaceAtxHeadings(markdown))
   const file = unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
+    .use(rehypeDecorationsPlugin, decorations)
     .use(rehypeRemoveClassPlugin)
     .use(rehypeStringify)
     .processSync(normalized)
@@ -195,6 +275,9 @@ export function markdownToHtml(markdown: string, options: MarkdownRenderOptions 
   }
   // 注入递归渲染能力（含嵌套组件），避免 components ↔ core 的循环依赖。
   ctx.renderChildren = (node) => renderNodes(node.children, ctx)
+  // 组件正文（:::card 内部等）同样走装饰注入，保持与主文档一致。
+  const decorations = options.decorations ?? []
+  ctx.renderMarkdown = (md: string) => renderMarkdownSegment(md, decorations)
   const html = renderDocument(markdown, ctx)
   if (options.onDiagnostic) for (const d of diagnostics) options.onDiagnostic(d)
   return html

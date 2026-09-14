@@ -501,7 +501,8 @@ export const WEMD_THEMES: Theme[] = [
     "spacing": {
       "block": "16px"
     },
-    "pagePadding": "5px 20px"
+    "pagePadding": "5px 20px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -855,7 +856,8 @@ export const WEMD_THEMES: Theme[] = [
     "spacing": {
       "block": "16px"
     },
-    "pagePadding": "5px 20px"
+    "pagePadding": "5px 20px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -1305,7 +1307,44 @@ export const WEMD_THEMES: Theme[] = [
       "text-decoration-color": "#d9aaa2",
       "text-decoration-thickness": "2px"
     }
-  }
+  },
+  "decorations": [
+    {
+      "target": "h1",
+      "position": "after",
+      "style": {
+        "display": "block",
+        "width": "18px",
+        "height": "18px",
+        "margin": "24px 0 0 auto",
+        "background": "#a33a2b"
+      }
+    },
+    {
+      "target": "h2",
+      "position": "before",
+      "text": "◆",
+      "style": {
+        "display": "block",
+        "margin-bottom": "8px",
+        "color": "#a33a2b",
+        "font-size": "9px",
+        "text-align": "right"
+      }
+    },
+    {
+      "target": "blockquote",
+      "position": "before",
+      "text": "“",
+      "style": {
+        "display": "block",
+        "color": "#a33a2b",
+        "font-size": "42px",
+        "line-height": "0.8",
+        "text-align": "center"
+      }
+    }
+  ]
 },
 {
   "name": "knowledge-base",
@@ -1319,7 +1358,8 @@ export const WEMD_THEMES: Theme[] = [
     "spacing": {
       "block": "16px"
     },
-    "pagePadding": "5px 24px"
+    "pagePadding": "5px 24px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -1446,7 +1486,8 @@ export const WEMD_THEMES: Theme[] = [
     "spacing": {
       "block": "16px"
     },
-    "pagePadding": "5px 22px"
+    "pagePadding": "5px 22px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -1562,7 +1603,8 @@ export const WEMD_THEMES: Theme[] = [
     "spacing": {
       "block": "16px"
     },
-    "pagePadding": "5px 22px"
+    "pagePadding": "5px 22px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -1806,7 +1848,26 @@ export const WEMD_THEMES: Theme[] = [
       "font-weight": "700",
       "border-bottom": "2px solid #dfa187"
     }
-  }
+  },
+  "decorations": [
+    {
+      "target": "h2",
+      "position": "before",
+      "counter": "decimal-leading-zero",
+      "style": {
+        "display": "inline-block",
+        "min-width": "42px",
+        "margin-right": "4px",
+        "color": "#c76237",
+        "font-family": "\"SFMono-Regular\", Consolas, monospace",
+        "font-size": "32px",
+        "font-weight": "800",
+        "line-height": "1",
+        "letter-spacing": "0.02em",
+        "vertical-align": "bottom"
+      }
+    }
+  ]
 },
 {
   "name": "neo-brutalism",
@@ -2057,7 +2118,18 @@ export const WEMD_THEMES: Theme[] = [
       "background": "#ddd",
       "padding": "0 4px"
     }
-  }
+  },
+  "decorations": [
+    {
+      "target": "li",
+      "position": "before",
+      "text": "[*] ",
+      "style": {
+        "font-weight": "bold",
+        "margin-right": "5px"
+      }
+    }
+  ]
 },
 {
   "name": "sunset-film",
@@ -2071,7 +2143,8 @@ export const WEMD_THEMES: Theme[] = [
     "spacing": {
       "block": "16px"
     },
-    "pagePadding": "5px 22px"
+    "pagePadding": "5px 22px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
@@ -2198,7 +2271,8 @@ export const WEMD_THEMES: Theme[] = [
     "spacing": {
       "block": "16px"
     },
-    "pagePadding": "30px 20px"
+    "pagePadding": "30px 20px",
+    "wordBreak": "break-word"
   },
   "blocks": {
     "h1": {
