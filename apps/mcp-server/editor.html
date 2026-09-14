@@ -1002,10 +1002,16 @@ $('#mdFile').addEventListener('change',e=>{
   const r=new FileReader();
   r.onload=()=>{
     pushUndo($('#md').value);
-    const text=String(r.result||''); $('#md').value=text; prevMd=text; activeId=null;
+    const raw=String(r.result||'');
+    // 导入的 md 可能带 front-matter（title / theme）——剥掉它，否则 `---` 会渲染成分割线
+    const {meta,body}=splitArticleMeta(raw);
+    $('#md').value=body; prevMd=body; activeId=null; linkedFile=null;
+    if(meta.title) $('#title').value=meta.title;
+    const h=(body.match(/^#\s+(.+)$/m)||[])[1]; if(h && !$('#title').value) $('#title').value=h.trim();
+    const picked=applyTheme(meta.theme);
+    const hint=meta.theme?(picked?('（主题：'+meta.theme+'）'):('（主题「'+meta.theme+'」不存在）')):'';
     updateUndoBtns(); render(); saveSnap();
-    const h=(text.match(/^#\s+(.+)$/m)||[])[1]; if(h && !$('#title').value) $('#title').value=h.trim();
-    toast('已导入 '+f.name);
+    toast('已导入 '+f.name+hint);
   };
   r.onerror=()=>toast('读取文件失败',false);
   r.readAsText(f,'utf-8');
@@ -1159,20 +1165,53 @@ $('#themeOverlay').addEventListener('click',e=>{ if(e.target.id==='themeOverlay'
 // 主题切换后，组件库预览跟随刷新（下次打开即为当前主题）
 
 // ---- 通过 ?file= 打开项目里的 Markdown（save_article 交接入口）----
+// ---- 通过 ?file= / ?theme= 打开项目里的 Markdown（save_article 交接入口）----
+// 与服务端 packages/service/src/front-matter.ts 语义保持一致：
+// 只认 title / theme 两个键；块内没有已知键时当普通分割线，原样返回。
+const FM_RE=/^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
+function splitArticleMeta(text){
+  const m=FM_RE.exec(text); if(!m) return {meta:{},body:text};
+  const meta={};
+  m[1].split(/\r?\n/).forEach(line=>{
+    const s=line.trim(); if(!s||s[0]==='#') return;
+    const i=s.indexOf(':'); if(i<0) return;
+    const k=s.slice(0,i).trim(); let v=s.slice(i+1).trim();
+    if(v.length>=2&&((v[0]==='"'&&v.endsWith('"'))||(v[0]==="'"&&v.endsWith("'")))) v=v.slice(1,-1);
+    if((k==='title'||k==='theme')&&v) meta[k]=v;
+  });
+  if(!Object.keys(meta).length) return {meta:{},body:text};
+  return {meta,body:text.slice(m[0].length).replace(/^\s*\n+/,'')};
+}
+
+/** 选中指定主题（不存在则不动，避免 select 变空值）。返回是否成功。 */
+function applyTheme(name){
+  if(!name) return false;
+  const sel=$('#themeSel');
+  if(![...sel.options].some(o=>o.value===name)) return false;
+  sel.value=name; sel.dispatchEvent(new Event('change'));
+  return true;
+}
+
 async function loadFromQuery(){
-  const file=new URLSearchParams(location.search).get("file");
-  if(!file) return;
+  const qs=new URLSearchParams(location.search);
+  const file=qs.get("file");
+  const qTheme=qs.get("theme");
+  if(!file){ if(qTheme) applyTheme(qTheme); return; }
   try{
     const d=await api("/editor/api/load-file?file="+encodeURIComponent(file));
     if(!d.markdown) return;
     $("#md").value=d.markdown; prevMd=d.markdown; linkedFile=d.path||file;
-    if(d.title) $("#title").value=d.title;
+    // 文件里没写标题就清空，避免残留上一个草稿的标题
+    $("#title").value=d.title||'';
+    // 主题优先级：.md front-matter > ?theme= 参数
+    const theme=d.theme||qTheme;
+    const picked=applyTheme(theme);
     render(); saveSnap();
-    setVal([{kind:"ok",text:"已从文件载入："+(d.path||file)}]);
-    toast("已载入 "+(d.title||"文章"));
+    setVal([{kind:"ok",text:"已从文件载入："+(d.path||file)},
+            theme?{kind:picked?"ok":"warn",text:picked?("主题："+theme):("主题「"+theme+"」不存在，已用默认主题")}:null].filter(Boolean));
+    toast(picked?("已载入 · "+theme):("已载入 "+(d.title||"文章")));
   }catch(e){ toast("载入文件失败："+e.message,false); }
 }
-loadFromQuery();
 $('#newBtn').onclick=()=>{ $('#md').value=''; $('#title').value=''; undoStack.length=0;redoStack.length=0;prevMd='';updateUndoBtns(); $('#pv').srcdoc=''; $('#pv').style.display='none'; $('#pvEmpty').style.display=''; activeId=null; setVal([{kind:'warn',text:'新建文章：开始输入 Markdown'} ]); $('#md').focus(); };
 
 // ---- 主题操作 ----
@@ -1361,7 +1400,10 @@ $('#redoBtn').onclick=doRedo;
   const saved=history[0]; if(saved){ $('#md').value=saved.md; $('#title').value=saved.title; }
   else { $('#md').value='# 示例标题\n\n在这里用 Markdown 写作。支持 **加粗**、*斜体*、==高亮==、> 引用、列表、表格、代码块等。\n\n## 小节一\n\n> 引用一条。\n\n- 要点一\n- 要点二\n\n| 列A | 列B |\n| --- | --- |\n| 1 | 2 |\n'; }
   prevMd=$('#md').value; updateUndoBtns();
-  await loadThemes(); render();
+  await loadThemes();
+  // ?file= 放在主题列表就绪之后，才能把 md 里的主题真正选中
+  await loadFromQuery();
+  render();
 })().catch(e=>setVal([{kind:'err',text:'初始化失败：'+e.message}]));
 </script>
 </body>

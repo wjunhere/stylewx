@@ -5,6 +5,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { serviceError } from './errors.js'
+import { parseFrontMatter, stringifyFrontMatter } from './front-matter.js'
 
 export interface SaveArticleParams {
   /** 文章 Markdown。 */
@@ -13,6 +14,11 @@ export interface SaveArticleParams {
   path?: string
   /** 标题（用于生成默认文件名，也用于返回信息）。 */
   title?: string
+  /**
+   * 排版主题名。给了就写进 `.md` 的 front-matter，
+   * 这样用户拿编辑器打开/导入这个 md 时会自动选回该主题。
+   */
+  theme?: string
 }
 
 export interface SaveArticleResult {
@@ -24,6 +30,8 @@ export interface SaveArticleResult {
   editorUrl: string
   /** 文章根目录（限制写入范围）。 */
   root: string
+  /** 写入 front-matter 的主题名（未指定则 undefined）。 */
+  theme?: string
 }
 
 /** 允许写入的根目录：可用 STYLEWX_ARTICLES_DIR 覆盖，默认当前工作目录。 */
@@ -68,7 +76,10 @@ export function saveArticle(params: SaveArticleParams): SaveArticleResult {
   }
 
   const root = articlesRoot()
-  const title = params.title?.trim() || firstHeading(params.markdown)
+  // 输入本身可能已带 front-matter（比如二次保存）；先拆开，再决定写回去什么。
+  const { meta: incomingMeta, body } = parseFrontMatter(params.markdown)
+  const title = params.title?.trim() || incomingMeta.title || firstHeading(body)
+  const theme = params.theme?.trim() || incomingMeta.theme
   const relativeDefault = `${slugify(title)}.md`
   const requested = params.path?.trim()
 
@@ -92,9 +103,14 @@ export function saveArticle(params: SaveArticleParams): SaveArticleResult {
     )
   }
 
+  // 只在确实有主题（或输入本来就带 front-matter）时才写元信息，
+  // 保证不传 theme 的调用与以前逐字节一致。
+  const writeMeta = Boolean(theme) || Object.keys(incomingMeta).length > 0
+  const contents = writeMeta ? stringifyFrontMatter({ title, theme }, body) : body
+
   try {
     mkdirSync(dirname(target), { recursive: true })
-    writeFileSync(target, params.markdown, 'utf8')
+    writeFileSync(target, contents, 'utf8')
   } catch (error) {
     throw serviceError(
       'save_failed',
@@ -103,10 +119,14 @@ export function saveArticle(params: SaveArticleParams): SaveArticleResult {
     )
   }
 
+  const query = new URLSearchParams({ file: target })
+  if (theme) query.set('theme', theme)
+
   return {
     path: target,
-    bytes: Buffer.byteLength(params.markdown, 'utf8'),
-    editorUrl: `${editorBaseUrl()}/editor?file=${encodeURIComponent(target)}`,
+    bytes: Buffer.byteLength(contents, 'utf8'),
+    editorUrl: `${editorBaseUrl()}/editor?${query.toString()}`,
     root,
+    theme,
   }
 }

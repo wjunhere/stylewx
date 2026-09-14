@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync, rmSync } from 'node:fs'
 import {
   listThemes,
   analyzeArticle,
@@ -7,11 +8,79 @@ import {
   publishDraft,
   generateTheme,
   optimizeArticle,
+  saveArticle,
+  parseFrontMatter,
+  stringifyFrontMatter,
   serviceError,
 } from './index.js'
 import { getPresetTheme, validateTheme } from '@stylewx/theme'
 import { WeChatClient } from '@stylewx/publisher'
 import type { LlmClient, LlmMessage, LlmJsonOptions } from './index.js'
+
+describe('front-matter（让 .md 自带 title / theme）', () => {
+  it('解析 title / theme，并把正文与元信息分离', () => {
+    const { meta, body } = parseFrontMatter('---\ntitle: 收敛水\ntheme: dusk-convergence\n---\n\n正文一。\n')
+    expect(meta).toEqual({ title: '收敛水', theme: 'dusk-convergence' })
+    expect(body.trim()).toBe('正文一。')
+  })
+
+  it('带引号的值也能解析', () => {
+    const { meta } = parseFrontMatter('---\ntitle: "含: 冒号的标题"\ntheme: \'eastern-notes\'\n---\n\n正文\n')
+    expect(meta.title).toBe('含: 冒号的标题')
+    expect(meta.theme).toBe('eastern-notes')
+  })
+
+  it('块内没有已知键时当普通分割线，原样返回（不误伤正文）', () => {
+    const text = '---\n\n这是正文开头。\n\n---\n\n后面还有。\n'
+    const { meta, body } = parseFrontMatter(text)
+    expect(meta).toEqual({})
+    expect(body).toBe(text)
+  })
+
+  it('不含 front-matter 时正文逐字不变', () => {
+    const text = '# 标题\n\n正文\n'
+    expect(parseFrontMatter(text).body).toBe(text)
+  })
+
+  it('stringify 后能被 parse 还原（往返一致）', () => {
+    const out = stringifyFrontMatter({ title: '收敛水', theme: 'dusk-convergence' }, '正文。\n')
+    const { meta, body } = parseFrontMatter(out)
+    expect(meta).toEqual({ title: '收敛水', theme: 'dusk-convergence' })
+    expect(body.trim()).toBe('正文。')
+  })
+
+  it('没有字段时 stringify 不插入任何东西', () => {
+    expect(stringifyFrontMatter({}, '正文\n')).toBe('正文\n')
+  })
+
+  it('saveArticle 传 theme 时写入 front-matter，并把它附在 editorUrl 上', () => {
+    const r = saveArticle({ markdown: '正文。\n', title: '往返测试', theme: 'dusk-convergence' })
+    const raw = readFileSync(r.path, 'utf8')
+    expect(raw.startsWith('---\n')).toBe(true)
+    expect(raw).toContain('theme: dusk-convergence')
+    expect(raw).toContain('title: 往返测试')
+    expect(r.theme).toBe('dusk-convergence')
+    expect(r.editorUrl).toContain('theme=dusk-convergence')
+    rmSync(r.path, { force: true })
+  })
+
+  it('saveArticle 不传 theme 时行为与以前一致（不写 front-matter）', () => {
+    const md = '正文，没有元信息。\n'
+    const r = saveArticle({ markdown: md, title: '无主题测试' })
+    expect(readFileSync(r.path, 'utf8')).toBe(md)
+    expect(r.theme).toBeUndefined()
+    expect(r.editorUrl).not.toContain('theme=')
+    rmSync(r.path, { force: true })
+  })
+
+  it('二次保存不会叠加 front-matter', () => {
+    const once = saveArticle({ markdown: '正文。\n', title: '幂等测试', theme: 'eastern-notes' })
+    const twice = saveArticle({ markdown: readFileSync(once.path, 'utf8'), path: once.path, theme: 'eastern-notes' })
+    const raw = readFileSync(twice.path, 'utf8')
+    expect(raw.match(/^---$/gm)?.length).toBe(2)
+    rmSync(once.path, { force: true })
+  })
+})
 
 describe('optimizeArticle', () => {
   it('用桩 LLM 返回优化后的 Markdown', async () => {

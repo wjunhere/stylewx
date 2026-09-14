@@ -30,6 +30,7 @@ import {
   deleteUserComponent,
   renderComponentPreviews,
   renderThemePreviews,
+  parseFrontMatter,
 } from '@stylewx/service'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
 import { htmlToMarkdown } from '@stylewx/components'
@@ -214,9 +215,12 @@ async function handleEditorApi(
         if (stat.size > 4 * 1024 * 1024) {
           return sendErr(res, { code: 'file_too_large', message: '文件超过 4MB。', hint: '请选择更小的 Markdown 文件。' })
         }
-        const markdown = readFileSync(target, 'utf8')
-        const title = (/^#\s+(.+)$/m.exec(markdown)?.[1] ?? '').trim()
-        return sendJson(res, { path: target, markdown, title })
+        const raw = readFileSync(target, 'utf8')
+        // .md 可能自带 front-matter（title / theme）。正文返回给编辑器前必须剥掉，
+        // 否则 `---` 会被 Markdown 当成分割线渲染出来。
+        const { meta, body } = parseFrontMatter(raw)
+        const title = meta.title || (/^#\s+(.+)$/m.exec(body)?.[1] ?? '').trim()
+        return sendJson(res, { path: target, markdown: body, title, theme: meta.theme })
       } catch (error) {
         return sendErr(res, {
           code: 'load_failed',
@@ -338,7 +342,12 @@ async function runHttp(port: number): Promise<void> {
     const path = url.pathname
     // 本地 Web 编辑器（WeMD 风格）；每次读取，改 editor.html 后即时生效
     if (path === '/editor') {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      // 必须禁缓存：源码注释说「改 editor.html 后即时生效」，但浏览器会缓存旧页面，
+      // 调试时表现为「改了没反应」，很难排查。
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store, no-cache, must-revalidate',
+      })
       res.end(readFileSync(editorHtmlPath, 'utf8').replace(/\{\{VERSION\}\}/g, editorVersion))
       return
     }

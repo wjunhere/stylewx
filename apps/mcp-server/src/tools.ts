@@ -512,16 +512,24 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
     {
       title: '保存文章到本地',
       description:
-        '把最终 Markdown 落盘到本地，并返回可直接打开的编辑器地址（带 ?file=）。' +
-        '用于「agent 生成 → 人在本地编辑器微调」的交接：保存后把 editorUrl 交给用户，用户在编辑器里改，改完 agent 直接读同一个 .md 继续。' +
+        '把最终 Markdown 落盘到本地，并返回可直接打开的编辑器地址（带 ?file=，若传了 theme 则一并带上 &theme=）。' +
+        '用于「agent 生成 → 人在本地编辑器微调」的交接：保存后把 editorUrl 交给用户，打开就能直接看到排版效果，不用再手选主题。' +
+        '传了 theme 时会写入 .md 的 front-matter（---\ntitle: …\ntheme: …\n---），这样用户日后手动导入这个 md 也能还原主题。' +
         '写入范围限制在 STYLEWX_ARTICLES_DIR（默认当前工作目录）内，防止越权写文件。',
       inputSchema: {
         markdown: z.string().describe('文章 Markdown 全文。'),
         path: z.string().optional().describe('目标路径（相对文章根目录，或根目录内的绝对路径）；缺省按标题生成 <slug>.md。'),
         title: z.string().optional().describe('标题，用于生成默认文件名。'),
+        theme: z
+          .string()
+          .optional()
+          .describe(
+            '排版使用的主题名（如 dusk-convergence）。会写进 .md 的 front-matter，并附在 editorUrl 上，' +
+              '让用户打开编辑器时自动选中该主题。',
+          ),
       },
     },
-    wrap(async ({ markdown, path, title }) => textResult(saveArticle({ markdown, path, title }))),
+    wrap(async ({ markdown, path, title, theme }) => textResult(saveArticle({ markdown, path, title, theme }))),
   )
 
   // ---- save_component ----
