@@ -153,6 +153,34 @@ http://localhost:3777/editor，同一进程还提供 http://localhost:3777/mcp�
 以及 **导入 HTML（带组件标记时精确还原为 `:::` 指令）/ 导入 Markdown / 导出 Markdown**，
 并支持 `?file=<路径>` 直接打开项目里的 `.md`（`save_article` 的交接入口）。
 
+#### 主题随文章走：`.md` 的 front-matter
+
+`save_article` 传了 `theme` 时，主题名会写进文章头部，并把 `&theme=` 附在返回的
+`editorUrl` 上——用户点开链接就能直接看到排版后的效果，不用在下拉框里手选：
+
+```markdown
+---
+title: 收敛水
+theme: dusk-convergence
+---
+
+::::canvas{bg="#faf6f2" padding="28px 20px"}
+...
+```
+
+规则：只认 `title` / `theme` 两个键；front-matter 块内没有已知键时会被当作普通
+分割线（`---`）原样保留，不会误伤正文。编辑器在 `?file=` 载入与「导入 MD」两条路径上
+都会解析它并自动选好主题（主题不存在时给提示，不会静默变成空选）。
+
+#### 写回文件
+
+顶部「保存到文件」按钮或 **Ctrl+S** 会把编辑器内容写回 `.md`，同时把当前的
+`title` / `theme` 一起写进 front-matter。只有通过 `?file=` 打开或「另存为…」过一次
+才有目标路径；未关联文件时按钮变成「另存为…」并提示输入相对路径。
+
+刻意**不做自动写盘**：编辑器里的改动先落 localStorage 快照，写回文件必须由人触发。
+写入范围仍受 `STYLEWX_ARTICLES_DIR`（默认 cwd）限制，目录穿越会被拒绝。
+
 ### REST API
 
 ```bash

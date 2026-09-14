@@ -31,6 +31,7 @@ import {
   renderComponentPreviews,
   renderThemePreviews,
   parseFrontMatter,
+  saveArticle,
 } from '@stylewx/service'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
 import { htmlToMarkdown } from '@stylewx/components'
@@ -257,6 +258,32 @@ async function handleEditorApi(
         saved,
         analysis: result.analysis,
         previewPng: result.previewPng ? result.previewPng.toString('base64') : undefined,
+      })
+    }
+
+    if (path === '/editor/api/save-file' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      if (typeof b.markdown !== 'string' || !b.markdown.trim()) {
+        return sendErr(res, {
+          code: 'missing_content',
+          message: '正文为空，不会写回文件。',
+          hint: '先在编辑器里写点内容再保存。',
+        })
+      }
+      const requested = typeof b.path === 'string' ? b.path.trim() : ''
+      // 路径安全（必须在文章根目录内）交给 saveArticle 统一把关，不在这里重复实现。
+      const r = saveArticle({
+        markdown: b.markdown,
+        path: requested || undefined,
+        title: typeof b.title === 'string' ? b.title : undefined,
+        theme: typeof b.theme === 'string' ? b.theme : undefined,
+      })
+      return sendJson(res, {
+        path: r.path,
+        bytes: r.bytes,
+        theme: r.theme ?? null,
+        root: r.root,
+        savedAt: Date.now(),
       })
     }
 

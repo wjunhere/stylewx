@@ -251,6 +251,8 @@
     <div class="topbar">
       <button class="btn ghost" id="undoBtn" title="撤销" disabled>↶</button>
       <button class="btn ghost" id="redoBtn" title="重做" disabled>↷</button>
+      <span class="file-path" id="filePath" title="">（未关联文件）</span>
+      <button class="btn" id="saveFileBtn" title="写回 .md 文件（Ctrl+S）">保存到文件</button>
       <select id="themeSel" style="max-width:150px" title="主题"></select>
       <details class="theme-panel" id="themePanel"><summary><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>主题管理</summary><div class="theme-box">
         <div class="menu-items">
@@ -1010,6 +1012,7 @@ $('#mdFile').addEventListener('change',e=>{
     const h=(body.match(/^#\s+(.+)$/m)||[])[1]; if(h && !$('#title').value) $('#title').value=h.trim();
     const picked=applyTheme(meta.theme);
     const hint=meta.theme?(picked?('（主题：'+meta.theme+'）'):('（主题「'+meta.theme+'」不存在）')):'';
+    fileDirty=true; updateSaveFileBtn();
     updateUndoBtns(); render(); saveSnap();
     toast('已导入 '+f.name+hint);
   };
@@ -1206,6 +1209,9 @@ async function loadFromQuery(){
     // 主题优先级：.md front-matter > ?theme= 参数
     const theme=d.theme||qTheme;
     const picked=applyTheme(theme);
+    // 必须放在 applyTheme 之后：applyTheme 会派发 change，而 change 已挂钩 markFileDirty，
+    // 否则「刚打开就显示未保存」。
+    fileDirty=false; updateSaveFileBtn();
     render(); saveSnap();
     setVal([{kind:"ok",text:"已从文件载入："+(d.path||file)},
             theme?{kind:picked?"ok":"warn",text:picked?("主题："+theme):("主题「"+theme+"」不存在，已用默认主题")}:null].filter(Boolean));
@@ -1218,6 +1224,45 @@ $('#newBtn').onclick=()=>{ $('#md').value=''; $('#title').value=''; undoStack.le
 $('#genBtn').onclick=async()=>{ busy($('#genBtn'),true); toast('正在生成主题（LLM）…'); try{ const d=await api('/editor/api/generate',{article:$('#md').value,save:true}); if(d.theme&&d.theme.name){await loadThemes();$('#themeSel').value=d.theme.name;} toast('已生成'+(d.saved?'并保存':'')+'：'+(d.theme&&d.theme.name)); render(); }catch(e){ toast('生成失败：'+e.message,false); } finally{ busy($('#genBtn'),false); } $('#themePanel').open=false; };
 $('#saveBtn').onclick=async()=>{ const name=$('#themeSel').value; const th=themesCache.find(t=>t.name===name); if(!th)return toast('请先选择主题',false); busy($('#saveBtn'),true); try{ await api('/editor/api/savetheme',{theme:th}); await loadThemes(); $('#themeSel').value=name; toast('已保存：'+name); }catch(e){ toast('保存失败：'+e.message,false); } finally{ busy($('#saveBtn'),false); } $('#themePanel').open=false; };
 $('#valBtn').onclick=async()=>{ const md=$('#md').value,theme=$('#themeSel').value; try{ const d=await api('/editor/api/render',{markdown:md,theme}); const v=d.validation||{}; const issues=(v.issues||[]).map(i=>'['+i.rule+'] '+i.message); setVal([{kind:v.pass?'ok':'err',text:v.pass?'✓ 校验通过':'✗ 校验未通过'},...issues.map(t=>({kind:v.pass?'warn':'err',text:t}))]); toast(v.pass?'校验通过':'校验未通过',v.pass); }catch(e){ toast('校验失败：'+e.message,false); } };
+
+// ---- 写回 .md 文件（Ctrl+S）----
+// 只有通过 ?file= 打开、或「另存为」过一次，才有 linkedFile；有它才能原地保存。
+// 刻意不做自动写盘：编辑器里的改动先落到 localStorage 快照，写回文件必须由人触发。
+let fileDirty=false;
+function markFileDirty(){ if(!fileDirty){ fileDirty=true; updateSaveFileBtn(); } }
+function updateSaveFileBtn(){
+  const b=$('#saveFileBtn'); if(!b) return;
+  b.textContent=linkedFile?(fileDirty?'保存到文件 •':'保存到文件'):'另存为…';
+  b.title=linkedFile?('写回 '+linkedFile+'（Ctrl+S）'):'保存为新文件（Ctrl+S）';
+  b.disabled=!$('#md').value.trim();
+  $('#filePath').textContent=linkedFile||'（未关联文件）';
+  $('#filePath').title=linkedFile||'';
+}
+async function saveToFile(){
+  const md=$('#md').value;
+  if(!md.trim()) return toast('正文为空，不写入文件',false);
+  let target=linkedFile||'';
+  if(!target){
+    const guess=((($('#title').value||'未命名').replace(/[\\/:*?"<>|]/g,'').trim())||'未命名')+'.md';
+    target=window.prompt('保存为（相对文章根目录，或根目录内的绝对路径）',guess)||'';
+    if(!target.trim()) return;
+  }
+  const btn=$('#saveFileBtn'); busy(btn,true);
+  try{
+    const d=await api('/editor/api/save-file',{path:target,markdown:md,title:$('#title').value,theme:$('#themeSel').value});
+    linkedFile=d.path; fileDirty=false; updateSaveFileBtn();
+    setVal([{kind:'ok',text:'已写入 '+d.path},
+            {kind:'ok',text:'主题：'+(d.theme||'(未指定，未写入 front-matter)')}]);
+    toast('已保存 '+String(d.path).split(/[\\/]/).pop());
+  }catch(e){ toast('保存失败：'+e.message,false); }
+  finally{ busy(btn,false); updateSaveFileBtn(); }
+}
+$('#saveFileBtn').onclick=()=>saveToFile();
+document.addEventListener('keydown',e=>{
+  if(!(e.ctrlKey||e.metaKey)||e.shiftKey||e.altKey) return;
+  if(e.key!=='s'&&e.key!=='S') return;
+  e.preventDefault(); saveToFile();
+});
 
 // ---- 复制 / 发布 ----
 async function copyText(t,msg){ try{ await navigator.clipboard.writeText(t); toast(msg); }catch(e){ toast('复制失败（浏览器限制）：'+e.message,false); } }
@@ -1350,7 +1395,7 @@ $('#coverFile').addEventListener('change',e=>{
 });
 $('#coverClear').onclick=()=>{ coverFile=null; $('#coverThumbWrp').style.display='none'; $('#coverThumb').src=''; $('#cover').value=''; toast('已清除封面'); };
 
-$('#themeSel').addEventListener('change',render);
+$('#themeSel').addEventListener('change',()=>{ markFileDirty(); render(); });
 // ---- 撤销/重做栈（自定义快照，覆盖工具栏程序化改动与键盘输入）----
 let undoStack=[], redoStack=[];
 let prevMd='', lastInputTs=0;
@@ -1387,9 +1432,9 @@ $('#md').addEventListener('input',e=>{
     if(now-lastInputTs>600) pushUndo(prevMd);
     lastInputTs=now; prevMd=cur;
   } else { prevMd=cur; }
-  render(); queueSave();
+  markFileDirty(); render(); queueSave();
 });
-$('#title').addEventListener('input',queueSave);
+$('#title').addEventListener('input',()=>{ markFileDirty(); queueSave(); });
 $('#undoBtn').onclick=doUndo;
 $('#redoBtn').onclick=doRedo;
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   listThemes,
   analyzeArticle,
@@ -79,6 +80,27 @@ describe('front-matter（让 .md 自带 title / theme）', () => {
     const raw = readFileSync(twice.path, 'utf8')
     expect(raw.match(/^---$/gm)?.length).toBe(2)
     rmSync(once.path, { force: true })
+  })
+
+  it('相对路径按文章根目录解析（编辑器「另存为…」走的就是这条路）', () => {
+    const r = saveArticle({ markdown: '另存为测试。\n', path: 'drafts/另存为测试.md', theme: 'magazine' })
+    expect(r.path).toBe(join(r.root, 'drafts', '另存为测试.md'))
+    expect(readFileSync(r.path, 'utf8')).toContain('theme: magazine')
+    rmSync(r.path, { force: true })
+    rmSync(join(r.root, 'drafts'), { recursive: true, force: true })
+  })
+
+  it('目录穿越被拒绝', () => {
+    // 注意：serviceError 抛的是普通对象（{ error: { code, message, hint } }）而非 Error，
+    // 所以不能用 toThrow(/正则/) 匹配——得自己接住再断言 code。
+    let caught: unknown
+    try {
+      saveArticle({ markdown: 'x', path: '../outside.md' })
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as { error?: { code?: string; message?: string } })?.error?.code).toBe('path_not_allowed')
+    expect((caught as { error?: { message?: string } })?.error?.message).toContain('超出允许范围')
   })
 })
 
