@@ -10,6 +10,12 @@
 *.yaml text
 *.yml text
 *.snap text
+# Windows 批处理必须用 CRLF（cmd.exe 的期望格式；LF-only 在 goto/label/括号块上不可靠），
+# 且必须保持 ASCII-only：批处理里的非 ASCII 字节会按控制台 OEM 代码页（zh-CN 为 936）解码，
+# 多字节字符可能吃掉后面的行尾字节，导致两行被合并成一条坏命令。双击运行正是 936 环境。
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
 *.png binary
 *.jpg binary
 *.jpeg binary
