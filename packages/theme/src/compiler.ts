@@ -54,11 +54,21 @@ export function compileThemeToCss(theme: Theme): string {
   return blockRules.join('\n')
 }
 
+export interface RootBaseStyleOptions {
+  /**
+   * 文档里是否用了 `:::canvas`。
+   *
+   * 页边距只能有一个归属：有画布时由画布负责（并接手主题的 pagePadding），
+   * 根节点不再输出 padding，否则两者会叠加、正文被挤得太窄。
+   */
+  hasCanvas?: boolean
+}
+
 /**
  * 生成「根容器」的基础内联样式，作为后代元素的继承默认值。
  * 这些值直接内联到渲染的根节点上（不依赖 class / <style>）。
  */
-export function compileRootBaseStyle(theme: Theme): string {
+export function compileRootBaseStyle(theme: Theme, options: RootBaseStyleOptions = {}): string {
   const t = theme.tokens
   const parts: string[] = []
   parts.push(`font-family: ${t.fontFamily};`)
@@ -67,7 +77,8 @@ export function compileRootBaseStyle(theme: Theme): string {
   parts.push(`line-height: ${t.lineHeight};`)
   // 以下三项此前无处可放，导致 WeMD 移植主题的根级 padding / letter-spacing / word-break 全部丢失。
   if (t.letterSpacing) parts.push(`letter-spacing: ${t.letterSpacing};`)
-  if (t.pagePadding) parts.push(`padding: ${t.pagePadding};`)
+  // 有 :::canvas 时交给画布，避免与画布 padding 叠加。
+  if (t.pagePadding && !options.hasCanvas) parts.push(`padding: ${t.pagePadding};`)
   if (t.wordBreak) parts.push(`word-break: ${t.wordBreak};`)
   // 注意：不要添加 -webkit-text-size-adjust 等不在微信白名单内的属性，否则会被 validator 拦截。
   return parts.join(' ')

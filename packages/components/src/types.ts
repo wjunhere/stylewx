@@ -80,6 +80,8 @@ export interface ComponentPalette {
   cardBorder: string
   divider: string
   canvasBg: string
+  /** 主题声明的正文页边距；无则 undefined（canvas 回退到它自己的默认 16px）。 */
+  pagePadding?: string
   fontFamily: string
   fontSize: string
   lineHeight: string

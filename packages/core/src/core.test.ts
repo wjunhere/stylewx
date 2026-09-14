@@ -141,6 +141,45 @@ describe('decorations（伪元素装饰的真实元素等价物）', () => {
   })
 })
 
+describe('pagePadding 与 :::canvas 的归属（不叠加）', () => {
+  const withPad = getPresetTheme('eastern-notes') as Theme // pagePadding: 24px 28px
+  const withOutPad = getPresetTheme('tech-minimal') as Theme // 无 pagePadding
+  const rootStyle = (html: string) => (html.match(/<section style="([^"]*)"/) ?? ['', ''])[1]
+  const canvasStyle = (html: string) =>
+    (html.match(/<div style="([^"]*)" data-swx="canvas"/) ?? ['', ''])[1]
+
+  it('无 canvas：主题 pagePadding 落在根节点上', () => {
+    const { html } = renderMarkdownToHtml('## 标题\n\n正文。', withPad)
+    expect(rootStyle(html)).toContain('padding: 24px 28px')
+  })
+
+  it('有 canvas：根节点不再输出 padding，改由画布接手主题的 pagePadding', () => {
+    const { html } = renderMarkdownToHtml('::::canvas{tone="paper"}\n正文。\n::::', withPad)
+    expect(rootStyle(html)).not.toContain('padding:')
+    expect(canvasStyle(html)).toContain('padding:24px 28px')
+  })
+
+  it('canvas 显式指定 padding 时优先于主题', () => {
+    const { html } = renderMarkdownToHtml(
+      '::::canvas{tone="paper" padding="10px 30px"}\n正文。\n::::',
+      withPad,
+    )
+    expect(rootStyle(html)).not.toContain('padding:')
+    expect(canvasStyle(html)).toContain('padding:10px 30px')
+  })
+
+  it('主题没有 pagePadding 时，canvas 回退到 16px 默认值', () => {
+    const { html } = renderMarkdownToHtml('::::canvas{tone="paper"}\n正文。\n::::', withOutPad)
+    expect(canvasStyle(html)).toContain('padding:16px')
+  })
+
+  it('letter-spacing / word-break 不受 canvas 影响', () => {
+    const { html } = renderMarkdownToHtml('::::canvas{tone="paper"}\n正文。\n::::', withPad)
+    expect(rootStyle(html)).toContain('letter-spacing: 0.045em')
+    expect(rootStyle(html)).toContain('word-break: break-word')
+  })
+})
+
 describe('renderMarkdownToHtml', () => {
   it('输出不含 <style> / <link> / class 依赖（属性内联率 100%）', () => {
     const { html } = renderMarkdownToHtml(sampleMarkdown, theme)

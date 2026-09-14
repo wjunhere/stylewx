@@ -21,6 +21,12 @@ export interface PaletteTokens {
   dividerColor?: string
   canvasBg?: string
   radius?: string
+  /**
+   * 主题声明的正文页边距。
+   * 存在 :::canvas 时由画布接管它（画布未显式指定 padding 则用它），
+   * 根节点则不再输出 padding —— 否则两者会叠加。
+   */
+  pagePadding?: string
 }
 
 /** 解析 `12px` → 12；失败返回 fallback。 */
@@ -49,6 +55,7 @@ export function buildPalette(tokens: PaletteTokens): ComponentPalette {
     cardBorder: tokens.cardBorderColor ?? lighten(primary, 0.78),
     divider: tokens.dividerColor ?? mix(text, '#ffffff', 0.86),
     canvasBg: tokens.canvasBg ?? '#f7f8fa',
+    pagePadding: tokens.pagePadding,
     fontFamily: tokens.fontFamily,
     fontSize: tokens.fontSize,
     lineHeight: String(tokens.lineHeight),

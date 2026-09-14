@@ -235,7 +235,10 @@ function renderCanvas(node: ComponentNode, ctx: RenderContext): string {
   const palette = ctx.palette
   const p = node.props
   const kind = prop(p, 'tone', 'paper')
-  const padding = prop(p, 'padding', '16px')
+  // 未显式指定 padding 时，接手主题声明的页边距（此时根节点已不再输出 padding），
+  // 避免「主题 pagePadding + 画布 padding」叠加导致正文被挤得太窄。
+  // 用 || 而非 ??：prop() 缺参时返回的是空字符串，?? 短路不了。
+  const padding = prop(p, 'padding') || palette.pagePadding || '16px'
   const radius = prop(p, 'radius', palette.radiusLg)
   const bg = prop(p, 'bg')
 

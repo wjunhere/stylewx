@@ -78,7 +78,9 @@ export function renderMarkdownToHtml(
     decorations: safeTheme.decorations,
     onDiagnostic: (d) => diagnostics.push(d),
   })
-  const baseStyle = compileRootBaseStyle(safeTheme)
+  // 有 :::canvas 时页边距由画布接管（组件会输出 data-swx="canvas" 标记）。
+  const hasCanvas = bodyHtml.includes('data-swx="canvas"')
+  const baseStyle = compileRootBaseStyle(safeTheme, { hasCanvas })
   // 注意：主题的 fontFamily 常带双引号（如 Georgia, "Songti SC"），
   // 不转义会截断 style 属性，导致根节点的 font-size/color/line-height 全部丢失。
   const wrapped = `<section style="${escapeAttribute(baseStyle)}">${bodyHtml}</section>`
