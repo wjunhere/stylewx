@@ -18,8 +18,11 @@ rem  broken command. So: no non-ASCII here. node prints the Chinese text.
 rem  See .gitattributes.
 rem =====================================================================
 setlocal
-title stylewx local editor
 cd /d "%~dp0"
+title stylewx local editor
+rem articles live in <repo>\articles; keep them out of the repo root.
+rem This only sets a default -- an externally defined STYLEWX_ARTICLES_DIR wins.
+if not defined STYLEWX_ARTICLES_DIR set "STYLEWX_ARTICLES_DIR=%~dp0articles"
 
 echo.
 echo [stylewx] starting local web editor ...

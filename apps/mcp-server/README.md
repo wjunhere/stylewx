@@ -80,13 +80,16 @@ npx @stylewx/mcp-server --transport http --port 3777
 | `WECHAT_APP_ID` / `WECHAT_APP_SECRET` | 发布草稿箱（不配则只能渲染与预览） |
 | `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | AI 生成主题、优化正文 |
 | `WECHAT_API_BASE` | 可选，微信接口地址（走代理或自建网关时用） |
-| `STYLEWX_ARTICLES_DIR` | 文章读写根目录（默认当前工作目录） |
+| `STYLEWX_ARTICLES_DIR` | 文章读写根目录（默认当前工作目录；`stylewx-editor.bat` 会设为 `<repo>/articles`） |
 | `STYLEWX_COMPONENTS_PATH` | 自定义组件库路径（默认 `~/.stylewx/components.json`） |
 | `STYLEWX_THEMES_PATH` | 自定义主题库路径（默认 `~/.stylewx/themes.json`） |
 | `STYLEWX_EDITOR_URL` | 自定义编辑器地址（`save_article` 交接链接用） |
 
 凭据一律从环境变量注入，不会写进代码或配置文件。文章读写被限制在
 `STYLEWX_ARTICLES_DIR` 内，防目录穿越。
+
+> 启动器 `stylewx-editor.bat` 会把 `STYLEWX_ARTICLES_DIR` 默认设为 `<repo>/articles`
+> （外部已定义的值优先），所以文章请放 `articles/`，不要再散落在仓根。
 
 ---
 
