@@ -60,6 +60,10 @@ const HASH_ANCHOR_SUGGESTION =
   '微信 draft/add 会直接拒绝含 `#` 锚点的链接（errcode 45166，实测）。请把 href 改成完整的 http(s) 地址，或改用不带跳转的视觉目录。'
 const ID_STRIPPED_SUGGESTION =
   '微信会剥离所有 id 属性（实测 draft/add → draft/get 后 id 全部消失）。请勿依赖 id 做锚点、CSS 选择器或 SVG 引用。'
+const DIV_TAG_SUGGESTION =
+  '微信编辑器的标签白名单里没有 <div>，粘贴时会把壳拆掉，其上的 background-color / border-radius / padding / border 会一起消失（只剩里面的文字）。请改用 <section>。'
+const QUOTED_FONT_FAMILY_SUGGESTION =
+  '微信的 style 解析器处理不了 font-family 里的引号：整条声明会被丢弃，并连带把同一 style 里后续的 color / font-size / line-height 一起污染。去掉引号即可（`Georgia, Songti SC, SimSun, serif` 仍是合法 CSS）。'
 const SVG_URL_REF_SUGGESTION =
   '微信会剥离 id，因此 `url(#…)` 引用（渐变、裁剪、遮罩、<use>）在读者端全部失效。请改用纯色填充或叠加图形实现同样效果。'
 
@@ -138,6 +142,16 @@ function walk(node: HastNode, location: string, state: WalkState): void {
   }
 
   // 2. 事件属性 & 危险属性
+  // 微信编辑器粘贴时会拆掉 <div> 壳（白名单里没有 div），样式跟着壳一起没了。
+  if (tag === 'div') {
+    state.issues.push({
+      rule: 'div-will-be-unwrapped',
+      severity: 'warning',
+      message: '检测到 <div>。微信编辑器会拆掉 div 壳，其上的背景色/圆角/内边距会全部丢失。',
+      suggestion: DIV_TAG_SUGGESTION,
+      location: tagLocation,
+    })
+  }
   for (const [attr, raw] of Object.entries(node.properties)) {
     const key = attr.toLowerCase()
     if (key.startsWith('on')) {
@@ -204,6 +218,16 @@ function walk(node: HastNode, location: string, state: WalkState): void {
   if (typeof styleValue === 'string' && styleValue.trim()) {
     for (const decl of parseStyleDeclarations(styleValue)) {
       const tier = classifyCssProperty(decl.property)
+      // font-family 里的引号会把微信的 style 解析器搞崩，连带丢掉后续声明。
+      if (/^font-family$/i.test(decl.property) && /["']/.test(decl.value)) {
+        state.issues.push({
+          rule: 'quoted-font-family',
+          severity: 'error',
+          message: 'font-family 里含引号，微信会丢掉整条声明，并连带污染同一 style 里后面的属性。',
+          suggestion: QUOTED_FONT_FAMILY_SUGGESTION,
+          location: `${tagLocation}@${decl.property}`,
+        })
+      }
       if (tier === 'banned') {
         state.issues.push({
           rule: 'css-property-banned',
@@ -229,8 +253,7 @@ function walk(node: HastNode, location: string, state: WalkState): void {
           location: `${tagLocation}@${decl.property}`,
         })
       }
-      if (/url\(\s*['"]?#/.test(decl.value)) {
-        state.issues.push({
+      if (/url\(\s*['"]?#/.test(decl.value)) {        state.issues.push({
           rule: 'svg-url-ref-broken',
           severity: 'error',
           message: `属性「${decl.property}」引用了 url(#…)，但微信会剥离 id，该引用在读者端必然失效。`,

@@ -15,6 +15,7 @@
  * `data-swx-slot` 是渲染期的临时标记，应用后会被剥离，不会进入最终产物。
  */
 import { unified } from 'unified'
+import { unquoteFontFamily } from '@stylewx/theme'
 import rehypeParse from 'rehype-parse'
 import rehypeStringify from 'rehype-stringify'
 
@@ -57,7 +58,9 @@ export function parseStyleDeclarations(style: string | undefined): Record<string
 
 function serializeStyle(map: Record<string, string>): string {
   return Object.entries(map)
-    .map(([k, v]) => `${k}:${v}`)
+    // 主题里的组件覆盖常写 `Menlo, Consolas, "Courier New", monospace`，
+    // 带引号的字体名会让微信把整条 style 清空，所以在序列化这一步统一去引号。
+    .map(([k, v]) => (k.toLowerCase() === 'font-family' ? `${k}:${unquoteFontFamily(v)}` : `${k}:${v}`))
     .join(';')
 }
 

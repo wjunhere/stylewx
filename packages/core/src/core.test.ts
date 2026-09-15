@@ -6,7 +6,7 @@ import {
   estimateReadingMinutes,
   preprocessSuperSub,
 } from './index.js'
-import { getPresetTheme, compileThemeToCss } from '@stylewx/theme'
+import { getPresetTheme, compileThemeToCss, unquoteFontFamily } from '@stylewx/theme'
 import { validateHtml } from '@stylewx/validator'
 import { htmlToMarkdown } from '@stylewx/components'
 import type { Theme } from '@stylewx/theme'
@@ -146,7 +146,7 @@ describe('pagePadding 与 :::canvas 的归属（不叠加）', () => {
   const withOutPad = getPresetTheme('tech-minimal') as Theme // 无 pagePadding
   const rootStyle = (html: string) => (html.match(/<section style="([^"]*)"/) ?? ['', ''])[1]
   const canvasStyle = (html: string) =>
-    (html.match(/<div style="([^"]*)" data-swx="canvas"/) ?? ['', ''])[1]
+    (html.match(/<section style="([^"]*)" data-swx="canvas"/) ?? ['', ''])[1]
 
   it('无 canvas：主题 pagePadding 落在根节点上', () => {
     const { html } = renderMarkdownToHtml('## 标题\n\n正文。', withPad)
@@ -204,16 +204,37 @@ describe('renderMarkdownToHtml', () => {
     expect(html).not.toContain('{{')
   })
 
-  it('根节点 style 属性里的字体名已转义，不会截断属性（回归）', () => {    const { html } = renderMarkdownToHtml('# 标题', theme)
+  it('根节点 font-family 不含引号，不会被微信 style 解析器搞崩（回归）', () => {
+    const { html } = renderMarkdownToHtml('# 标题', theme)
     const match = /^<section style="([^"]*)">/.exec(html)
     expect(match).not.toBeNull()
     const style = match?.[1] ?? ''
-    // 字体名里的双引号必须转义，否则属性会在第一个 " 处被截断，后续声明全部丢失
-    expect(style).toContain('&quot;')
     expect(style).toContain('font-family')
     expect(style).toContain('font-size')
     expect(style).toContain('line-height')
     expect(style).toContain('color')
+    // 实测 draft/add → draft/get：带引号的字体名（无论原文引号还是 &quot;）会让微信
+    // 把整个 style 清成 style=""，并连带丢掉后面的 color / font-size / line-height。
+    // 去掉引号后 `Georgia, Songti SC, SimSun, serif` 仍是合法 CSS。
+    const fontFamily = /font-family:\s*([^;]*)/.exec(style)?.[1] ?? ''
+    expect(fontFamily).not.toMatch(/["']/)
+    expect(fontFamily).not.toContain('&quot;')
+    expect(fontFamily.length).toBeGreaterThan(0)
+  })
+
+  it('unquoteFontFamily 去掉字体名引号但保留名字（含多词字体）', () => {
+    // 带引号 → 去掉，多词字体名不能因此被切碎
+    expect(unquoteFontFamily('Georgia, "Songti SC", \'STSong\', serif')).toBe(
+      'Georgia, Songti SC, STSong, serif',
+    )
+    expect(unquoteFontFamily('"Noto Serif CJK SC", "Source Han Serif SC", SimSun, serif')).toBe(
+      'Noto Serif CJK SC, Source Han Serif SC, SimSun, serif',
+    )
+    // 本来就无引号 → 原样（仅规范逗号后空格）
+    expect(unquoteFontFamily('PingFang SC,Microsoft YaHei,sans-serif')).toBe(
+      'PingFang SC, Microsoft YaHei, sans-serif',
+    )
+    expect(unquoteFontFamily('serif')).toBe('serif')
   })
 
   it('主题 CSS 编译结果可被 validator 白名单复验', () => {

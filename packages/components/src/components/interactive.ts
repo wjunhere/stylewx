@@ -102,15 +102,15 @@ function renderReveal(node: ComponentNode, ctx: RenderContext): string {
 
   const caption = prop(p, 'caption')
   const captionHtml = caption
-    ? `<div style="${css({
+    ? `<section style="${css({
         'font-size': '12px',
         color: palette.weak,
         'text-align': 'center',
         'margin-top': '5px',
-      })}">${escapeHtml(caption)}</div>`
+      })}">${escapeHtml(caption)}</section>`
     : ''
 
-  return `<div style="${css({ margin: `0 0 ${palette.blockGap}` })}">${svg}${captionHtml}</div>`
+  return `<section style="${css({ margin: `0 0 ${palette.blockGap}` })}">${svg}${captionHtml}</section>`
 }
 
 /** 进度条：进入文章后自动从左向右生长。 */
@@ -148,7 +148,7 @@ function renderProgress(node: ComponentNode, ctx: RenderContext): string {
   })
 
   const head = label || showValue
-    ? `<div style="${css({
+    ? `<section style="${css({
         display: 'flex',
         'justify-content': 'space-between',
         'align-items': 'baseline',
@@ -156,10 +156,10 @@ function renderProgress(node: ComponentNode, ctx: RenderContext): string {
         'margin-bottom': '7px',
       })}">` +
       `<span style="${css({ color: palette.text, 'font-weight': '600' })}">${escapeHtml(label)}</span>` +
-      `<span style="${css({ color: tone.strong, 'font-weight': '700' })}">${value}%</span></div>`
+      `<span style="${css({ color: tone.strong, 'font-weight': '700' })}">${value}%</span></section>`
     : ''
 
-  return `<div style="${css({ margin: `0 0 ${palette.blockGap}` })}">${head}${svg}</div>`
+  return `<section style="${css({ margin: `0 0 ${palette.blockGap}` })}">${head}${svg}</section>`
 }
 
 /** 呼吸 / 脉冲强调。 */
@@ -194,7 +194,7 @@ function renderPulse(node: ComponentNode, ctx: RenderContext): string {
     style: { width: '13px', height: '13px', 'flex-shrink': 0 },
   })
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `0 0 ${palette.blockGap}`,
     display: 'flex',
     'align-items': 'center',
@@ -206,7 +206,7 @@ function renderPulse(node: ComponentNode, ctx: RenderContext): string {
     'font-size': '13.5px',
     'font-weight': '600',
     color: tone.strong,
-  })}">${escapeHtml(text)}</span></div>`
+  })}">${escapeHtml(text)}</span></section>`
 }
 
 export const interactiveComponents: Record<string, (node: ComponentNode, ctx: RenderContext) => string> = {

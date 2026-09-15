@@ -97,7 +97,7 @@ function renderCover(node: ComponentNode, ctx: RenderContext): string {
     style: { 'border-radius': palette.radiusLg, overflow: 'hidden' },
   })
 
-  return `<div style="${css({ margin: `0 0 ${palette.blockGap}` })}">${svg}</div>`
+  return `<section style="${css({ margin: `0 0 ${palette.blockGap}` })}">${svg}</section>`
 }
 
 /** 结尾卡片：署名 / 关注引导 / 下期预告。 */
@@ -125,7 +125,7 @@ function renderEndCard(node: ComponentNode, ctx: RenderContext): string {
     )
     .join('')
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `26px 0 0`,
     'background-image': `linear-gradient(160deg, ${tone.soft}, #ffffff)`,
     'background-color': '#ffffff',
@@ -134,30 +134,30 @@ function renderEndCard(node: ComponentNode, ctx: RenderContext): string {
     padding: '22px 18px',
     'text-align': 'center',
   })}">` +
-    `<div style="${css({ 'margin-bottom': '12px' })}">${dots}</div>` +
-    `<div${ctx.slot('title')} style="${css({
+    `<section style="${css({ 'margin-bottom': '12px' })}">${dots}</section>` +
+    `<section${ctx.slot('title')} style="${css({
       'font-size': '17px',
       'font-weight': '700',
       color: tone.strong,
       'letter-spacing': '1px',
       'margin-bottom': hasText ? '10px' : '0',
-    })}">${escapeHtml(title)}</div>` +
+    })}">${escapeHtml(title)}</section>` +
     (hasText
-      ? `<div style="${css({
+      ? `<section style="${css({
           'font-size': '13.5px',
           color: palette.muted,
           'line-height': '1.85',
-        })}"><span data-swx-body="1"${ctx.slot('text')}>${text ? ctx.renderMarkdown(text) : ctx.renderChildren(node)}</span></div>`
+        })}"><span data-swx-body="1"${ctx.slot('text')}>${text ? ctx.renderMarkdown(text) : ctx.renderChildren(node)}</span></section>`
       : '') +
     (footer
-      ? `<div${ctx.slot('footer')} style="${css({
+      ? `<section${ctx.slot('footer')} style="${css({
           'font-size': '12px',
           color: palette.weak,
           'margin-top': '14px',
           'letter-spacing': '1px',
-        })}">${escapeHtml(footer)}</div>`
+        })}">${escapeHtml(footer)}</section>`
       : '') +
-    `</div>`
+    `</section>`
 }
 
 export const articleComponents: Record<string, (node: ComponentNode, ctx: RenderContext) => string> = {

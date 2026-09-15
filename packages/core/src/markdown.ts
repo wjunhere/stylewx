@@ -201,10 +201,10 @@ export function preprocessCallouts(markdown: string): string {
       const t = title.trim() || type
       const innerHtml = markdownToHtml(inner.trim())
       return (
-        `<div style="background:${s.bg};border-left:4px solid ${s.border};padding:12px 16px;border-radius:8px;margin:14px 0">` +
-        `<div style="font-weight:600;font-size:14px;color:${s.title};margin-bottom:6px">${esc(t)}</div>` +
-        `<div style="font-size:13.5px;color:#333;line-height:1.7">${innerHtml}</div>` +
-        '</div>'
+        `<section style="background:${s.bg};border-left:4px solid ${s.border};padding:12px 16px;border-radius:8px;margin:14px 0">` +
+        `<section style="font-weight:600;font-size:14px;color:${s.title};margin-bottom:6px">${esc(t)}</section>` +
+        `<section style="font-size:13.5px;color:#333;line-height:1.7">${innerHtml}</section>` +
+        '</section>'
       )
     },
   )

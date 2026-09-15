@@ -65,21 +65,21 @@ function renderImage(node: ComponentNode, ctx: RenderContext): string {
 
   const captionHtml = caption
     ? overlay
-      ? `<div${ctx.slot('caption')} style="${css({
+      ? `<section${ctx.slot('caption')} style="${css({
           'background-color': barTone === 'dark' ? '#22262b' : palette.cardBg,
           color: barTone === 'dark' ? '#ffffff' : palette.muted,
           'font-size': '12.5px',
           'line-height': '1.6',
           padding: '7px 12px',
           'border-radius': `0 0 ${palette.radius} ${palette.radius}`,
-        })}">${escapeHtml(caption)}</div>`
-      : `<div${ctx.slot('caption')} style="${css({
+        })}">${escapeHtml(caption)}</section>`
+      : `<section${ctx.slot('caption')} style="${css({
           'font-size': '12.5px',
           color: palette.weak,
           'text-align': 'center',
           'line-height': '1.6',
           'margin-top': '7px',
-        })}">${escapeHtml(caption)}</div>`
+        })}">${escapeHtml(caption)}</section>`
     : ''
 
   const outerStyle = css({
@@ -91,7 +91,7 @@ function renderImage(node: ComponentNode, ctx: RenderContext): string {
     'border-radius': overlay && rounded ? palette.radius : undefined,
   })
 
-  return `<div style="${outerStyle}">${linked}${captionHtml}</div>`
+  return `<section style="${outerStyle}">${linked}${captionHtml}</section>`
 }
 
 /** 多图网格。 */
@@ -110,37 +110,37 @@ function renderGallery(node: ComponentNode, ctx: RenderContext): string {
   const items = images
     .map((img) => {
       const cap = showCaption && (img.caption || img.alt)
-        ? `<div style="${css({
+        ? `<section style="${css({
             'font-size': '11.5px',
             color: palette.weak,
             'text-align': 'center',
             'line-height': '1.5',
             'margin-top': '4px',
-          })}">${escapeHtml(truncateEm(img.caption || img.alt, cols >= 3 ? 8 : 14))}</div>`
+          })}">${escapeHtml(truncateEm(img.caption || img.alt, cols >= 3 ? 8 : 14))}</section>`
         : ''
       return (
-        `<div style="${css({ width: itemWidth })}">` +
+        `<section style="${css({ width: itemWidth })}">` +
         `<img src="${escapeAttr(img.src)}" alt="${escapeAttr(img.alt)}" style="${css({
           width: '100%',
           display: 'block',
           'border-radius': palette.radiusSm,
           'object-fit': 'cover',
-        })}"/>${cap}</div>`
+        })}"/>${cap}</section>`
       )
     })
     .join('')
 
-  const wrapper = `<div style="${css({ display: 'flex', 'flex-wrap': 'wrap', gap })}">${items}</div>`
+  const wrapper = `<section style="${css({ display: 'flex', 'flex-wrap': 'wrap', gap })}">${items}</section>`
   const captionHtml = caption
-    ? `<div style="${css({
+    ? `<section style="${css({
         'font-size': '12.5px',
         color: palette.weak,
         'text-align': 'center',
         'margin-top': '8px',
-      })}">${escapeHtml(caption)}</div>`
+      })}">${escapeHtml(caption)}</section>`
     : ''
 
-  return `<div style="${css({ margin: `0 0 ${palette.blockGap}` })}">${wrapper}${captionHtml}</div>`
+  return `<section style="${css({ margin: `0 0 ${palette.blockGap}` })}">${wrapper}${captionHtml}</section>`
 }
 
 /** 图文卡片（左图右文 / 上图下文）。 */
@@ -175,25 +175,25 @@ function renderImageCard(node: ComponentNode, ctx: RenderContext): string {
 
   const body = [
     title
-      ? `<div style="${css({
+      ? `<section style="${css({
           'font-size': '15px',
           'font-weight': '600',
           color: palette.text,
           'line-height': '1.4',
           'margin-bottom': desc ? '6px' : '0',
-        })}">${escapeHtml(title)}</div>`
+        })}">${escapeHtml(title)}</section>`
       : '',
     desc
-      ? `<div style="${css({
+      ? `<section style="${css({
           'font-size': '13px',
           color: palette.muted,
           'line-height': '1.65',
-        })}">${escapeHtml(desc)}</div>`
+        })}">${escapeHtml(desc)}</section>`
       : '',
   ].join('')
 
   const inner =
-    `<div style="${css({
+    `<section style="${css({
       display: 'flex',
       'flex-direction': isLeft ? 'row' : 'column',
       'align-items': isLeft ? 'stretch' : undefined,
@@ -203,10 +203,10 @@ function renderImageCard(node: ComponentNode, ctx: RenderContext): string {
       overflow: 'hidden',
     })}">` +
     `<img src="${escapeAttr(src)}" alt="${escapeAttr(image?.alt ?? title)}" style="${imgStyle}"/>` +
-    `<div style="${textStyle}">${body}</div></div>`
+    `<section style="${textStyle}">${body}</section></section>`
 
   const content = href ? `<a href="${escapeAttr(href)}" style="text-decoration:none">${inner}</a>` : inner
-  return `<div style="${css({ margin: `0 0 ${palette.blockGap}` })}">${content}</div>`
+  return `<section style="${css({ margin: `0 0 ${palette.blockGap}` })}">${content}</section>`
 }
 
 /**
@@ -286,12 +286,12 @@ function renderCarousel(node: ComponentNode, ctx: RenderContext): string {
   const overlay = `<rect x="0" y="${height - 34}" width="320" height="34" fill="${scrim('#000000', 0.28)}"/>`
   const caption = prop(p, 'caption')
   const captionHtml = caption
-    ? `<div style="${css({
+    ? `<section style="${css({
         'font-size': '12.5px',
         color: palette.weak,
         'text-align': 'center',
         'margin-top': '7px',
-      })}">${escapeHtml(caption)}</div>`
+      })}">${escapeHtml(caption)}</section>`
     : ''
 
   const svg = svgRoot({
@@ -300,7 +300,7 @@ function renderCarousel(node: ComponentNode, ctx: RenderContext): string {
     style: { 'border-radius': palette.radius, overflow: 'hidden' },
   })
 
-  return `<div style="${css({ margin: `0 0 ${palette.blockGap}` })}">${svg}${captionHtml}</div>`
+  return `<section style="${css({ margin: `0 0 ${palette.blockGap}` })}">${svg}${captionHtml}</section>`
 }
 
 export const mediaComponents: Record<string, (node: ComponentNode, ctx: RenderContext) => string> = {

@@ -46,16 +46,16 @@ function renderDivider(node: ComponentNode, ctx: RenderContext): string {
       }),
       style: { height: '16px' },
     })
-    return `<div style="${css({ margin })}">${svg}</div>`
+    return `<section style="${css({ margin })}">${svg}</section>`
   }
 
   if (style === 'gradient') {
-    return `<div style="${css({
+    return `<section style="${css({
       margin,
       height: '3px',
       'border-radius': '2px',
       'background-image': `linear-gradient(90deg, transparent, ${tone.base}, transparent)`,
-    })}"></div>`
+    })}"></section>`
   }
 
   if (style === 'dot') {
@@ -70,31 +70,31 @@ function renderDivider(node: ComponentNode, ctx: RenderContext): string {
         opacity: '0.7',
       })}"></span>`,
     ).join('')
-    return `<div style="${css({ margin, 'text-align': 'center' })}">${dots}</div>`
+    return `<section style="${css({ margin, 'text-align': 'center' })}">${dots}</section>`
   }
 
   if (text) {
-    return `<div style="${css({
+    return `<section style="${css({
       margin,
       display: 'flex',
       'align-items': 'center',
       gap: '12px',
     })}">` +
-      `<div style="${css({ flex: 1, height: '1px', 'background-color': palette.divider })}"></div>` +
+      `<section style="${css({ flex: 1, height: '1px', 'background-color': palette.divider })}"></section>` +
       `<span style="${css({
         'font-size': '12.5px',
         color: tone.strong,
         'letter-spacing': '2px',
         'flex-shrink': 0,
       })}">${escapeHtml(text)}</span>` +
-      `<div style="${css({ flex: 1, height: '1px', 'background-color': palette.divider })}"></div></div>`
+      `<section style="${css({ flex: 1, height: '1px', 'background-color': palette.divider })}"></section></section>`
   }
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin,
     height: '1px',
     'background-color': palette.divider,
-  })}"></div>`
+  })}"></section>`
 }
 
 /** 带序号 / 副标题的章节标题。 */
@@ -108,7 +108,7 @@ function renderSectionTitle(node: ComponentNode, ctx: RenderContext): string {
   const center = prop(p, 'align', 'left') === 'center'
 
   const indexHtml = index
-    ? `<div${ctx.slot('index')} style="${css({
+    ? `<section${ctx.slot('index')} style="${css({
         'font-size': '30px',
         'font-weight': '800',
         color: tone.base,
@@ -116,38 +116,38 @@ function renderSectionTitle(node: ComponentNode, ctx: RenderContext): string {
         opacity: '0.28',
         'font-family': 'Georgia, "Times New Roman", serif',
         'margin-bottom': '-6px',
-      })}">${escapeHtml(index)}</div>`
+      })}">${escapeHtml(index)}</section>`
     : ''
 
-  const titleHtml = `<div${ctx.slot('title')} style="${css({
+  const titleHtml = `<section${ctx.slot('title')} style="${css({
     'font-size': '19px',
     'font-weight': '700',
     color: palette.text,
     'line-height': '1.4',
     'letter-spacing': '0.5px',
-  })}">${escapeHtml(title)}</div>`
+  })}">${escapeHtml(title)}</section>`
 
-  const underline = `<div${ctx.slot('underline')} style="${css({
+  const underline = `<section${ctx.slot('underline')} style="${css({
     width: '36px',
     height: '3px',
     'border-radius': '2px',
     'background-image': `linear-gradient(90deg, ${tone.base}, ${tone.soft})`,
     margin: center ? '9px auto 0' : '9px 0 0',
-  })}"></div>`
+  })}"></section>`
 
   const subtitleHtml = subtitle
-    ? `<div${ctx.slot('subtitle')} style="${css({
+    ? `<section${ctx.slot('subtitle')} style="${css({
         'font-size': '12.5px',
         color: palette.weak,
         'letter-spacing': '1.5px',
         'margin-top': '8px',
-      })}">${escapeHtml(subtitle)}</div>`
+      })}">${escapeHtml(subtitle)}</section>`
     : ''
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `26px 0 14px`,
     'text-align': center ? 'center' : 'left',
-  })}">${indexHtml}${titleHtml}${underline}${subtitleHtml}</div>`
+  })}">${indexHtml}${titleHtml}${underline}${subtitleHtml}</section>`
 }
 
 /** 标签 / 徽章。 */
@@ -197,14 +197,14 @@ function renderCallout(node: ComponentNode, ctx: RenderContext): string {
   const title = prop(p, 'title', type)
   const icon = prop(p, 'icon', CALLOUT_ICONS[type] ?? 'i')
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `0 0 ${palette.blockGap}`,
     'background-color': tone.soft,
     'border-left': `4px solid ${tone.base}`,
     'border-radius': palette.radiusSm,
     padding: '12px 16px',
   })}">` +
-    `<div${ctx.slot('title')} style="${css({
+    `<section${ctx.slot('title')} style="${css({
       display: 'flex',
       'align-items': 'center',
       gap: '7px',
@@ -224,10 +224,10 @@ function renderCallout(node: ComponentNode, ctx: RenderContext): string {
       'text-align': 'center',
       'flex-shrink': 0,
     })}">${escapeHtml(icon)}</span>` +
-    `<span>${escapeHtml(title)}</span></div>` +
-    `<div data-swx-body="1"${ctx.slot('body')} style="${css({ 'font-size': '13.5px', color: palette.text, 'line-height': '1.75' })}">${ctx.renderChildren(
+    `<span>${escapeHtml(title)}</span></section>` +
+    `<section data-swx-body="1"${ctx.slot('body')} style="${css({ 'font-size': '13.5px', color: palette.text, 'line-height': '1.75' })}">${ctx.renderChildren(
       node,
-    )}</div></div>`
+    )}</section></section>`
 }
 
 /** 整篇画布：给全文一个统一的背景与内边距。 */
@@ -254,9 +254,9 @@ function renderCanvas(node: ComponentNode, ctx: RenderContext): string {
     }
   }
 
-  const inner = `<div data-swx-body="1">${ctx.renderChildren(node)}</div>`
+  const inner = `<section data-swx-body="1">${ctx.renderChildren(node)}</section>`
 
-  return `<div style="${css({
+  return `<section style="${css({
     'background-color': backgroundColor,
     'background-image': backgroundImage,
     'background-size': kind === 'dots' ? '14px 14px' : undefined,
@@ -264,7 +264,7 @@ function renderCanvas(node: ComponentNode, ctx: RenderContext): string {
     padding,
     border: `1px solid ${palette.divider}`,
     color: palette.text,
-  })}">${inner}</div>`
+  })}">${inner}</section>`
 }
 
 /** 局部背景块。 */
@@ -289,11 +289,11 @@ function renderBackground(node: ComponentNode, ctx: RenderContext): string {
     style = css({ 'background-color': tone.soft })
   }
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `0 0 ${palette.blockGap}`,
     'border-radius': palette.radius,
     padding,
-  })};${style}"><div data-swx-body="1">${ctx.renderChildren(node)}</div></div>`
+  })};${style}"><section data-swx-body="1">${ctx.renderChildren(node)}</section></section>`
 }
 
 /** 自动描边动画（下划线 / 对勾 / 波浪），用于强调。 */
@@ -339,15 +339,15 @@ function renderDraw(node: ComponentNode, ctx: RenderContext): string {
   })
 
   const caption = text
-    ? `<div style="${css({
+    ? `<section style="${css({
         'font-size': '13px',
         color: palette.muted,
         'text-align': 'center',
         'margin-top': '2px',
-      })}">${escapeHtml(text)}</div>`
+      })}">${escapeHtml(text)}</section>`
     : ''
 
-  return `<div style="${css({ margin: `0 0 ${palette.blockGap}` })}">${svg}${caption}</div>`
+  return `<section style="${css({ margin: `0 0 ${palette.blockGap}` })}">${svg}${caption}</section>`
 }
 
 /** 粗略估算路径长度，用于描边动画的 dasharray。 */

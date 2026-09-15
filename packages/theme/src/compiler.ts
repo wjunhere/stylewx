@@ -37,7 +37,12 @@ function buildBlockRules(theme: Theme): string[] {
     const entries = Object.entries(declarations)
     if (entries.length === 0) continue
     const css = entries
-      .map(([prop, value]) => `${prop}: ${resolveDeclValue(value, theme.tokens)};`)
+      .map(([prop, value]) => {
+        // 字体名去引号：带引号的字体名会被微信当成 HTML 属性，整条 style 报废。
+        const resolved = resolveDeclValue(value, theme.tokens)
+        const finalValue = prop.toLowerCase() === 'font-family' ? unquoteFontFamily(resolved) : resolved
+        return `${prop}: ${finalValue};`
+      })
       .join(' ')
     rules.push(`${blockName} { ${css} }`)
   }
@@ -68,10 +73,29 @@ export interface RootBaseStyleOptions {
  * 生成「根容器」的基础内联样式，作为后代元素的继承默认值。
  * 这些值直接内联到渲染的根节点上（不依赖 class / <style>）。
  */
+/**
+ * 字体名去引号。
+ *
+ * 微信的 style 解析器处理不了 font-family 里的引号：实测 draft/add → draft/get 时，
+ * 带引号的字体名会被当成 HTML 属性，整个 style 被清成 `style=""`，
+ * 并且把同一 style 里后续的 color / font-size / line-height / letter-spacing 一起污染掉
+ * （只剩 `songti="songti" sc="sc"` 这种垃圾属性）。
+ * 去掉引号后 `Georgia, Songti SC, SimSun, serif` 仍是合法 CSS（标识符序列），
+ * 实测所有声明都能完整存活。
+ */
+export function unquoteFontFamily(fontFamily: string): string {
+  return fontFamily
+    .split(',')
+    .map((name) => name.trim().replace(/^["']|[\"']$/g, '').trim())
+    .filter(Boolean)
+    .join(', ')
+}
+
 export function compileRootBaseStyle(theme: Theme, options: RootBaseStyleOptions = {}): string {
   const t = theme.tokens
   const parts: string[] = []
-  parts.push(`font-family: ${t.fontFamily};`)
+  // 必须去引号：带引号的字体名会让微信丢掉整条声明（并连带污染后面的声明）。
+  parts.push(`font-family: ${unquoteFontFamily(t.fontFamily)};`)
   parts.push(`font-size: ${t.fontSize};`)
   parts.push(`color: ${t.textColor};`)
   parts.push(`line-height: ${t.lineHeight};`)

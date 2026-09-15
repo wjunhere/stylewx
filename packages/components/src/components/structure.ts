@@ -39,7 +39,7 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
   const variant = prop(p, 'variant', 'soft')
 
   const header = title
-    ? `<div${ctx.slot('title')} style="${css({
+    ? `<section${ctx.slot('title')} style="${css({
         display: 'flex',
         'align-items': 'center',
         gap: '7px',
@@ -60,18 +60,18 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
               display: 'inline-block',
               'flex-shrink': 0,
             })}"></span>`
-      }<span>${escapeHtml(title)}</span></div>`
+      }<span>${escapeHtml(title)}</span></section>`
     : ''
 
   const inner = ctx.renderChildren(node)
   const footerHtml = footer
-    ? `<div${ctx.slot('footer')} style="${css({
+    ? `<section${ctx.slot('footer')} style="${css({
         'font-size': '12.5px',
         color: palette.weak,
         'margin-top': '10px',
         'padding-top': '8px',
         'border-top': `1px dashed ${palette.divider}`,
-      })}">${escapeHtml(footer)}</div>`
+      })}">${escapeHtml(footer)}</section>`
     : ''
 
   const outer = css({
@@ -84,7 +84,7 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
     'box-shadow': variant === 'raised' ? `0 6px 20px ${tone.soft}` : undefined,
   })
 
-  return `<div style="${outer}">${header}<div data-swx-body="1"${ctx.slot('body')}>${inner}</div>${footerHtml}</div>`
+  return `<section style="${outer}">${header}<section data-swx-body="1"${ctx.slot('body')}>${inner}</section>${footerHtml}</section>`
 }
 
 /** 时间线。 */
@@ -98,7 +98,7 @@ function renderTimeline(node: ComponentNode, ctx: RenderContext): string {
   const items = rows
     .map((row, index) => {
       const isLast = index === rows.length - 1
-      const dot = `<div style="${css({
+      const dot = `<section style="${css({
         width: '11px',
         height: '11px',
         'border-radius': '50%',
@@ -106,50 +106,50 @@ function renderTimeline(node: ComponentNode, ctx: RenderContext): string {
         'box-shadow': `0 0 0 3px ${tone.soft}`,
         'flex-shrink': 0,
         'margin-top': '4px',
-      })}"></div>`
+      })}"></section>`
       const rail = isLast
         ? ''
-        : `<div style="${css({
+        : `<section style="${css({
             width: '2px',
             'background-color': tone.soft,
             flex: 1,
             'min-height': '14px',
             margin: '3px 0 0 0',
-          })}"></div>`
+          })}"></section>`
       return (
-        `<div style="${css({ display: 'flex', gap: '11px', 'align-items': 'flex-start' })}">` +
-        `<div style="${css({ display: 'flex', 'flex-direction': 'column', 'align-items': 'center', width: '11px', 'flex-shrink': 0 })}">${dot}${rail}</div>` +
-        `<div style="${css({ flex: 1, 'padding-bottom': isLast ? '0' : '14px', 'min-width': 0 })}">` +
+        `<section style="${css({ display: 'flex', gap: '11px', 'align-items': 'flex-start' })}">` +
+        `<section style="${css({ display: 'flex', 'flex-direction': 'column', 'align-items': 'center', width: '11px', 'flex-shrink': 0 })}">${dot}${rail}</section>` +
+        `<section style="${css({ flex: 1, 'padding-bottom': isLast ? '0' : '14px', 'min-width': 0 })}">` +
         (row.label
-          ? `<div style="${css({
+          ? `<section style="${css({
               'font-size': '12.5px',
               'font-weight': '600',
               color: tone.strong,
               'margin-bottom': '3px',
-            })}">${escapeHtml(row.label)}</div>`
+            })}">${escapeHtml(row.label)}</section>`
           : '') +
-        `<div style="${css({ 'font-size': '13.5px', color: palette.text, 'line-height': '1.7' })}">${ctx.renderMarkdown(row.text)}</div>` +
-        `</div></div>`
+        `<section style="${css({ 'font-size': '13.5px', color: palette.text, 'line-height': '1.7' })}">${ctx.renderMarkdown(row.text)}</section>` +
+        `</section></section>`
       )
     })
     .join('')
 
   const header = title
-    ? `<div style="${css({
+    ? `<section style="${css({
         'font-size': '14px',
         'font-weight': '600',
         color: palette.text,
         'margin-bottom': '12px',
-      })}">${escapeHtml(title)}</div>`
+      })}">${escapeHtml(title)}</section>`
     : ''
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `0 0 ${palette.blockGap}`,
     'background-color': '#ffffff',
     border: `1px solid ${palette.cardBorder}`,
     'border-radius': palette.radius,
     padding: '16px',
-  })}">${header}${items}</div>`
+  })}">${header}${items}</section>`
 }
 
 /** 步骤条（横向编号 + 说明）。 */
@@ -164,7 +164,7 @@ function renderSteps(node: ComponentNode, ctx: RenderContext): string {
     const width = `${(100 - (rows.length - 1)) / rows.length}%`
     const items = rows
       .map((row, i) => {
-        const chip = `<div style="${css({
+        const chip = `<section style="${css({
           width: '24px',
           height: '24px',
           'border-radius': '50%',
@@ -175,27 +175,27 @@ function renderSteps(node: ComponentNode, ctx: RenderContext): string {
           'line-height': '24px',
           'text-align': 'center',
           'margin-bottom': '8px',
-        })}">${i + 1}</div>`
+        })}">${i + 1}</section>`
         return (
-          `<div style="${css({ width })}">${chip}` +
+          `<section style="${css({ width })}">${chip}` +
           (row.label
-            ? `<div style="${css({ 'font-size': '13px', 'font-weight': '600', color: palette.text, 'margin-bottom': '3px' })}">${escapeHtml(row.label)}</div>`
+            ? `<section style="${css({ 'font-size': '13px', 'font-weight': '600', color: palette.text, 'margin-bottom': '3px' })}">${escapeHtml(row.label)}</section>`
             : '') +
-          `<div style="${css({ 'font-size': '12px', color: palette.muted, 'line-height': '1.6' })}">${escapeHtml(row.text)}</div></div>`
+          `<section style="${css({ 'font-size': '12px', color: palette.muted, 'line-height': '1.6' })}">${escapeHtml(row.text)}</section></section>`
         )
       })
       .join('')
-    return `<div style="${css({
+    return `<section style="${css({
       margin: `0 0 ${palette.blockGap}`,
       display: 'flex',
       gap: '1%',
       'align-items': 'flex-start',
-    })}">${items}</div>`
+    })}">${items}</section>`
   }
 
   const items = rows
     .map((row, i) => {
-      const chip = `<div style="${css({
+      const chip = `<section style="${css({
         width: '26px',
         height: '26px',
         'border-radius': '50%',
@@ -206,30 +206,30 @@ function renderSteps(node: ComponentNode, ctx: RenderContext): string {
         'line-height': '26px',
         'text-align': 'center',
         'flex-shrink': 0,
-      })}">${i + 1}</div>`
+      })}">${i + 1}</section>`
       return (
-        `<div style="${css({
+        `<section style="${css({
           display: 'flex',
           gap: '11px',
           'align-items': 'flex-start',
           'margin-bottom': i === rows.length - 1 ? '0' : '13px',
         })}">${chip}` +
-        `<div style="${css({ flex: 1, 'min-width': 0 })}">` +
+        `<section style="${css({ flex: 1, 'min-width': 0 })}">` +
         (row.label
-          ? `<div style="${css({ 'font-size': '14px', 'font-weight': '600', color: palette.text, 'margin-bottom': '3px' })}">${escapeHtml(row.label)}</div>`
+          ? `<section style="${css({ 'font-size': '14px', 'font-weight': '600', color: palette.text, 'margin-bottom': '3px' })}">${escapeHtml(row.label)}</section>`
           : '') +
-        `<div style="${css({ 'font-size': '13px', color: palette.muted, 'line-height': '1.7' })}">${ctx.renderMarkdown(row.text)}</div>` +
-        `</div></div>`
+        `<section style="${css({ 'font-size': '13px', color: palette.muted, 'line-height': '1.7' })}">${ctx.renderMarkdown(row.text)}</section>` +
+        `</section></section>`
       )
     })
     .join('')
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `0 0 ${palette.blockGap}`,
     'background-color': palette.cardBg,
     'border-radius': palette.radius,
     padding: '16px',
-  })}">${items}</div>`
+  })}">${items}</section>`
 }
 
 /** 对比：把 Markdown 表格渲染成「旧 / 新」两栏卡片。 */
@@ -263,17 +263,17 @@ function renderCompare(node: ComponentNode, ctx: RenderContext): string {
     const rows = body
       .map((row) => {
         const text = row[index] ?? ''
-        return `<div style="${css({
+        return `<section style="${css({
           'font-size': '13.5px',
           color: palette.text,
           'line-height': '1.7',
           padding: '7px 0',
           'border-top': `1px dashed ${palette.divider}`,
-        })}">${ctx.renderMarkdown(text)}</div>`
+        })}">${ctx.renderMarkdown(text)}</section>`
       })
       .join('')
     return (
-      `<div style="${css({
+      `<section style="${css({
         width: side ? columnWidth : undefined,
         'box-sizing': 'border-box',
         'background-color': tone.soft,
@@ -282,22 +282,22 @@ function renderCompare(node: ComponentNode, ctx: RenderContext): string {
         'border-radius': palette.radius,
         padding: '12px 14px',
       })}">` +
-      `<div style="${css({
+      `<section style="${css({
         'font-size': '13.5px',
         'font-weight': '600',
         color: tone.strong,
         'margin-bottom': '2px',
-      })}">${escapeHtml(title)}</div>${rows}</div>`
+      })}">${escapeHtml(title)}</section>${rows}</section>`
     )
   }
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `0 0 ${palette.blockGap}`,
     display: 'flex',
     gap: side ? '4%' : '10px',
     'flex-direction': side ? 'row' : 'column',
     'align-items': 'stretch',
-  })}">${column(0)}${column(1)}</div>`
+  })}">${column(0)}${column(1)}</section>`
 }
 
 /** 引用卡片：比原生 blockquote 更完整（引号、作者、出处）。 */
@@ -310,32 +310,32 @@ function renderQuote(node: ComponentNode, ctx: RenderContext): string {
 
   const inner = ctx.renderChildren(node)
   const attribution = author || source
-    ? `<div${ctx.slot('author')} style="${css({
+    ? `<section${ctx.slot('author')} style="${css({
         'font-size': '12.5px',
         color: palette.muted,
         'margin-top': '10px',
         'text-align': 'right',
       })}">${author ? escapeHtml(author) : ''}${
         author && source ? ' · ' : ''
-      }${source ? escapeHtml(source) : ''}</div>`
+      }${source ? escapeHtml(source) : ''}</section>`
     : ''
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `0 0 ${palette.blockGap}`,
     'background-color': tone.soft,
     'border-radius': palette.radius,
     padding: '16px 16px 12px',
     position: undefined,
   })}">` +
-    `<div style="${css({
+    `<section style="${css({
       'font-size': '26px',
       'line-height': '0.8',
       color: tone.base,
       'margin-bottom': '6px',
-    })}">“</div>` +
-    `<div data-swx-body="1"${ctx.slot('text')} style="${css({ 'font-size': '14px', color: palette.text, 'line-height': '1.8' })}">${inner}</div>` +
+    })}">“</section>` +
+    `<section data-swx-body="1"${ctx.slot('text')} style="${css({ 'font-size': '14px', color: palette.text, 'line-height': '1.8' })}">${inner}</section>` +
     attribution +
-    `</div>`
+    `</section>`
 }
 
 /** 目录：微信会拒绝 `href="#…"`，因此渲染为纯视觉编号目录。 */
@@ -352,7 +352,7 @@ function renderToc(node: ComponentNode, ctx: RenderContext): string {
     .map((h, i) => {
       const indent = h.level > 2 ? 'padding-left:16px;' : ''
       return (
-        `<div style="${css({
+        `<section style="${css({
           display: 'flex',
           gap: '8px',
           'align-items': 'baseline',
@@ -366,24 +366,24 @@ function renderToc(node: ComponentNode, ctx: RenderContext): string {
           'flex-shrink': 0,
           'min-width': '18px',
         })}">${String(i + 1).padStart(2, '0')}</span>` +
-        `<span style="${indent}${css({ 'font-size': '13.5px', color: palette.text })}">${escapeHtml(h.text)}</span></div>`
+        `<span style="${indent}${css({ 'font-size': '13.5px', color: palette.text })}">${escapeHtml(h.text)}</span></section>`
       )
     })
     .join('')
 
-  return `<div style="${css({
+  return `<section style="${css({
     margin: `0 0 ${palette.blockGap}`,
     'background-color': palette.cardBg,
     'border-radius': palette.radius,
     padding: '14px 16px',
   })}">` +
-    `<div style="${css({
+    `<section style="${css({
       'font-size': '13.5px',
       'font-weight': '600',
       color: tone.strong,
       'margin-bottom': '8px',
       'letter-spacing': '1px',
-    })}">${escapeHtml(title)}</div>${items}</div>`
+    })}">${escapeHtml(title)}</section>${items}</section>`
 }
 
 export const structureComponents: Record<string, (node: ComponentNode, ctx: RenderContext) => string> = {
