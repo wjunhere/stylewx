@@ -39,5 +39,15 @@ text_one_out/
 examples/showcase-out/
 examples/handoff-out/
 
+# 本机文章工作区：原文、排版成品、封面图。
+# 都是本机产生的而不是库的一部分，不提交。
+# 注意 articlesRoot() 默认取 process.cwd()，所以工作文件会直接落在仓根；
+# 如果你的文章放在子目录（如 articles/），把那个目录也加到这里。
+articles/
+complex_article.md
+text_one.md
+收敛水*.md
+收敛水-封面.jpg
+
 # 移植脚本的上游缓存（scripts/port-wemd-themes.mjs 用）
 .cache/
