@@ -39,6 +39,8 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
+    "@stylewx/components": "workspace:*",
+    "@stylewx/theme": "workspace:*",
     "playwright": "^1.49.0"
   },
   "publishConfig": {

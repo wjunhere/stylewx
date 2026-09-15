@@ -123,6 +123,12 @@ importers:
 
   packages/preview:
     dependencies:
+      '@stylewx/components':
+        specifier: workspace:*
+        version: link:../components
+      '@stylewx/theme':
+        specifier: workspace:*
+        version: link:../theme
       playwright:
         specifier: ^1.49.0
         version: 1.62.1
