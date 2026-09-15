@@ -1295,7 +1295,32 @@ document.addEventListener('keydown',e=>{
 // ---- 复制 / 发布 ----
 async function copyText(t,msg){ try{ await navigator.clipboard.writeText(t); toast(msg); }catch(e){ toast('复制失败（浏览器限制）：'+e.message,false); } }
 $('#copyHtmlBtn').onclick=()=> lastHtml?copyText(lastHtml,'已复制 HTML'):toast('请先渲染',false);
-$('#copyWxBtn').onclick=()=> lastHtml?copyText(lastHtml,'已复制，去公众号编辑器粘贴'):toast('请先渲染',false);
+// 富文本复制：公众号编辑器只认 text/html 剪贴板格式。
+// 只写 text/plain 的话会把 HTML 源码当纯文本粘进去（整个标签串裸奔）。
+async function copyRich(html,msg){
+  try{
+    if(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html':new Blob([html],{type:'text/html'}),
+        'text/plain':new Blob([html],{type:'text/plain'})
+      })]);
+    }else{
+      // 回退：塞进隐藏可编辑区，借 execCommand 让浏览器自己产出富文本剪贴板
+      const box=document.createElement('div');
+      box.contentEditable='true';
+      box.style.cssText='position:fixed;left:-99999px;top:0;width:420px;opacity:0';
+      box.innerHTML=html;
+      document.body.appendChild(box);
+      const r=document.createRange(); r.selectNodeContents(box);
+      const s=getSelection(); s.removeAllRanges(); s.addRange(r);
+      const ok=document.execCommand('copy');
+      s.removeAllRanges(); box.remove();
+      if(!ok) throw new Error('execCommand copy 被拒绝');
+    }
+    toast(msg);
+  }catch(e){ toast('复制失败（浏览器限制）：'+e.message,false); }
+}
+$('#copyWxBtn').onclick=()=> lastHtml?copyRich(lastHtml,'已复制富文本，去公众号编辑器粘贴'):toast('请先渲染',false);
 $('#pubBtn').onclick=async()=>{ const title=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名'); busy($('#pubBtn'),true); toast('正在发布草稿箱…'); try{ const cover=$('#cover').value.trim(); const d=await api('/editor/api/publish',{markdown:$('#md').value,title,theme:$('#themeSel').value,relocate:$('#relocateOpt').checked,coverImage:cover||undefined,coverData:coverFile?coverFile.data:undefined,coverMime:coverFile?coverFile.mime:undefined}); toast('已发布 media_id='+(d.media_id||'').slice(0,20)+'…'); const cs=coverFile?'本地上传':(cover?'自定义URL':(d.coverMediaId?'自动':'')); setVal([{kind:'ok',text:'✅ 已发布草稿 media_id='+d.media_id+(cs?'（封面：'+cs+'）':'')}]); saveSnap(); }catch(e){ toast('发布失败：'+e.message,false); } finally{ busy($('#pubBtn'),false); } };
 
 // ---- 侧栏导航 / 设置 / AI 优化 ----
