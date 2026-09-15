@@ -69,7 +69,25 @@ export interface CoverBytes {
 }
 
 /** 生成默认主题封面（暖棕灰渐变）。 */
-export function generateDefaultCover(): CoverBytes {
-  const bytes = gradientPng(900, 383, [0x6b, 0x55, 0x45], [0xc9, 0xb4, 0x9e])
+/** 解析 `#rrggbb`；非法输入返回 undefined。 */
+function hexToRgb(hex: string): [number, number, number] | undefined {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return undefined
+  const n = Number.parseInt(m[1]!, 16)
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff]
+}
+
+/** 默认封面渐变（暖棕）。仅当调用方没提供主题色时回退到这里。 */
+const DEFAULT_COVER_TOP = '#6b5545'
+const DEFAULT_COVER_BOTTOM = '#c9b49e'
+
+/**
+ * 生成默认封面。传入主题色时按同色相深浅渐变，避免封面和正文撞色。
+ * @param palette top=深色端，bottom=浅色端（均为 `#rrggbb`）
+ */
+export function generateDefaultCover(palette?: { top?: string; bottom?: string }): CoverBytes {
+  const top = (palette?.top && hexToRgb(palette.top)) || hexToRgb(DEFAULT_COVER_TOP)!
+  const bottom = (palette?.bottom && hexToRgb(palette.bottom)) || hexToRgb(DEFAULT_COVER_BOTTOM)!
+  const bytes = gradientPng(900, 383, top, bottom)
   return { bytes, filename: 'cover.png', mimeType: 'image/png' }
 }

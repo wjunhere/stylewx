@@ -34,7 +34,7 @@ import {
   saveArticle,
 } from '@stylewx/service'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
-import { htmlToMarkdown } from '@stylewx/components'
+import { htmlToMarkdown, buildPalette } from '@stylewx/components'
 import type { ToolDeps } from './tools.js'
 
 interface CliOptions {
@@ -321,6 +321,11 @@ async function handleEditorApi(
         coverData,
         author: typeof b.author === 'string' ? b.author : undefined,
         relocate: b.relocate !== false,
+        // 无封面图时用主题色生成渐变封面，避免默认暖棕跟正文撞色。
+        coverPalette: (() => {
+          const palette = buildPalette(theme.tokens)
+          return { top: palette.primaryStrong, bottom: palette.primarySoft }
+        })(),
       })
       return sendJson(res, { media_id: result.media_id, uploadedImages: result.uploadedImages, coverMediaId: result.coverMediaId })
     }

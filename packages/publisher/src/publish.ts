@@ -26,6 +26,8 @@ export interface PublishParams {
   onlyFansCanComment?: boolean
   /** 发布时是否把外链图自动搬运到微信素材库。默认 true；false 则保留外链 URL。 */
   relocate?: boolean
+  /** 无封面图时，自动生成封面用的主题色（top=深色端，bottom=浅色端）。 */
+  coverPalette?: { top?: string; bottom?: string }
 }
 
 export interface PublishResult {
@@ -60,7 +62,7 @@ async function resolveThumbMediaId(
   // 2. 回退到正文第一张已上传的图（素材库 media_id 通用）
   if (uploaded[0]) return uploaded[0].media_id
   // 3. 都没有 → 自动生成一张主题色渐变封面（纯文字文章也能发布成功）
-  const cover = generateDefaultCover()
+  const cover = generateDefaultCover(params.coverPalette)
   const thumb = await client.uploadThumb(cover.bytes, cover.filename, cover.mimeType)
   return thumb.media_id
 }
