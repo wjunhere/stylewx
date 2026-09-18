@@ -109,12 +109,30 @@ export class WeChatClient {
   ): Promise<UploadResult> {
     const token = await this.getAccessToken()
     const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
-    const blob = new Blob([bytes], { type: mimeType ?? 'application/octet-stream' })
-    const form = new FormData()
-    form.append('media', blob, filename)
+
+    // 手动构造 multipart/form-data 字节体，不用原生 FormData/Blob。
+    // 原因（真实验证）：Node 原生 FormData + Blob 在 undici fetch（尤其挂 ProxyAgent dispatcher）
+    // 下 body 会被吞掉，微信返回 41005 media data missing；手写 multipart 在所有 fetch 实现下都稳定。
+    const boundary = `----stylewx${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+    const ctype = mimeType && mimeType.includes('/') ? mimeType : 'image/jpeg'
+    const enc = new TextEncoder()
+    const head = enc.encode(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="media"; filename="${filename.replace(/"/g, '')}"\r\n` +
+        `Content-Type: ${ctype}\r\n\r\n`,
+    )
+    const tail = enc.encode(`\r\n--${boundary}--\r\n`)
+    const body = new Uint8Array(head.length + bytes.length + tail.length)
+    body.set(head, 0)
+    body.set(bytes, head.length)
+    body.set(tail, head.length + bytes.length)
 
     const url = `${this.baseUrl}/cgi-bin/material/add_material?access_token=${encodeURIComponent(token)}&type=${type}`
-    const response = await this.fetchImpl(url, { method: 'POST', body: form })
+    const response = await this.fetchImpl(url, {
+      method: 'POST',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      body,
+    })
     const data = await parseJson(await response.text())
     if (!data.media_id) {
       throw apiError(`上传素材失败（type=${type}）`, data)

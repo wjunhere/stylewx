@@ -21,13 +21,23 @@
 
 ## 功能
 
-- **15 个 MCP 工具**：主题管理、组件查询/**自定义组件**、分析/生成/**微调**主题、**片段**/整篇渲染、校验、发布、**落盘交接**。
+- **22 个 MCP 工具**：主题管理、组件查询/**自定义组件**、分析/生成/**微调**主题、**片段**/整篇渲染、校验、发布、**落盘交接**，
+  以及一整套**品牌记忆系统**（访谈建档 / 加载复用 / 迭代积累）和**发布前评审**。
   既可以整篇一步到位，也可以拆成小原语逐步迭代（见 [排版工作流](#排版工作流)）。
+- **品牌记忆系统**：开工前先认品牌—— `brand_interview` 拿结构化问卷访谈，`brand_save` 把品牌
+  固化为 `~/.stylewx/brands/<name>/`（`profile.json` 结构化真相源 + `brand.md` 人可读品牌宪法），
+  `brand_apply` 一键加载复用（主题 + 品牌专属组件自动同步），`brand_learn` 把每篇的反馈记进档案。
+  品牌越用越准：色板论证、语气规则、禁忌、专属组件、迭代记录都会沉淀下来。
 - 22 个内置富组件 + **可自定义新组件**（用 HTML 模板定义，存本地组件库，用 `:::名字` 调用）：图片图注/多图网格/图文卡片/自动轮播、卡片/时间线/步骤条/对比/引用卡/目录、
   分割线/章节标题/标签/提示框/背景/画布/描边动画、点击展开/进度条/呼吸强调、封面/结尾卡片。
   用 `:::card{title="…"}` … `:::` 语法书写，可嵌套，正文继续用 Markdown；
   组件样式可按「组件 → 部位」精确覆盖（见下）。
-- 26 套预置主题（6 套原创 + 20 套 WeMD 移植），支持保存自定义主题和 LLM 生成主题。
+- 26 套预置主题（6 套原创 + 20 套 WeMD 移植），支持保存自定义主题和 LLM 生成主题；
+  主题支持 `decorations`（标题/引用前的真实内联装饰元素，绕开微信剥离伪元素）与 5 种 `canvas` 纹理背景。
+- **设计由 agent 直出，MCP 只做校验/编译/存储/渲染**：agent 产出主题 JSON → `save_theme` / `brand_save` 校验落盘；
+  `generate_theme`（烧 LLM）降级为无 agent 场景（REST API）的回退。主题的 blocks 可只写关键项，缺省自动补全。
+- **发布前评审** `review_article`：确定性检查标题/正文层级比（h1≥2.0、h2≥1.5）、组件堆砌（类型 >6 种、密度 >4/千字）、主题独特性，
+  并输出定性评审框架（Keep / Fix / Quick Wins + 眯眼测试）。
 - 三档微信 CSS 白名单，经真实草稿 API 实测校准；输出全部为内联样式，不依赖 `<style>` / `<link>` / `class`。
 - 动态交互全部是内联 SVG + SMIL（微信正文禁 JS），点击展开、自动轮播、进度生长在读者端真实生效。
 - `core` / `theme` / `validator` 不依赖 DOM 和 Node 独有 API，可独立复用；微信 API 调用集中在 `publisher`。
@@ -37,11 +47,15 @@
 ## 架构
 
 ```
-┌──────────── Agent（Kimi / Claude / Cursor / Pi / Codex）────────────┐
-│  list_themes · list_saved_themes · generate_theme · tweak_theme      │
-│  save_theme · export_theme · list_components                         │
-│  analyze_article · render_fragment · render_preview · validate_article│
-│  publish_draft · save_article · save_component · delete_component    │
+┌─── Agent（Kimi Code / Claude Code / Cursor / Pi / Codex）───────────┐
+│ 品牌：brand_interview · brand_save · brand_list                      │
+│       brand_apply · brand_learn · brand_delete                       │
+│ 主题：list_themes · list_saved_themes · save_theme · export_theme     │
+│       generate_theme · tweak_theme                                   │
+│ 组件：list_components · save_component · delete_component             │
+│ 排版：analyze_article · render_fragment · render_preview              │
+│       validate_article · review_article                              │
+│ 发布：publish_draft · save_article                                    │
 └──────────────┬──────────────────────────┬───────────────────────────┘
          MCP (stdio / Streamable HTTP)         REST API (/themes … /drafts)
                │                                │
@@ -62,7 +76,7 @@ stylewx/
 │   ├── validator/   # 微信兼容性校验器，输出结构化报告 { pass, issues }
 │   ├── publisher/   # 微信 API：access_token / 素材上传 / draft.add + 外链图片搬运（含 SVG <image>）；不含群发
 │   ├── preview/     # Playwright 截图（iPhone 视口 390px）
-│   └── service/     # 共享 service 层，被 MCP 与 REST 复用
+│   └── service/     # 共享 service 层，被 MCP 与 REST 复用（含 brand-store 品牌记忆）
 ├── apps/
 │   ├── mcp-server/  # MCP Server：stdio + Streamable HTTP 双传输（含本地 Web 编辑器）
 │   └── api/         # REST API（Hono），与 MCP tools 一一对应
@@ -256,33 +270,90 @@ node --env-file=.env apps/mcp-server/scripts/verify-html-roundtrip.mjs
 node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
 ```
 
+## 品牌记忆系统
+
+公众号排版最大的问题是「每次从零选模板」，排出来像任意一个号。品牌记忆系统把使用者的品牌资产固化成
+可复用的排版档案，**每次迭代都沉淀下来**。
+
+### 双轨档案
+
+存在 `~/.stylewx/brands/<name>/`（可用 `STYLEWX_BRANDS_PATH` 覆盖）：
+
+| 文件 | 作用 |
+| --- | --- |
+| `profile.json` | 结构化真相源：完整主题（主题名对齐品牌名）+ 品牌专属组件 + voice/taboos + learnings |
+| `brand.md` | **人可读的「品牌宪法」**：定位、色彩论证、核心色板、语气规则、禁忌、专属组件、迭代记录。人可直接编辑，改完重新 `brand_save` 即生效 |
+
+### 工作流
+
+```
+brand_list                          先看有没有档案
+  ├─ 有 → brand_apply              拿到 theme + brand.md + 专属组件（组件自动同步进渲染库）
+  └─ 无 → brand_interview          拿结构化问卷（定位/气质/色彩来源/资产/组件偏好）
+             ↓ agent 一次性批量问用户
+            agent 提炼设计（推导色板 → 写完整主题 + 专属组件）
+             ↓
+           brand_save               固化档案（主题/组件过 Schema + 微信白名单校验）
+  ↓ 排版与发布
+brand_learn                         把本次反馈记进档案（下次 brand_apply 会读到）
+```
+
+### 设计由 agent 产出，不烧 MCP 的 LLM
+
+`brand_interview` 只返回问卷数据，`brand_save` 只做校验与落盘——**真正的设计（推导色板、写主题、写组件）由调用它的 agent 完成**。
+色板必须写 `rationale`（色彩论证：采样自哪里、为什么是这个色，≥10 字），写不出来就说明在抄配方。
+
+档案还支持 `logo` / `coverImage` / `headerComponent`：品牌头图（logo + 报名 + 期号，可用纯内联 SVG 实现）随档案固化，每篇文章开头自动复用。
+
+对比测试（4 篇不同领域文章 × 4 组策略）见 [scripts/comparison/REPORT.md](./scripts/comparison/REPORT.md)：
+基线 3/3 篇触发「与预置主题雷同」告警，引入三方向门 + 品牌记忆后降为 0，视觉亮度光谱方差从 ≈6 升到 ≈198。
+
 ## 排版工作流
 
 MCP 不要求一次成稿。可以把它当一组**小原语**用，让 agent 分步做、人在本地收尾：
 
 ```
+brand_list → brand_apply / brand_interview     先认品牌（无档案则访谈建档）
+  ↓ 无档案时：三方向门
+出 3 个不同温度的主题初稿（安静/中性/大胆）+ 截图 → 用户选
+  ↓
 analyze_article                                判断内容类型/基调
 list_themes → tweak_theme / generate_theme     先定主题骨架，再微调
 list_components                                查可用组件与参数
+  ↓ 图文编排（不能只有纯文字 + 色块）
+品牌头图 → cover → 每节至少一个视觉锚点（图片/数据条/动效/卡片）→ end-card
   ↓ 分节推进（而不是一次成稿）
 写一节 → render_fragment 验证 → 调整 → 写下一节
   ↓ 收口
-render_preview 整篇校验 → publish_draft 发草稿箱
-  ↓ 交接
-save_article → 返回 editorUrl → 你在本地编辑器微调
+render_preview 整篇校验 → review_article 评审 → publish_draft 发草稿箱
+  ↓ 交接与积累
+save_article → editorUrl → 人在本地编辑器微调
+brand_learn → 把这次学到的写进品牌档案
 ```
 
-三个小原语的分工：
+几个小原语的分工：
 
 - `render_fragment` 只渲染一段，且默认**不返回 HTML**，逐段迭代不把上下文塞满
 - `tweak_theme` 是确定性的，改颜色/字号/圆角**不需要重新生成整包主题**
+- `review_article` 是确定性的（层级比 / 组件堆砌 / 独特性），定性评审（眯眼测试、AI 感）由 agent 基于截图完成
 - `save_article` 落盘并返回 `http://localhost:3777/editor?file=<路径>`，点开就是可编辑的 Markdown
 
 仓库内置了给 agent 用的 skill：[`.agents/skills/stylewx-article/SKILL.md`](./.agents/skills/stylewx-article/SKILL.md)，
-含完整工作流、组件选型速查与微信端避坑清单。项目被信任后会自动发现；
+含完整工作流、品牌访谈清单、三方向门、图文并茂硬性要求、组件选型速查与微信端避坑清单。项目被信任后会自动发现；
 想在所有项目里使用，把整个目录复制到 `~/.pi/agent/skills/stylewx-article/` 即可。
 
 ## MCP 工具
+
+**品牌记忆**
+
+| Tool | 用途 | 关键输入 |
+| --- | --- | --- |
+| `brand_interview` | 返回品牌访谈问卷（定位/气质/色彩来源/资产/组件偏好），访谈由 agent 完成 | — |
+| `brand_save` | 固化品牌档案（`profile.json` + `brand.md`）；主题与组件过 Schema + 白名单；`rationale` 必填 | `name`, `description`, `rationale`, `theme`, `components?`, `voice?`, `taboos?`, `logo?`, `headerComponent?` |
+| `brand_list` | 列出已有品牌档案（摘要） | — |
+| `brand_apply` | 加载档案：返回主题 + 品牌宪法 + 专属组件（组件自动同步进渲染库） | `name` |
+| `brand_learn` | 追加一条迭代记录（写入 profile 与 brand.md） | `name`, `note` |
+| `brand_delete` | 删除品牌档案目录 | `name` |
 
 **主题**
 
@@ -290,9 +361,9 @@ save_article → 返回 editorUrl → 你在本地编辑器微调
 | --- | --- | --- |
 | `list_themes` | 列出预置 + 已保存主题（含完整 token/block，可直接复用） | — |
 | `list_saved_themes` | 列出本地已保存的自定义/AI 主题（`~/.stylewx/themes.json`） | — |
-| `generate_theme` | LLM 生成主题（可 `save` 存档），内置自检修复循环，失败时降级并标记 `fallback` | `prompt` / `article` / `baseTheme` / `save` |
+| `generate_theme` | LLM 生成主题（可 `save` 存档），内置自检修复循环，失败时降级并标记 `fallback`；无 agent 场景的回退 | `prompt` / `article` / `baseTheme` / `save` |
 | `tweak_theme` | 在现有主题上做**确定性微调**（改 token / Markdown 元素 CSS / **组件部位样式**），秒回、不烧 LLM | `theme`, `tokens` / `blocks` / `components` |
-| `save_theme` | 保存主题到本地主题库（过 Schema + 微信白名单校验） | `theme` / `name` |
+| `save_theme` | 保存主题到本地主题库（过 Schema + 微信白名单校验）；agent 直出主题的落盘入口 | `theme` / `name` |
 | `export_theme` | 导出主题为完整 JSON（已存/预置/对象） | `theme` |
 
 **组件与排版**
@@ -304,6 +375,8 @@ save_article → 返回 editorUrl → 你在本地编辑器微调
 | `render_fragment` | 只渲染**一段**，返回组件清单/诊断/校验/截图，默认**不返回 HTML** | `markdown`, `theme`, `includeHtml` |
 | `render_preview` | 渲染整篇为内联样式 HTML + 校验报告 + iPhone(390px) 截图 | `markdown`, `theme` |
 | `validate_article` | 校验微信兼容性，输出结构化报告 | `html` |
+| `review_article` | 发布前评审：层级比 / 组件堆砌 / 主题独特性 + 定性评审框架 | `markdown`, `theme` |
+| `save_component` / `delete_component` | 定义 / 删除自定义富组件（模板保存前做微信校验） | `name`, `template` 等 |
 
 **发布与交接**
 
@@ -332,10 +405,37 @@ save_article → 返回 editorUrl → 你在本地编辑器微调
 | `LLM_API_STYLE` | LLM 调用风格，默认 `chat`；opencode go 用 `responses` |
 | `PORT` | REST API 端口，默认 `3001` |
 | `STYLEWX_THEMES_PATH` | 本地主题库路径，默认 `~/.stylewx/themes.json` |
+| `STYLEWX_COMPONENTS_PATH` | 本地自定义组件库路径，默认 `~/.stylewx/components.json` |
+| `STYLEWX_BRANDS_PATH` | 品牌档案根目录，默认 `~/.stylewx/brands/` |
 | `STYLEWX_ARTICLES_DIR` | `save_article` / 编辑器 `?file=` 允许读写的根目录，默认当前工作目录 |
 | `STYLEWX_EDITOR_URL` | `save_article` 返回的编辑器地址前缀，默认 `http://localhost:3777` |
 
 缺少凭据时相关功能返回明确错误，其余功能正常。凭据只从环境变量注入。
+
+## 常见问题
+
+### `publish_draft` 报 40164 invalid ip … not in whitelist
+
+微信要求调用方 IP 在白名单内（**设置与开发 → 基本配置 → IP 白名单**）。
+若你的出口 IP 不固定（校园网 / 多出口 NAT / 移动网络），单个 IP 加白名单会被漂移绕过。
+解法：让微信 API 流量走一个固定出口的代理（如 Clash 节点），把该节点出口 IP 加进去一次即可。
+注意部分代理规则会把国内域名分流为直连（如 `GEOIP,CN → DIREC`），此时代理不生效，需要临时切成全局模式。
+
+### 上传图片/封面报 41005 media data missing
+
+已在 `@stylewx/publisher` 修复：不要用 Node 原生 `FormData` + `Blob`——
+在 undici fetch（尤其挂 `ProxyAgent` dispatcher）下 body 会被吞掉，微信返回 41005。
+现改为手动构造 multipart 字节体，在所有 fetch 实现下都稳定。
+
+### 暗色整页主题背景不生效
+
+`canvasBg` token 只有在正文用 `::::canvas` 包裹时才生效（否则是白底 + 暗色文字，读者完全不可读）。
+设计暗场主题时，第一步就要把 canvas 包裹写进模板。
+
+### 组件语法变成了一堆文字
+
+`:::组件名` **必须在行首**，拼在段落句尾不会解析；组件前后都要空行。漏写闭合 `:::` 会把后面内容吞进去，
+`render_fragment` 的 `diagnostics` 会提示。
 
 ## 边界与校验
 
@@ -369,6 +469,10 @@ node apps/mcp-server/scripts/publish-draft.mjs out/文章.html "标题"
 # 模拟 agent 的分步工作流（真实 MCP stdio）：微调主题 → 逐段 → 整篇 → 落盘 → editorUrl 读回
 node apps/mcp-server/scripts/verify-agent-workflow.mjs
 
+# 品牌记忆 + 多组排版策略对比（4 篇文章 × 4 组策略，输出截图与量化指标）
+node scripts/comparison/run.mjs
+node scripts/comparison/rich-demo.mjs      # 富组件完整形态（品牌报头/封面/图表/动效/图卡）
+```
 # save_article 落盘 → 用 editorUrl 从编辑器端点读回（需编辑器在 3777 运行）
 node --env-file=.env apps/mcp-server/scripts/verify-handoff.mjs
 

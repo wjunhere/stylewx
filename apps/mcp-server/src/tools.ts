@@ -25,6 +25,14 @@ import {
   saveUserComponent,
   deleteUserComponent,
   listSavedComponents,
+  brandInterview,
+  brandSave,
+  brandList,
+  brandApply,
+  brandLearn,
+  brandDelete,
+  readBrandDoc,
+  reviewArticle,
 } from '@stylewx/service'
 import type { ServiceError } from '@stylewx/service'
 import type { LlmClient } from '@stylewx/service'
@@ -576,6 +584,123 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
       },
     },
     wrap(async ({ name }) => textResult(deleteUserComponent(name))),
+  )
+
+  // ---- brand_interview ----
+  server.registerTool(
+    'brand_interview',
+    {
+      title: '品牌访谈问卷',
+      description:
+        '开始排版前若无品牌档案，先调用它获取结构化访谈问卷（定位/气质/色彩来源/资产/组件偏好五节）。' +
+        '把问题一次性批量问用户（不要逐个来回问），然后由你提炼答案：推导色板（采样→收敛→论证）、产出完整主题 JSON 与品牌专属组件，' +
+        '最后调 brand_save 固化。本工具只返回问卷数据，不调用 LLM——设计由你完成。',
+      inputSchema: {},
+    },
+    wrap(async () => textResult(brandInterview())),
+  )
+
+  // ---- brand_save ----
+  server.registerTool(
+    'brand_save',
+    {
+      title: '保存品牌档案',
+      description:
+        '把访谈提炼出的品牌档案固化到 ~/.stylewx/brands/<name>/（profile.json 结构化真相源 + brand.md 人可读品牌宪法）。' +
+        '主题与组件会先过 Schema + 微信白名单校验。rationale（色彩论证）必填且不可太短——写不出「为什么是这个色」就说明还在抄配方。' +
+        '同名覆盖时 voice/taboos/learnings 会保留旧值，不会丢失迭代记录。',
+      inputSchema: {
+        name: z.string().describe('品牌档案 ID：小写字母开头的小写字母/数字/连字符，例如 tide-notes。'),
+        displayName: z.string().optional().describe('展示名（通常是公众号名称）。'),
+        description: z.string().describe('一句话品牌定位 + 气质关键词，例如「AI 工具评测号，气质：克制、专业、冷静」。'),
+        rationale: z.string().describe('色彩论证：色值采样自哪里、为什么是这个色（≥10 字，这是防 AI slop 的自检门）。'),
+        theme: themeObjSchema.describe('完整主题 JSON（name/description/tokens/blocks，CSS 在微信白名单内）。主题名会被强制对齐为品牌名。'),
+        components: z
+          .array(z.record(z.string(), z.unknown()))
+          .optional()
+          .describe('品牌专属组件定义数组（{ name, template, description?, defaults?, slots? }），逐个过微信校验。建议以品牌名为前缀，如 tide-quote。'),
+        voice: z.array(z.string()).optional().describe('语气/编排规则，例如「每节末尾一句金句」「不用感叹号」。'),
+        taboos: z.array(z.string()).optional().describe('禁忌清单，例如「不要目录」「正文不要居中」。'),
+        doc: z.string().optional().describe('人可读的品牌宪法正文（Markdown）。缺省由档案自动生成骨架。'),
+        logo: z.string().optional().describe('品牌 logo 图片 URL：用于文章开头品牌头图、封面、end-card 签名位，不进正文每节。'),
+        coverImage: z.string().optional().describe('品牌默认封面图 URL（无特定封面时使用）。'),
+        headerComponent: z.string().optional().describe('品牌头图组件名：每篇文章开头先调 :::该组件（通常含 logo + 品牌名 + 期号）。'),
+      },
+    },
+    wrap(async (args) => textResult(brandSave(args))),
+  )
+
+  // ---- brand_list ----
+  server.registerTool(
+    'brand_list',
+    {
+      title: '列出品牌档案',
+      description: '列出所有已保存的品牌档案（~/.stylewx/brands/）。排版新文章前先看这里：有档案就直接 brand_apply 复用，没有才走品牌访谈。',
+      inputSchema: {},
+    },
+    wrap(async () => textResult(brandList())),
+  )
+
+  // ---- brand_apply ----
+  server.registerTool(
+    'brand_apply',
+    {
+      title: '加载品牌档案',
+      description:
+        '加载一个品牌档案并编译为可直接使用的排版资源：返回完整主题（直接传给 render_preview / publish_draft）、品牌宪法正文（作为设计上下文仔细阅读）、品牌专属组件清单。' +
+        '品牌组件会自动同步进全局组件库，正文中直接用 :::组件名 调用即可。排版时严格遵循 brand.md 里的语气规则与禁忌。',
+      inputSchema: {
+        name: z.string().describe('品牌档案 ID（brand_list 里查）。'),
+      },
+    },
+    wrap(async ({ name }) => textResult(brandApply(name))),
+  )
+
+  // ---- brand_learn ----
+  server.registerTool(
+    'brand_learn',
+    {
+      title: '品牌迭代记录',
+      description:
+        '在品牌档案追加一条迭代记录（写进 profile.learnings 与 brand.md 迭代记录节）。' +
+        '每次排版发布后调用：记录用户反馈（「嫌卡片太花」）、修正决策（「h2 加左边框更好」）、踩过的坑。' +
+        '这些记录会在下次 brand_apply 时随品牌宪法一起读到，让品牌档案越用越准。',
+      inputSchema: {
+        name: z.string().describe('品牌档案 ID。'),
+        note: z.string().describe('这条经验的内容，一句话说清楚「学到什么/改了什么/为什么」。'),
+      },
+    },
+    wrap(async ({ name, note }) => textResult(brandLearn(name, note))),
+  )
+
+  // ---- brand_delete ----
+  server.registerTool(
+    'brand_delete',
+    {
+      title: '删除品牌档案',
+      description: '删除整个品牌档案目录（含 profile.json 与 brand.md）。谨慎操作。',
+      inputSchema: { name: z.string().describe('要删除的品牌档案 ID。') },
+    },
+    wrap(async ({ name }) => textResult(brandDelete(name))),
+  )
+
+  // ---- review_article ----
+  server.registerTool(
+    'review_article',
+    {
+      title: '发布前评审',
+      description:
+        '发布前的确定性品味检查：标题/正文层级比（h1≥2.0、h2≥1.5）、组件堆砌检测（类型>6 种警告、密度>4/千字警告）、' +
+        '主题独特性（与预置主题完全一致提示缺品牌感）。返回结构化 issues + 定性评审框架。' +
+        '发布前调用：结合 render_preview 的 390px 截图做眯眼测试与 AI 感自查，输出 Keep/Fix/Quick Wins，确认无 error 再 publish_draft。',
+      inputSchema: {
+        markdown: z.string().describe('文章 Markdown 全文（统计组件使用）。'),
+        theme: themeObjSchema.describe('排版使用的完整主题对象。'),
+      },
+    },
+    wrap(async ({ markdown, theme }) =>
+      textResult(reviewArticle(markdown, theme as Theme, { presetThemes: listThemes().themes })),
+    ),
   )
 }
 

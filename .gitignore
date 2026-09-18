@@ -46,3 +46,6 @@ articles/
 
 # 移植脚本的上游缓存（scripts/port-wemd-themes.mjs 用）
 .cache/
+
+# 对比实验的截图/渲染产物（体积大，本机复现：node scripts/comparison/run.mjs）
+scripts/comparison/output/

@@ -243,7 +243,8 @@ function renderCanvas(node: ComponentNode, ctx: RenderContext): string {
   const bg = prop(p, 'bg')
 
   let backgroundImage: string | undefined
-  let backgroundColor = bg ?? palette.canvasBg
+  // 注意：prop() 缺参返回空字符串，?? 不会短路，必须用 ||
+  let backgroundColor = bg || palette.canvasBg
 
   if (!bg) {
     if (kind === 'gradient') {

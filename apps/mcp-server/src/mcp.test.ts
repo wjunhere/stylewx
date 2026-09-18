@@ -45,12 +45,18 @@ describe('stylewx MCP Server (in-memory)', () => {
     expect(data.themes.length).toBeGreaterThanOrEqual(6)
   })
 
-  it('list 出全部 15 个 tools', async () => {
+  it('list 出全部 21 个 tools', async () => {
     const { client } = await startClient()
     const { tools } = await client.listTools()
     const names = tools.map((t) => t.name).sort()
     expect(names).toEqual([
       'analyze_article',
+      'brand_apply',
+      'brand_delete',
+      'brand_interview',
+      'brand_learn',
+      'brand_list',
+      'brand_save',
       'delete_component',
       'export_theme',
       'generate_theme',
@@ -60,12 +66,78 @@ describe('stylewx MCP Server (in-memory)', () => {
       'publish_draft',
       'render_fragment',
       'render_preview',
+      'review_article',
       'save_article',
       'save_component',
       'save_theme',
       'tweak_theme',
       'validate_article',
     ])
+  })
+
+  it('brand 全生命周期：interview → save → list → apply → learn', async () => {
+    // 隔离品牌存储，避免污染真实 ~/.stylewx/brands
+    const brandDir = join(mkdtempSync(join(tmpdir(), 'stylewx-brands-')))
+    const prevBrandsPath = process.env.STYLEWX_BRANDS_PATH
+    process.env.STYLEWX_BRANDS_PATH = brandDir
+    const { client } = await startClient()
+    // interview 返回问卷结构
+    const iv = parseText((await client.callTool({ name: 'brand_interview', arguments: {} }) as never))
+    expect(iv.sections.length).toBeGreaterThanOrEqual(4)
+    // save：带完整主题与一个品牌组件
+    const theme = {
+      name: 'tide-notes',
+      description: '测试品牌主题',
+      tokens: {
+        primaryColor: '#1D5C4A',
+        textColor: '#2A2A26',
+        fontSize: '15px',
+        lineHeight: 1.85,
+        fontFamily: "-apple-system, 'PingFang SC', sans-serif",
+        spacing: { block: '20px' },
+      },
+      blocks: {
+        h1: { 'font-size': '30px', color: '{{primaryColor}}', 'font-weight': 'bold' },
+        h2: { 'font-size': '22px', color: '{{primaryColor}}', 'font-weight': 'bold' },
+        p: { 'font-size': '15px', color: '{{textColor}}', 'line-height': '{{lineHeight}}' },
+      },
+    }
+    const saved = parseText((await client.callTool({
+        name: 'brand_save',
+        arguments: {
+          name: 'tide-notes',
+          displayName: '潮汐手记',
+          description: '生活方式号，气质：温暖、治愈',
+          rationale: '主色采自海边礁石的青苔绿，压低饱和度模拟油墨印刷质感',
+          theme,
+          voice: ['每节末尾一句金句'],
+          taboos: ['不要荧光色'],
+        },
+      }) as never))
+    expect(saved.profile.name).toBe('tide-notes')
+    expect(saved.doc).toContain('潮汐手记')
+    // list 能看到
+    const list = parseText((await client.callTool({ name: 'brand_list', arguments: {} }) as never))
+    expect(list.brands.map((b: { name: string }) => b.name)).toContain('tide-notes')
+    // apply 返回主题与宪法
+    const applied = parseText((await client.callTool({ name: 'brand_apply', arguments: { name: 'tide-notes' } }) as never))
+    expect(applied.theme.name).toBe('tide-notes')
+    expect(applied.doc).toContain('色彩论证')
+    // learn 追加记录
+    const learned = parseText((await client.callTool({ name: 'brand_learn', arguments: { name: 'tide-notes', note: '用户嫌卡片太花' } }) as never))
+    expect(learned.profile.learnings.length).toBe(1)
+    // review_article：层级不足告警 + 正常通过
+    const review = parseText((await client.callTool({
+        name: 'review_article',
+        arguments: { markdown: '# 标题\n\n正文'.repeat(50), theme },
+      }) as never))
+    expect(typeof review.pass).toBe('boolean')
+    // 清理
+    const del = parseText((await client.callTool({ name: 'brand_delete', arguments: { name: 'tide-notes' } }) as never))
+    expect(del.deleted).toBe('tide-notes')
+    if (prevBrandsPath === undefined) delete process.env.STYLEWX_BRANDS_PATH
+    else process.env.STYLEWX_BRANDS_PATH = prevBrandsPath
+    rmSync(brandDir, { recursive: true, force: true })
   })
 
   it('list_components 返回组件目录与语法', async () => {

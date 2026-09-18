@@ -333,6 +333,26 @@ const darkCode = build(
   },
 )
 
+/** 中性调色板（用于补全 agent 直出的部分 block 集，不引入额外色彩倾向）。 */
+const NEUTRAL_PALETTE: Palette = {
+  primaryColor: '#333333',
+  textColor: '#444444',
+  codeBg: '#f5f5f5',
+  codeColor: '#333333',
+  blockquoteBg: '#f7f7f7',
+  blockquoteColor: '#555555',
+  weakText: '#999999',
+  borderColor: '#dddddd',
+}
+
+/**
+ * 把 agent 直出的部分 block 集补全为完整 15 block 集（缺省用中性样式）。
+ * brand_save / 任何「agent 只写关键 block」的场景都应用它，降低产出门槛。
+ */
+export function completeThemeBlocks(overrides?: Partial<Record<string, ThemeBlock>>): Theme['blocks'] {
+  return defaultBlocks(NEUTRAL_PALETTE, overrides)
+}
+
 export const PRESET_THEMES: Theme[] = [
   techMinimal,
   business,

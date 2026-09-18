@@ -1,0 +1,358 @@
+[
+  {
+    "group": "G1-baseline",
+    "article": "vite",
+    "label": "vite · 预置主题直排",
+    "theme": "tech-minimal",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": null,
+      "h2Ratio": null
+    },
+    "componentTypes": 0,
+    "componentsPerKiloChar": 0,
+    "componentUsage": [],
+    "issues": [
+      {
+        "severity": "info",
+        "dimension": "uniqueness",
+        "message": "当前主题与某个预置主题完全一致",
+        "suggestion": "至少 tweak_theme 调整主色/圆角/卡片底，让它成为「这个号自己的」样子；有品牌档案时用 brand_apply。"
+      }
+    ],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G1-baseline-vite.png",
+    "htmlChars": 4855
+  },
+  {
+    "group": "G1-baseline",
+    "article": "noodle",
+    "label": "noodle · 预置主题直排",
+    "theme": "magazine",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": null,
+      "h2Ratio": null
+    },
+    "componentTypes": 0,
+    "componentsPerKiloChar": 0,
+    "componentUsage": [],
+    "issues": [
+      {
+        "severity": "info",
+        "dimension": "uniqueness",
+        "message": "当前主题与某个预置主题完全一致",
+        "suggestion": "至少 tweak_theme 调整主色/圆角/卡片底，让它成为「这个号自己的」样子；有品牌档案时用 brand_apply。"
+      }
+    ],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G1-baseline-noodle.png",
+    "htmlChars": 2894
+  },
+  {
+    "group": "G1-baseline",
+    "article": "coffee",
+    "label": "coffee · 预置主题直排",
+    "theme": "business",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": null,
+      "h2Ratio": null
+    },
+    "componentTypes": 0,
+    "componentsPerKiloChar": 0,
+    "componentUsage": [],
+    "issues": [
+      {
+        "severity": "info",
+        "dimension": "uniqueness",
+        "message": "当前主题与某个预置主题完全一致",
+        "suggestion": "至少 tweak_theme 调整主色/圆角/卡片底，让它成为「这个号自己的」样子；有品牌档案时用 brand_apply。"
+      }
+    ],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G1-baseline-coffee.png",
+    "htmlChars": 4221
+  },
+  {
+    "group": "G2-panorama",
+    "article": "vite-A",
+    "label": "技术评测《Vite 项目越跑越慢》 · 方向A",
+    "theme": "vite-A-steel",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 2,
+      "h2Ratio": 1.47
+    },
+    "componentTypes": 0,
+    "componentsPerKiloChar": 0,
+    "componentUsage": [],
+    "issues": [
+      {
+        "severity": "warning",
+        "dimension": "hierarchy",
+        "message": "h2 与正文层级比仅 1.47（建议 ≥ 1.5）",
+        "suggestion": "用 tweak_theme 把 h2 font-size 提到正文的 1.5 倍左右，并配合颜色/粗细建立层级。"
+      }
+    ],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G2-panorama-vite-A.png",
+    "htmlChars": 4764
+  },
+  {
+    "group": "G2-panorama",
+    "article": "vite-B",
+    "label": "技术评测《Vite 项目越跑越慢》 · 方向B",
+    "theme": "vite-B-editorial",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 2.13,
+      "h2Ratio": 1.6
+    },
+    "componentTypes": 0,
+    "componentsPerKiloChar": 0,
+    "componentUsage": [],
+    "issues": [],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G2-panorama-vite-B.png",
+    "htmlChars": 4804
+  },
+  {
+    "group": "G2-panorama",
+    "article": "vite-C",
+    "label": "技术评测《Vite 项目越跑越慢》 · 方向C",
+    "theme": "vite-C-brutal",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 2.4,
+      "h2Ratio": 1.67
+    },
+    "componentTypes": 0,
+    "componentsPerKiloChar": 0,
+    "componentUsage": [],
+    "issues": [],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G2-panorama-vite-C.png",
+    "htmlChars": 4804
+  },
+  {
+    "group": "G2-chosen",
+    "article": "vite",
+    "label": "技术评测《Vite 项目越跑越慢》 · 选定方向B",
+    "theme": "vite-B-editorial",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 2.13,
+      "h2Ratio": 1.6
+    },
+    "componentTypes": 0,
+    "componentsPerKiloChar": 0,
+    "componentUsage": [],
+    "issues": [],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G2-chosen-vite.png",
+    "htmlChars": 4804
+  },
+  {
+    "group": "G2-panorama",
+    "article": "noodle-A",
+    "label": "生活随笔《深夜厨房：一碗葱油拌面》 · 方向A",
+    "theme": "noodle-A-warm",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 2,
+      "h2Ratio": 1.53
+    },
+    "componentTypes": 0,
+    "componentsPerKiloChar": 0,
+    "componentUsage": [],
+    "issues": [],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G2-panorama-noodle-A.png",
+    "htmlChars": 2348
+  },
+  {
+    "group": "G2-panorama",
+    "article": "noodle-B",
+    "label": "生活随笔《深夜厨房：一碗葱油拌面》 · 方向B",
+    "theme": "noodle-B-ink",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 1.87,
+      "h2Ratio": 1.4
+    },
+    "componentTypes": 0,
+    "componentsPerKiloChar": 0,
+    "componentUsage": [],
+    "issues": [
+      {
+        "severity": "warning",
+        "dimension": "hierarchy",
+        "message": "h1 与正文层级比仅 1.87（建议 ≥ 2.0）",
+        "suggestion": "用 tweak_theme 把 h1 font-size 提到正文的 2 倍以上，或缩小正文字号。"
+      },
+      {
+        "severity": "warning",
+        "dimension": "hierarchy",
+        "message": "h2 与正文层级比仅 1.4（建议 ≥ 1.5）",
+        "suggestion": "用 tweak_theme 把 h2 font-size 提到正文的 1.5 倍左右，并配合颜色/粗细建立层级。"
+      }
+    ],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G2-panorama-noodle-B.png",
+    "htmlChars": 2440
+  },
+  {
+    "group": "G2-panorama",
+    "article": "noodle-C",
+    "label": "生活随笔《深夜厨房：一碗葱油拌面》 · 方向C",
+    "theme": "noodle-C-midnight",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 2.07,
+      "h2Ratio": 1.53
+    },
+    "componentTypes": 1,
+    "componentsPerKiloChar": 1.98,
+    "componentUsage": [
+      {
+        "name": "canvas",
+        "count": 1
+      }
+    ],
+    "issues": [],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G2-panorama-noodle-C.png",
+    "htmlChars": 2840
+  },
+  {
+    "group": "G2-chosen",
+    "article": "noodle",
+    "label": "生活随笔《深夜厨房：一碗葱油拌面》 · 选定方向C",
+    "theme": "noodle-C-midnight",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 2.07,
+      "h2Ratio": 1.53
+    },
+    "componentTypes": 1,
+    "componentsPerKiloChar": 1.98,
+    "componentUsage": [
+      {
+        "name": "canvas",
+        "count": 1
+      }
+    ],
+    "issues": [],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G2-chosen-noodle.png",
+    "htmlChars": 2840
+  },
+  {
+    "group": "G3-brand",
+    "article": "coffee",
+    "label": "商业分析《咖啡 costing》· 品牌记忆",
+    "theme": "ink-ledger",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 2.13,
+      "h2Ratio": 1.6
+    },
+    "componentTypes": 2,
+    "componentsPerKiloChar": 6.48,
+    "componentUsage": [
+      {
+        "name": "ink-stat",
+        "count": 3
+      },
+      {
+        "name": "ink-quote",
+        "count": 2
+      }
+    ],
+    "issues": [
+      {
+        "severity": "warning",
+        "dimension": "component-density",
+        "message": "组件密度 6.48/千字，偏高",
+        "suggestion": "正文才是主角：合并短段落，减少装饰性组件。"
+      }
+    ],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G3-brand-coffee.png",
+    "htmlChars": 7685
+  },
+  {
+    "group": "G4-brand-v2",
+    "article": "vite",
+    "label": "技术评测《Vite》· 品牌迭代 v2",
+    "theme": "ink-ledger",
+    "validation": {
+      "pass": true,
+      "errors": 0
+    },
+    "hierarchy": {
+      "h1Ratio": 2.27,
+      "h2Ratio": 1.67
+    },
+    "componentTypes": 2,
+    "componentsPerKiloChar": 4.7,
+    "componentUsage": [
+      {
+        "name": "ink-quote",
+        "count": 2
+      },
+      {
+        "name": "ink-stat",
+        "count": 1
+      }
+    ],
+    "issues": [
+      {
+        "severity": "warning",
+        "dimension": "component-density",
+        "message": "组件密度 4.7/千字，偏高",
+        "suggestion": "正文才是主角：合并短段落，减少装饰性组件。"
+      }
+    ],
+    "diagnostics": 0,
+    "screenshot": "B:\\wechat_editer\\scripts\\comparison\\output\\shots\\G4-brand-v2-vite.png",
+    "htmlChars": 5559
+  }
+]

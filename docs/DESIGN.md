@@ -409,3 +409,79 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 现在 `test-editor-component-library.mjs` 会断言弹窗尺寸（≥1000px）、预览区高度（≥400px）、
 `padding=0`、无裁切，`capture-hero.mjs` 也会在截组件库配图前断言弹窗真的打开了——
 这类「看起来能用但被静默压扁」的问题不会再溜过去。
+
+---
+
+## 19. 品牌记忆系统（brand-store）
+
+### 19.1 为什么把「设计」交给 agent 而不是 MCP
+
+最初 `generate_theme` 把 LLM 调用封装在 service 层，于是 MCP 需要单独配置
+`LLM_BASE_URL/KEY/MODEL`——而调用方本身就是 agent，手里已经有模型。这层封装是多余的，
+还导致「两个大脑各自设计」的不一致。
+
+改造后的职责划分：
+
+| 谁 | 做什么 |
+| --- | --- |
+| agent | 理解品牌气质、读文章、推导色板、写主题 JSON 与组件模板（**设计决策**） |
+| MCP | Schema/白名单校验、编译、落盘、渲染、发布、往返导入（**确定性工程**） |
+
+`generate_theme` 因此降级为「无 agent 场景（REST API）的回退」，不再是主路径。
+`brand_interview` 只返回问卷数据、`brand_save` 只做校验与落盘，都不烧 LLM。
+
+### 19.2 双轨档案
+
+`~/.stylewx/brands/<name>/`：
+
+- `profile.json` —— 结构化真相源（完整主题 + 品牌专属组件 + voice/taboos + learnings）。
+  MCP 直接消费。
+- `brand.md` —— 人可读的「品牌宪法」，由 profile 渲染生成，人可以直接编辑补充；
+  改完重新 `brand_save` 即可生效（同名覆盖时 voice/taboos/learnings 保留，不丢迭代记录）。
+
+不做「markdown 反向解析回结构」：md 里塞 15 个 block 与 HTML 模板既不美观也易碎。
+真相源放在 JSON，md 负责人读与 agent 上下文注入。
+
+### 19.3 色彩论证（rationale）作为强制闸门
+
+`brand_save` 要求 `rationale` 非空且 ≥10 字，否则报错。理由：色彩必须**采样自真实来源**
+（品牌资产 / 内容真图 / 内容文化语境），凭空选色等于从模型先验抽签——抽出来永远是那几个网红色。
+写不出「为什么是这个色」就说明在抄配方。这是把「防 AI slop」从口头约定变成机器约束。
+
+### 19.4 主题 blocks 补全
+
+主题 Schema 要求 15 个 block 齐全，但 agent 直出时通常只写关键项（h1/h2/p/blockquote…）。
+`theme` 包新增导出 `completeThemeBlocks(partial)`：缺省 block 用中性样式补全，
+让 `brand_save` / 未来的 agent 直出路径都能只写关键 block。降低产出门槛，不牺牲校验强度。
+
+### 19.5 review_article：把品味判断拆成确定性与定性两半
+
+确定性部分（工具做）：标题/正文层级比（h1≥2.0、h2≥1.5）、组件堆砌（类型 >6 种、密度 >4/千字）、
+主题独特性（与预置主题完全相同 → 缺品牌感）。
+
+定性部分（agent 做）：眯眼测试、AI 感自查、Keep/Fix/Quick Wins 清单。工具返回
+`qualitativePrompt` 提示 agent 完成。
+
+### 19.6 踩过的坑：prop() 空字符串与 `??`
+
+`renderCanvas` 里 `const bg = prop(p,'bg')`，`prop()` 缺参返回**空字符串**而非 undefined，
+于是 `bg ?? palette.canvasBg` 不短路，`backgroundColor` 变成 `''` 被 `css()` 丢弃 ——
+**所有靠 `canvasBg` token 的暗色整页主题背景全部静默失效，且无任何诊断**。
+
+同函数里 `padding` 的注释正好写了这个坑（「用 `||` 而非 `??`」），`bg` 行自己踩了。
+已在对比测试中发现（暗场主题截图亮度 236 → 修复后 46）并修复。
+
+教训：`prop()` 这类「缺省返回空串」的取值器，判空一律用 `||`；`??` 只对 null/undefined 有效。
+
+### 19.7 踩过的坑：原生 FormData 在 undici 下 body 被吞
+
+`uploadMaterial` 原用 Node 原生 `FormData` + `Blob`。实测对照：
+
+| 方案 | 结果 |
+| --- | --- |
+| 原生 FormData + 原生 Blob | ❌ `41005 media data missing` |
+| undici FormData + 原生 Blob | ✅ |
+| 手动构造 multipart 字节体 | ✅ |
+
+在 undici fetch（尤其挂 `ProxyAgent` dispatcher）下，原生 FormData 的 body 会丢失。
+改为手动构造 multipart 字节体，不依赖任何 fetch 实现对 FormData 的支持，测试全绿。

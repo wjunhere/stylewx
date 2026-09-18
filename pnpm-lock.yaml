@@ -8,6 +8,18 @@ importers:
 
   .:
     devDependencies:
+      '@stylewx/preview':
+        specifier: workspace:*
+        version: link:packages/preview
+      '@stylewx/publisher':
+        specifier: workspace:*
+        version: link:packages/publisher
+      '@stylewx/service':
+        specifier: workspace:*
+        version: link:packages/service
+      '@stylewx/theme':
+        specifier: workspace:*
+        version: link:packages/theme
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.1
@@ -20,6 +32,9 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.7.2
+      undici:
+        specifier: ^8.10.2
+        version: 8.10.2
       vitest:
         specifier: ^3.0.5
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)
@@ -1650,6 +1665,10 @@ packages:
   undici@6.28.0:
     resolution: {integrity: sha512-LIY910g9TI13YS95lrMFrs8Rm/u/irgHeTWoKCoteeJ04CUJ92eEfj0rVn+7VKMPBpUPiUoBKfhNyLI23EE/KA==}
     engines: {node: '>=18.17'}
+
+  undici@8.10.2:
+    resolution: {integrity: sha512-/y4/bH9YNU5hi9NIrpOuvGXFcxrj3CMrV+/AYpowAYTpHn8gX/XPFjNy766FPoYY0miQhdW977JFWKGNhBdwyQ==}
+    engines: {node: '>=22.19.0'}
 
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
@@ -3454,6 +3473,8 @@ snapshots:
   undici-types@6.21.0: {}
 
   undici@6.28.0: {}
+
+  undici@8.10.2: {}
 
   unified@11.0.5:
     dependencies:
