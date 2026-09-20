@@ -498,23 +498,55 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 
 ### 20.2 方案：复用浏览器登录态
 
-`apps/mcp-server/scripts/publish-via-browser.mjs` 通过 opencli 桥接操控**已登录的 Chrome**，
-在公众号编辑器页里写正文、点「保存为草稿」——走后台自己的保存接口，无 IP 白名单约束。
+`apps/mcp-server/scripts/publish-via-browser.mjs` 通过 kimi-webbridge 桥接操控**已登录的浏览器**，
+在公众号编辑器页里写正文、传封面、点「保存为草稿」——走后台自己的保存接口，无 IP 白名单约束。
 
-### 20.3 技术要点（实测得出）
+### 20.3 选型：为什么最终用 kimi-webbridge 而不是 opencli
+
+两条路都试过，关键差异在**能否上传本地文件**：
+
+| 能力 | opencli | kimi-webbridge |
+| --- | --- | --- |
+| 复用登录态 | ✅ 扩展桥接 | ✅ 扩展桥接 |
+| 页面内 evaluate / CDP | ✅ | ✅（含原始 `cdp` 透传） |
+| 上传本地文件 | ⚠️ `upload` 需自行唤起并接收文件选择器，隐藏 input 场景必失败 | ✅ `upload` 工具，需扩展开「允许访问文件网址」 |
+| 元素定位 | CSS / 语义（**语义可退化模糊匹配**） | snapshot 的 `@e` ref（精确） |
+
+`DOM.setFileInputFiles` 在 `chrome.debugger` 沙箱下返回 `Not allowed`（协议层硬限制），
+所以真正的出路是扩展自带的 `upload` + 文件访问权限。
+
+### 20.4 技术要点（实测得出）
 
 | 环节 | 结论 |
 | --- | --- |
-| 正文编辑器 | `.rich_media_content .ProseMirror`。页面上有 **两个** `.ProseMirror`：`[0]` 是标题编辑器（`title-editor__input`，高 30px），`[1]` 才是正文（`rich_media_content`，高 366px）——按高度排序可稳健选中 |
-| 写入方式 | `execCommand('insertHTML')` 有效，section/span + 内联样式完整保留。合成 `ClipboardEvent('paste')` 无效（ProseMirror 校验事件可信度）；`document.hasFocus()` 在后台窗口为 false，导致系统剪贴板与 `navigator.clipboard` 都不可用 |
+| 正文编辑器 | `.rich_media_content .ProseMirror`。页面上有 **两个** `.ProseMirror`：`[0]` 是标题编辑器（高 30px），`[1]` 才是正文（高 366px）——按所属容器选择最稳 |
+| 写入方式 | `execCommand('insertHTML')` 有效，section/span + 内联样式完整保留。合成 `ClipboardEvent('paste')` 无效（ProseMirror 校验事件可信度）；后台窗口 `document.hasFocus()` 为 false，系统剪贴板与 `navigator.clipboard` 都不可用 |
 | 外链图片 | 编辑器自动上传到素材库，`src` 变 `mmbiz.qpic.cn` |
 | 内联 SVG + SMIL | 完整保留 |
-| 封面自动上传 | 不可靠：file input 隐藏（祖先 `display:none`，逐层解除也无效），opencli 的 `upload` 走「点击 + 等 fileChooser」路径会超时。已做优雅降级（警告但不阻断发布） |
+| 封面入口 | hover 才显示的 `pop-opr` 组，需先 DOM 显形；入口有「从正文选择 / 从图片库选择 / 微信扫码上传 / AI 配图」 |
+| 封面弹窗 | 微信预渲染**多份 `0×0` 的模板副本**，必须筛「尺寸 > 200」的那个才是可见实例——用错实例会出现「点击完全无反应」 |
+| 封面 file input | **只在封面弹窗打开时存在**，且与编辑器工具栏的插图 input 不同（封面那个 `accept` 含 `image/bmp`）。传错会把封面图插进正文 |
+| 封面流程 | 图片库 → 点「上传文件」（唤起 input）→ `upload` → 自动选中 → 「下一步」→「编辑封面」→「确认」 |
 
-### 20.4 调用方式
+### 20.5 安全约束：绝不用文本模糊匹配点按钮
 
-脚本用 `spawn(process.execPath, [opencliMainJs, ...args])` 调 opencli ——
-**args 数组、shell:false**，避开 Git Bash 的原生 PE 参数改写与多层引号转义问题。
+构建过程中我用 opencli 的 `click --text "下一步"` 定位按钮，该参数在精确匹配失败时会
+**退化匹配**，结果点到了页面上的「退出登录」，**导致账号被登出**（无数据损失，但需重新扫码）。
 
-opencli 的 profile 需要显式指定（默认解析可能落到未连接的 profile 上）：
-`opencli profile list` 查可用名，再用 `--profile <名>`（或全局 `opencli profile use <名>`）。
+因此 `publish-via-browser.mjs` 定下硬约束：
+
+1. **只用 snapshot 的 `@e` ref 点击**，不做文本模糊匹配
+2. **ALLOW / DENY 双名单**：只允许 `保存为草稿 / 保存 / 下一步 / 确认 / 确定 / 完成`；
+   命中 `退出登录 / 删除 / 取消 / 关闭 / 群发 / 发表` 立即中止
+
+教训：自动化点「确认类」按钮时，相邻位置往往就是危险操作（退出、删除、群发）。
+**定位方式必须精确且唯一**，且要有独立的危险名单兜底。
+
+### 20.6 调用方式
+
+脚本通过 HTTP 调 kimi-webbridge 守护进程（`http://127.0.0.1:10086/command`），
+请求体一律用**文件**传递（Windows shell 会破坏内联 JSON 的非 ASCII 与转义）。
+
+前置：浏览器扩展已登录公众号，且已开启「允许访问文件网址」
+（`edge://extensions` → Kimi → 详细信息 → 允许访问文件网址），否则上传封面报
+`upload needs Chrome's per-extension file access`。

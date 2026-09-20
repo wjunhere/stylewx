@@ -412,41 +412,62 @@ brand_learn → 把这次学到的写进品牌档案
 
 缺少凭据时相关功能返回明确错误，其余功能正常。凭据只从环境变量注入。
 
-### 浏览器登录态发布（免 IP 白名单）
+### 浏览器登录态发布（免 IP 白名单，含封面上传）
 
 `publish_draft` 走微信 API，要求调用方 IP 在白名单内。若你的出口 IP 不固定（校园网 / 多出口 NAT），
-可以用 **浏览器登录态** 发布：复用你已登录的 Chrome，在公众号编辑器里写入富文本并点「保存为草稿」，
+可以用**浏览器登录态**发布：复用你已登录的浏览器，在公众号编辑器里写入富文本并点「保存为草稿」，
 走后台自己的保存接口，**不受 `draft/add` 的 IP 白名单限制**。
 
 ```bash
-# 用 Markdown + 主题名（主题可用预置名 / 已保存名 / JSON 文件）
-node apps/mcp-server/scripts/publish-via-browser.mjs 文章.md --theme business
+# Markdown + 主题名（含封面自动上传）
+node apps/mcp-server/scripts/publish-via-browser.mjs 文章.md --theme business --cover cover.jpg
 
 # 用已渲染好的 HTML
-node apps/mcp-server/scripts/publish-via-browser.mjs --html out/文章.html --title "标题"
+node apps/mcp-server/scripts/publish-via-browser.mjs --html out/文章.html --title "标题" --cover cover.jpg
 
 # 常用选项
-#   --author <作者>      写入作者
-#   --cover <图片路径>   上传封面（失败不阻断发布，可在后台手动设置）
-#   --profile <名>       opencli Chrome profile（opencli profile list 查看）
-#   --dry-run            只填写不保存，便于先看效果
+#   --author <作者>   写入作者
+#   --cover <图片>    封面图（自动上传素材库并设为封面）
+#   --dry-run         只填写不保存
+#   --session <名>    webbridge 会话名
 ```
 
-前置：Chrome 装 [OpenCLI](https://github.com/jackwener/opencli) 扩展并已登录公众号，
-`opencli doctor` 显示 profile connected。
+前置条件：
+
+1. 浏览器装 [Kimi WebBridge](https://www.kimi.com/zh-cn/features/webbridge) 扩展，已登录公众号后台
+2. **Kimi 扩展必须开启「允许访问文件网址」**（`edge://extensions` → Kimi → 详细信息 → 允许访问文件网址）；
+   否则上传封面会报 `upload needs Chrome's per-extension file access`
+3. 守护进程未运行时脚本会自动启动
 
 实测结论（微信新版编辑器）：
 
 | 项 | 结果 |
 | --- | --- |
-| 正文写入 | `execCommand('insertHTML')` 有效；section/span 结构 + 内联样式完整保留 |
-| 正文编辑器选择器 | `.rich_media_content .ProseMirror`（页面另有标题用的 ProseMirror，别选错） |
-| 外链图片 | 编辑器自动上传到素材库，src 会变成 `mmbiz.qpic.cn` |
-| 内联 SVG + SMIL 动画 | 完整保留（进度条/描边/轮播照常动） |
-| 保存草稿 | 点「保存为草稿」按钮，成功时 URL 带 `appmsgid` |
-| 封面自动上传 | ⚠️ 不可靠（file input 隐藏且拒绝程序化点击），失败会降级提示，手动设置即可 |
+| 正文写入 | `execCommand('insertHTML')` 有效，section/span + 内联样式完整保留 |
+| 正文编辑器选择器 | `.rich_media_content .ProseMirror`（页面上有**两个** ProseMirror，另一个是标题框） |
+| 外链图片 | 编辑器自动上传到素材库（src → `mmbiz.qpic.cn`） |
+| 内联 SVG + SMIL 动画 | 完整保留 |
+| **封面自动上传** | ✅ 可行：hover 显形封面操作组 → 图片库 → 上传文件 → 下一步 → 确认 |
+| 保存草稿 | 点「保存为草稿」，成功时 URL 带 `appmsgid` |
 
-> 发布前仍建议先 `render_preview` + `validate_article`（脚本内已自动做校验，error 不为 0 会拒绝发布）。
+封面流程的两个关键细节（踩过的坑）：
+
+- 微信预渲染了**多份 `0×0` 的模板弹窗**，必须筛「尺寸 > 200」的那个才是可见实例；
+  用错实例会导致“点击无任何反应”
+- 封面专用 file input **只在封面弹窗打开时存在**，且与编辑器工具栏的插图 input 不同
+  （封面那个的 `accept` 含 `image/bmp`）；传错会把封面图插进正文
+
+> 发布前仍建议先 `render_preview` + `validate_article`（脚本内已自动校验，error 不为 0 会拒绝发布）。
+
+#### ⚠️ 自动化点按钮的安全约束
+
+本脚本**只用 snapshot 返回的元素 ref 点击，绝不用文本模糊匹配**。
+原因：曾用 `--text "下一步"` 做语义定位，该参数在精确匹配失败时会**退化匹配**，
+结果点到了页面上的「退出登录」，导致账号被登出。
+
+脚本因此内置双名单：只允许点击 `保存为草稿 / 保存 / 下一步 / 确认 / 确定 / 完成`，
+命中 `退出登录 / 删除 / 取消 / 关闭 / 群发 / 发表` 立即中止。
+若你要写类似的自动化，请沿用这个约束。
 
 ## 常见问题
 
