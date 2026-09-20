@@ -2,6 +2,7 @@
 
 <p align="left">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-green.svg"></a>
+  <a href="https://github.com/wjunhere/stylewx/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/wjunhere/stylewx/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://www.npmjs.com/package/@stylewx/mcp-server"><img alt="npm" src="https://img.shields.io/npm/v/@stylewx/mcp-server"></a>
   <a href="https://github.com/wjunhere/stylewx"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-wjunhere%2Fstylewx-181717?logo=github"></a>
   <img alt="Node" src="https://img.shields.io/badge/Node-%E2%89%A520-3C873A">
@@ -81,6 +82,8 @@ stylewx/
 │   ├── mcp-server/  # MCP Server：stdio + Streamable HTTP 双传输（含本地 Web 编辑器）
 │   └── api/         # REST API（Hono），与 MCP tools 一一对应
 ├── examples/        # mcp.json / mcp-http.json 示例 + component-showcase.md
+├── scripts/ci/      # 发布前置校验：verify-release.mjs（版本/元数据）、verify-pack.mjs（tarball 内容）
+├── .github/workflows/  # CI（build/type-check/test）与 Release（打 tag → npm 发布 + GitHub Release）
 └── docs/            # 设计说明与组件参考
 ```
 
@@ -560,6 +563,35 @@ node packages/preview/scripts/audit-showcase-layout.mjs     # 390px 布局审计
 node packages/preview/scripts/capture-hero.mjs        # 重新截取 docs/assets/editor-preview.png
 node packages/preview/scripts/verify-hero-image.mjs   # 校验配图不是空白/纯色
 ```
+
+## CI 与发布
+
+CI（`.github/workflows/ci.yml`）在 push 到 main 与所有 PR 上跑，分两个 job：
+
+- **test**：Node 20 / 22 矩阵，`pnpm build` → `pnpm type-check` → `pnpm test`，最后以 stdio 起真实 MCP 服务进程跑一遍
+  `smoke-stdio.mjs`（验证构建产物真能用，而不只是单测里的 in-memory 传输）。
+- **release-check**：`pnpm check:release`（9 个可发布包版本一致、`license`/`repository`/`files`/`publishConfig.access` 齐全）、
+  `pnpm check:pack`（真的打一次 tarball 并拆开看：关键文件在不在、有没有把 private 包或 `.env` 打进去）、
+  以及 `pnpm -r publish --dry-run`。
+
+发布走 tag 驱动，版本号先在 main 上改好：
+
+```bash
+# 1. 把 9 个可发布包的 version 一起改到同一个新版本，提交到 main
+# 2. 本地先过一遍闸（可选但推荐）
+pnpm check:release && pnpm check:pack
+# 3. 打 tag 并推送 —— 这一步触发发布
+pnpm check:release -- --tag v0.3.1   # 确认 tag 与包版本匹配
+git tag v0.3.1 && git push origin v0.3.1
+```
+
+推 tag 后 `.github/workflows/release.yml` 会：校验元数据 → build/type-check/test → 产物校验 →
+`pnpm -r publish`（按依赖拓扑序，自动跳过 npm 上已存在的版本，所以重复触发是安全的）→
+回查 registry 确认 9 个包真的上去了 → `gh release create`（自动生成 release notes）。
+
+**认证**用 npm Trusted Publishing（OIDC），仓库里不存任何 npm token：在 npmjs.com 上为每个 `@stylewx/*` 包
+Settings → Trusted Publisher 登记本仓库与 workflow 文件名 `release.yml` 即可。
+若暂时不想逐个配置，也可以给仓库加一个 `NPM_TOKEN` secret 作为兜底（两者同时存在时 OIDC 优先）。
 
 ## 许可
 

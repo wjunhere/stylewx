@@ -1,0 +1,101 @@
+name: Release
+
+# 发布流程（tag 驱动，版本号先在 main 上改好）：
+#   1. 改 9 个可发布包的 version → 提交到 main
+#   2. git tag v0.3.1 && git push origin v0.3.1
+#   3. 本 workflow 校验通过后发布到 npm，并创建 GitHub Release
+#
+# 认证用 npm Trusted Publishing（OIDC），仓库里不存任何 npm token。
+# 前提：在 npmjs.com 各包 Settings → Trusted Publisher 里登记本仓库 + 本文件名（release.yml）。
+# 若尚未登记，则退回用 NPM_TOKEN secret（见下方 NODE_AUTH_TOKEN）。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只打包校验，不真正发布'
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # 创建 GitHub Release
+  id-token: write # npm Trusted Publishing（OIDC）+ provenance 必需
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # 供 GitHub Release 生成 release notes 用
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # 版本一致 / tag 匹配 / 包元数据齐全：宁可在这里失败，也不要把半截版本推上 npm
+      - name: Verify release metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            node scripts/ci/verify-release.mjs --tag "${RELEASE_TAG}"
+          else
+            node scripts/ci/verify-release.mjs
+          fi
+
+      - name: Build
+        run: pnpm build
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Test
+        run: pnpm test
+
+      # 发布前用 dry-run 过一遍真实发布路径（prepublishOnly / tarball 内容 / 访问级别）
+      - name: Publish dry run
+        run: pnpm -r publish --dry-run --no-git-checks --access public
+
+      # 真正把 tarball 拆开看：关键文件在不在、有没有把 private 包或 .env 打进去
+      - name: Verify publish payload
+        run: |
+          pnpm --filter "./packages/*" --filter "./apps/*" pack --pack-destination ./pack-out
+          node scripts/ci/verify-pack.mjs ./pack-out
+
+      - name: Publish to npm
+        if: github.ref_type == 'tag' && (github.event_name == 'push' || inputs.dry_run == false)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # pnpm 会按依赖拓扑序发布，并自动跳过 npm 上已存在的版本（重复触发安全）。
+          # 注：pnpm 10 已修复「静态 token 抢跑导致 OIDC 被跳过」的 bug，
+          #     设置了 NPM_TOKEN 也不影响 trusted publishing；未设置则纯 OIDC。
+          pnpm -r publish --no-git-checks --access public
+
+      - name: Verify versions are live on npm
+        # 发布命令返回 0 不代表 9 个包真的都上去了，直接回查 registry
+        if: github.ref_type == 'tag' && (github.event_name == 'push' || inputs.dry_run == false)
+        run: node scripts/ci/verify-release.mjs --check-registry
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag' && (github.event_name == 'push' || inputs.dry_run == false)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" --verify-tag --generate-notes --title "${GITHUB_REF_NAME}"

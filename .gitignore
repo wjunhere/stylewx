@@ -39,6 +39,9 @@ text_one_out/
 examples/showcase-out/
 examples/handoff-out/
 
+# 发布产物校验（pnpm check:pack 的 tarball 落地目录）
+pack-out/
+
 # 本机文章工作区：原文、排版成品、封面图。都是本机产生的而不是库的一部分。
 # 启动器（stylewx-editor.bat）会把 STYLEWX_ARTICLES_DIR 指到这个目录，
 # 所以文章一律放 articles/，别再散落在仓根。

@@ -28,10 +28,11 @@ async function main() {
 
   const { tools } = await client.listTools()
   console.log('[smoke] 已列出 tools:', tools.map((t) => t.name).join(', '))
-  assert(tools.length === 9, `期望 9 个 tools，实际 ${tools.length}`)
 
+  // 只断言核心工具存在，不锁死总数：工具会随版本增加，锁总数只会让冒烟脚本变成噪音。
   const expected = ['list_themes', 'analyze_article', 'generate_theme', 'render_preview', 'validate_article', 'publish_draft', 'list_saved_themes', 'save_theme', 'export_theme']
   for (const name of expected) assert(tools.some((t) => t.name === name), `缺少 tool: ${name}`)
+  assert(tools.length >= expected.length, `工具数应不少于核心工具数，实际 ${tools.length}`)
 
   // analyze
   const analyze = await client.callTool({ name: 'analyze_article', arguments: { markdown: '讲前端框架与性能优化。' } })
@@ -39,12 +40,17 @@ async function main() {
   console.log('[smoke] analyze_article.type =', analyzeData.content.type)
   assert(analyzeData.content.type === 'tech', 'analyze 应识别为 tech')
 
-  // generate_theme (无 LLM 凭据 → 返回清晰错误，证明不静默失败；配置 LLM 后返回合法主题)
+  // generate_theme：无 LLM 凭据 → 必须返回清晰错误（不静默失败）；
+  // 若环境里配了 LLM（如本地 `--env-file=.env` 运行），则只要求返回合法主题。
   const gen = await client.callTool({ name: 'generate_theme', arguments: { prompt: '科技风' } })
-  assert(gen.isError === true, '无 LLM 配置时 generate_theme 应返回 error')
   const genData = JSON.parse(gen.content[0].text)
-  assert(genData.error.code === 'missing_llm_config', '错误码应为 missing_llm_config')
-  console.log('[smoke] generate_theme (无 LLM) =', genData.error.code)
+  if (gen.isError === true) {
+    assert(genData.error.code === 'missing_llm_config', '错误码应为 missing_llm_config')
+    console.log('[smoke] generate_theme (无 LLM) =', genData.error.code)
+  } else {
+    assert(genData.theme, 'generate_theme 成功时应返回 theme')
+    console.log('[smoke] generate_theme (有 LLM) =', genData.theme.name ?? 'ok')
+  }
 
   // render_preview
   const themeList = JSON.parse((await client.callTool({ name: 'list_themes', arguments: {} })).content[0].text)

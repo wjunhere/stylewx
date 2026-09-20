@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支的新推送取消旧任务，避免排队堆积
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # 发布相关校验在 CI 里是只读的；关掉 turbo 遥测，避免 CI 日志噪音
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      # 一个版本挂了也要把另一个版本跑完，否则拿不到完整信号
+      fail-fast: false
+      matrix:
+        # engines 要求 >=20：跑最低支持版本与当前 LTS，覆盖「向下兼容」和「未来兼容」两头
+        node: [20, 22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        # version 从 package.json 的 packageManager 字段读取
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Smoke test (stdio MCP server)
+        # 以 stdio 起真实服务进程，验证构建产物真的能用（不只是单测里的 in-memory 传输）
+        run: pnpm --filter @stylewx/mcp-server exec node scripts/smoke-stdio.mjs
+
+  # 发布前置校验独立成一个 job：它检查的是「包能否正确发出去」，
+  # 和单测失败是两类问题，分开能一眼看出是代码坏了还是发布配置坏了。
+  release-check:
+    name: release metadata & pack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify release metadata
+        # 版本是否一致、包元数据（license/repository/files/access）是否齐全
+        run: node scripts/ci/verify-release.mjs
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify publish payload
+        # 真正打一次 tarball 并拆开看：关键文件在不在、有没有把 private 包或 .env 打进去
+        run: |
+          pnpm --filter "./packages/*" --filter "./apps/*" pack --pack-destination ./pack-out
+          node scripts/ci/verify-pack.mjs ./pack-out
+
+      - name: Publish dry run
+        # 走一遍真实发布路径（prepublishOnly / tarball 内容 / 访问级别），只差最后一步不上传
+        run: pnpm -r publish --dry-run --no-git-checks --access public
