@@ -485,3 +485,36 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 
 在 undici fetch（尤其挂 `ProxyAgent` dispatcher）下，原生 FormData 的 body 会丢失。
 改为手动构造 multipart 字节体，不依赖任何 fetch 实现对 FormData 的支持，测试全绿。
+
+---
+
+## 20. 浏览器登录态发布（绕过 API IP 白名单）
+
+### 20.1 问题
+
+`draft/add` 要求调用方 IP 在公众号后台白名单内。校园网 / 多出口 NAT 环境下出口 IP 会漂移
+（实测一天内见到 `153.3.21.105` / `153.3.21.153` / `36.152.24.135`），逐个加白名单追不上；
+用代理固定出口又会让日常上网受影响，且 Clash 的 `GEOIP,CN → 直连` 规则还会让微信域名绕过代理。
+
+### 20.2 方案：复用浏览器登录态
+
+`apps/mcp-server/scripts/publish-via-browser.mjs` 通过 opencli 桥接操控**已登录的 Chrome**，
+在公众号编辑器页里写正文、点「保存为草稿」——走后台自己的保存接口，无 IP 白名单约束。
+
+### 20.3 技术要点（实测得出）
+
+| 环节 | 结论 |
+| --- | --- |
+| 正文编辑器 | `.rich_media_content .ProseMirror`。页面上有 **两个** `.ProseMirror`：`[0]` 是标题编辑器（`title-editor__input`，高 30px），`[1]` 才是正文（`rich_media_content`，高 366px）——按高度排序可稳健选中 |
+| 写入方式 | `execCommand('insertHTML')` 有效，section/span + 内联样式完整保留。合成 `ClipboardEvent('paste')` 无效（ProseMirror 校验事件可信度）；`document.hasFocus()` 在后台窗口为 false，导致系统剪贴板与 `navigator.clipboard` 都不可用 |
+| 外链图片 | 编辑器自动上传到素材库，`src` 变 `mmbiz.qpic.cn` |
+| 内联 SVG + SMIL | 完整保留 |
+| 封面自动上传 | 不可靠：file input 隐藏（祖先 `display:none`，逐层解除也无效），opencli 的 `upload` 走「点击 + 等 fileChooser」路径会超时。已做优雅降级（警告但不阻断发布） |
+
+### 20.4 调用方式
+
+脚本用 `spawn(process.execPath, [opencliMainJs, ...args])` 调 opencli ——
+**args 数组、shell:false**，避开 Git Bash 的原生 PE 参数改写与多层引号转义问题。
+
+opencli 的 profile 需要显式指定（默认解析可能落到未连接的 profile 上）：
+`opencli profile list` 查可用名，再用 `--profile <名>`（或全局 `opencli profile use <名>`）。

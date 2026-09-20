@@ -412,6 +412,42 @@ brand_learn → 把这次学到的写进品牌档案
 
 缺少凭据时相关功能返回明确错误，其余功能正常。凭据只从环境变量注入。
 
+### 浏览器登录态发布（免 IP 白名单）
+
+`publish_draft` 走微信 API，要求调用方 IP 在白名单内。若你的出口 IP 不固定（校园网 / 多出口 NAT），
+可以用 **浏览器登录态** 发布：复用你已登录的 Chrome，在公众号编辑器里写入富文本并点「保存为草稿」，
+走后台自己的保存接口，**不受 `draft/add` 的 IP 白名单限制**。
+
+```bash
+# 用 Markdown + 主题名（主题可用预置名 / 已保存名 / JSON 文件）
+node apps/mcp-server/scripts/publish-via-browser.mjs 文章.md --theme business
+
+# 用已渲染好的 HTML
+node apps/mcp-server/scripts/publish-via-browser.mjs --html out/文章.html --title "标题"
+
+# 常用选项
+#   --author <作者>      写入作者
+#   --cover <图片路径>   上传封面（失败不阻断发布，可在后台手动设置）
+#   --profile <名>       opencli Chrome profile（opencli profile list 查看）
+#   --dry-run            只填写不保存，便于先看效果
+```
+
+前置：Chrome 装 [OpenCLI](https://github.com/jackwener/opencli) 扩展并已登录公众号，
+`opencli doctor` 显示 profile connected。
+
+实测结论（微信新版编辑器）：
+
+| 项 | 结果 |
+| --- | --- |
+| 正文写入 | `execCommand('insertHTML')` 有效；section/span 结构 + 内联样式完整保留 |
+| 正文编辑器选择器 | `.rich_media_content .ProseMirror`（页面另有标题用的 ProseMirror，别选错） |
+| 外链图片 | 编辑器自动上传到素材库，src 会变成 `mmbiz.qpic.cn` |
+| 内联 SVG + SMIL 动画 | 完整保留（进度条/描边/轮播照常动） |
+| 保存草稿 | 点「保存为草稿」按钮，成功时 URL 带 `appmsgid` |
+| 封面自动上传 | ⚠️ 不可靠（file input 隐藏且拒绝程序化点击），失败会降级提示，手动设置即可 |
+
+> 发布前仍建议先 `render_preview` + `validate_article`（脚本内已自动做校验，error 不为 0 会拒绝发布）。
+
 ## 常见问题
 
 ### `publish_draft` 报 40164 invalid ip … not in whitelist
