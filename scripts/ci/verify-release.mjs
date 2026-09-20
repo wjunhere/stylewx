@@ -14,6 +14,9 @@
  *   RELEASE_TAG=v0.3.0 node scripts/ci/verify-release.mjs
  *   node scripts/ci/verify-release.mjs --tag v0.3.0
  *   node scripts/ci/verify-release.mjs --check-registry   # 额外核对 npm 上是否真有这个版本（发布后跑）
+ *
+ * --check-registry 会轮询等待（npm 对新版本是异步处理的），
+ * 超时可用 VERIFY_REGISTRY_TIMEOUT_MS / VERIFY_REGISTRY_INTERVAL_MS 调整。
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -98,6 +101,41 @@ async function npmPublishedVersion(name, version) {
   }
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * 等待版本在 registry 上可见。
+ *
+ * npm 对新发布版本是**异步处理**的（publish 会回「Your package is being processed and may
+ * take a few minutes to become available」），所以发布后立刻回查会得到 404。必须轮询，
+ * 否则会把「刚发完还在处理」误判成「发布失败」。
+ *
+ * 超时时间可用 VERIFY_REGISTRY_TIMEOUT_MS 覆盖（测试/调试用）。
+ */
+async function waitForVersions(pkgs) {
+  const timeoutMs = Number(process.env.VERIFY_REGISTRY_TIMEOUT_MS ?? 240_000)
+  const intervalMs = Number(process.env.VERIFY_REGISTRY_INTERVAL_MS ?? 10_000)
+  const deadline = Date.now() + timeoutMs
+  const live = new Set()
+  let pending = pkgs
+
+  for (;;) {
+    const checked = await Promise.all(
+      pending.map(async (pkg) => ({ pkg, actual: await npmPublishedVersion(pkg.name, pkg.version) })),
+    )
+    const stillPending = []
+    for (const { pkg, actual } of checked) {
+      if (actual === pkg.version) live.add(pkg.name)
+      else stillPending.push(pkg)
+    }
+    pending = stillPending
+    if (pending.length === 0 || Date.now() >= deadline) break
+    console.log(`  … ${pending.length} 个包尚未可见，${intervalMs / 1000}s 后重试（npm 处理新版本是异步的）`)
+    await sleep(Math.min(intervalMs, Math.max(0, deadline - Date.now())))
+  }
+  return live
+}
+
 const packages = collectPackages()
 const publishable = packages.filter((p) => !p.private)
 const privatePkgs = packages.filter((p) => p.private)
@@ -145,15 +183,13 @@ if (tagVersion) console.log(`tag 校验：v${tagVersion}${version ? ` ↔ ${vers
 // ---- 4. 发布后核对：npm 上真的有这个版本（发布 workflow 在 publish 之后跑）----
 if (process.argv.includes('--check-registry') && version) {
   console.log(`\n核对 npm 上的版本（共 ${publishable.length} 个包）：`)
-  const found = await Promise.all(
-    publishable.map(async (pkg) => ({ pkg, actual: await npmPublishedVersion(pkg.name, pkg.version) })),
-  )
-  for (const { pkg, actual } of found) {
-    if (actual === pkg.version) {
+  const live = await waitForVersions(publishable)
+  for (const pkg of publishable) {
+    if (live.has(pkg.name)) {
       console.log(`  ✓ ${pkg.name}@${pkg.version}`)
     } else {
-      console.log(`  ✗ ${pkg.name}@${pkg.version} 未在 npm 上生效（读到：${actual ?? '无'}）`)
-      fail(`${pkg.name}@${pkg.version} 发布后未在 npm 上查到`)
+      console.log(`  ✗ ${pkg.name}@${pkg.version} 在等待超时后仍未出现在 registry 上`)
+      fail(`${pkg.name}@${pkg.version} 发布后未在 npm 上查到（已轮询等待，不是「刚发完还在处理」）`)
     }
   }
 }
