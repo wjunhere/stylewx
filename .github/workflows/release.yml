@@ -51,11 +51,10 @@ jobs:
 
       # 版本一致 / tag 匹配 / 包元数据齐全：宁可在这里失败，也不要把半截版本推上 npm
       - name: Verify release metadata
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
+        # 只在 tag 上比对 tag；手动触发时 ref 是分支名，不能当成 tag 去校验
         run: |
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            node scripts/ci/verify-release.mjs --tag "${RELEASE_TAG}"
+            node scripts/ci/verify-release.mjs --tag "${GITHUB_REF_NAME}"
           else
             node scripts/ci/verify-release.mjs
           fi
