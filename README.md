@@ -83,7 +83,8 @@ stylewx/
 │   └── api/         # REST API（Hono），与 MCP tools 一一对应
 ├── examples/        # mcp.json / mcp-http.json 示例 + component-showcase.md
 ├── scripts/ci/      # 发布前置校验：verify-release.mjs（版本/元数据）、verify-pack.mjs（tarball 内容）
-├── .github/workflows/  # CI（build/type-check/test）与 Release（打 tag → npm 发布 + GitHub Release）
+├── .changeset/      # Changesets 配置（fixed 锁步 9 包）+ 待发布变更记录
+├── .github/workflows/  # ci.yml（构建/测试 + 发布校验）、release.yml（Changesets 发布 + tag 紧急通道）
 └── docs/            # 设计说明与组件参考
 ```
 
@@ -574,24 +575,54 @@ CI（`.github/workflows/ci.yml`）在 push 到 main 与所有 PR 上跑，分两
   `pnpm check:pack`（真的打一次 tarball 并拆开看：关键文件在不在、有没有把 private 包或 `.env` 打进去）、
   以及 `pnpm -r publish --dry-run`。
 
-发布走 tag 驱动，版本号先在 main 上改好：
+发布用 **Changesets** 管版本，两条通道都放在 `.github/workflows/release.yml` 里（刻意合并：
+npm trusted publisher 是按 **workflow 文件名** 登记的，合在一起每个包只需登记一次）。
+
+### 通道 A：常规发布（改动随 PR 带上 changeset）
 
 ```bash
-# 1. 把 9 个可发布包的 version 一起改到同一个新版本，提交到 main
-# 2. 本地先过一遍闸（可选但推荐）
-pnpm check:release && pnpm check:pack
-# 3. 打 tag 并推送 —— 这一步触发发布
-pnpm check:release -- --tag v0.3.1   # 确认 tag 与包版本匹配
-git tag v0.3.1 && git push origin v0.3.1
+# 开发时：记录本次变更（9 个包锁步升版，所以只需要记一条）
+pnpm changeset
+# → 选择 bump 类型（patch/minor/major）→ 生成 .changeset/xxx.md，提交进本 PR
 ```
 
-推 tag 后 `.github/workflows/release.yml` 会：校验元数据 → build/type-check/test → 产物校验 →
-`pnpm -r publish`（按依赖拓扑序，自动跳过 npm 上已存在的版本，所以重复触发是安全的）→
-回查 registry 确认 9 个包真的上去了 → `gh release create`（自动生成 release notes）。
+合并到 main 后 workflow 自动判定：
 
-**认证**用 npm Trusted Publishing（OIDC），仓库里不存任何 npm token：在 npmjs.com 上为每个 `@stylewx/*` 包
-Settings → Trusted Publisher 登记本仓库与 workflow 文件名 `release.yml` 即可。
-若暂时不想逐个配置，也可以给仓库加一个 `NPM_TOKEN` secret 作为兜底（两者同时存在时 OIDC 优先）。
+| 仓库状态 | 动作 |
+|---|---|
+| 有 `.changeset/*.md` | **version**：自动改 9 个包版本 + 写 CHANGELOG + 同步 lockfile，开/更新 Release PR |
+| 无 changeset，但有「版本已升、未发布」的包 | **publish**：校验 → 发布 npm（OIDC）→ 打 `v<version>` tag → 建 GitHub Release |
+| 其余（版本都已发布） | 什么都不做 |
+
+合并 Release PR 即完成发布，不需要再手动打 tag。9 个包在 `.changeset/config.json` 里配了
+`fixed: [["@stylewx/*"]]`，所以任一包升版都会带着其余 8 个一起升 —— 这也顺手根除了
+「手改 9 个 package.json 漏掉某个包」的旧毛病。
+
+### 通道 B：紧急 / 重试 / 演练（打 tag 或手动触发）
+
+```bash
+pnpm check:release && pnpm check:pack        # 本地先过闸（可选但推荐）
+pnpm check:release -- --tag v0.3.1           # 确认 tag 与包版本匹配
+git tag v0.3.1 && git push origin v0.3.1      # 触发：校验 → 构建测试 → 产物校验 → 发布 → 回查 → Release
+```
+
+或在 Actions 面板手动 dispatch（默认 `dry_run=true`，只打包校验不真发）。
+两条通道都幂等：`pnpm -r publish` 会自动跳过 npm 上已存在的版本，重复触发安全。
+
+### 认证（OIDC，不存 token）
+
+发布用 npm Trusted Publishing（OIDC），仓库里不存任何 npm token：在 npmjs.com 上为每个 `@stylewx/*` 包
+Settings → Trusted Publisher 登记本仓库 + workflow 文件名 **`release.yml`**。两点注意：
+
+- 必须勾上 **「Allow npm publish」**（`npm publish` 权限）—— 2026-09-03 起新建的配置默认只允许 `npm stage publish`，
+  不勾的话 `pnpm publish` 会被拒
+- 若尚未登记，会退回用 `NPM_TOKEN` secret（两者同时存在时 OIDC 优先）
+
+### 已知限制
+
+Actions 用 `GITHUB_TOKEN` 创建的 Release PR **不会触发其它 workflow**（GitHub 的防止递归机制），
+所以那个 PR 上不会跑 CI。发布 job 自己带了 build/type-check/test/产物校验，是最后一道闸。
+若想让 Release PR 也跑 CI，需要改用 GitHub App token 或 PAT 传给 `changesets/action`。
 
 ## 许可
 

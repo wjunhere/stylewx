@@ -52,3 +52,6 @@ articles/
 
 # 对比实验的截图/渲染产物（体积大，本机复现：node scripts/comparison/run.mjs）
 scripts/comparison/output/
+
+# 本机 npm 2FA 恢复码（凭据，绝不提交）
+recoverycode.txt

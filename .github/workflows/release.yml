@@ -1,40 +1,175 @@
 name: Release
 
-# 发布流程（tag 驱动，版本号先在 main 上改好）：
-#   1. 改 9 个可发布包的 version → 提交到 main
-#   2. git tag v0.3.1 && git push origin v0.3.1
-#   3. 本 workflow 校验通过后发布到 npm，并创建 GitHub Release
+# 本仓有两条发布通道，刻意放在同一个 workflow 文件里：
+# npm trusted publisher 是按 **workflow 文件名** 登记的 —— 合在一起每个包只需登记一次（9 次），
+# 拆成两个文件就要登记 18 次。
 #
-# 认证用 npm Trusted Publishing（OIDC），仓库里不存任何 npm token。
-# 前提：在 npmjs.com 各包 Settings → Trusted Publisher 里登记本仓库 + 本文件名（release.yml）。
-# 若尚未登记，则退回用 NPM_TOKEN secret（见下方 NODE_AUTH_TOKEN）。
+# ── 通道 A：常规发布（Changesets），push 到 main 时触发 ──────────────────────
+#   · 仓库里有 .changeset/*.md（开发时 `pnpm changeset` 产生）
+#       → version：自动改 9 个包版本 + 写 CHANGELOG + 开/更新 Release PR
+#   · 没有 changeset，但存在「版本已升、尚未发布」的包
+#       → publish：校验 → 发布 npm（OIDC）→ 打 v* tag → 建 GitHub Release
+#   · 其余情况（版本都已发布）→ none：什么都不做
+#
+# ── 通道 B：紧急 / 重试 / 演练，打 v* tag 或手动 dispatch 时触发 ─────────────
+#   · Changesets 那条道发布中途失败，想重发一次
+#   · 想手动控制发布节点
+#   · 想演练（workflow_dispatch 且 dry_run=true，只打包校验不真发）
+#
+# 两条通道都幂等：pnpm 会自动跳过 npm 上已存在的版本，重复触发安全。
+# 认证走 npm Trusted Publishing（OIDC），仓库里不存 npm token；
+# 未登记 trusted publisher 时回退到 NPM_TOKEN secret。
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       dry_run:
-        description: '只打包校验，不真正发布'
+        description: '只打包校验，不真正发布（手动通道）'
         type: boolean
         default: true
 
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
+# 官方建议：清空默认权限，再按 job 显式授予
+permissions: {}
 
-permissions:
-  contents: write # 创建 GitHub Release
-  id-token: write # npm Trusted Publishing（OIDC）+ provenance 必需
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false # 绝不能在发布中途取消
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
 
 jobs:
-  release:
+  # ══════════════════ 通道 A：Changesets 常规发布 ══════════════════
+
+  select-mode:
+    name: 判定发布模式
+    if: github.event_name == 'push' && github.ref_type == 'branch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      mode: ${{ steps.select.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false # 不需要写权限，就别把凭据留在盘上
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Select Changesets mode
+        id: select
+        uses: changesets/action/select-mode@v2
+
+      - run: echo "mode=${{ steps.select.outputs.mode }}"
+
+  version:
+    name: 开/更新 Release PR
+    needs: select-mode
+    if: needs.select-mode.outputs.mode == 'version'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 提交版本变更
+      pull-requests: write # 创建/更新 Release PR
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Version packages
+        uses: changesets/action/version@v2
+        with:
+          # 改版本 + 写 CHANGELOG + 同步 lockfile（9 个包在 .changeset/config.json 里配了 fixed 锁步）
+          script: pnpm run version:packages
+          commit-message: 'chore(release): 版本与 CHANGELOG'
+          pr-title: 'chore(release): 待发布版本'
+
+  publish:
+    name: 发布到 npm
+    needs: select-mode
+    if: needs.select-mode.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    # 关键：id-token 只在这个 job 出现（npm 与 Changesets 官方都这么要求）；
+    # contents: write 用于打 tag 与创建 GitHub Release
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # 供 gh release --generate-notes 使用
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          # 刻意不开 pnpm 缓存：发布 job 持有 id-token，官方建议缩小缓存投毒面
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Publish
+        # release = build → type-check → test → 版本/元数据校验 → 产物校验 → 逐包发布
+        # 这里刻意用本仓已验证过的 pnpm -r publish（而非 changesets/action/publish 的打包发布），
+        # 代价是 build 会在持有 id-token 的 job 里跑 —— 只有维护者能合入 main，可接受。
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm run release
+
+      - name: Tag and create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./packages/theme/package.json').version")
+          echo "发布版本：$VERSION"
+
+          # 本仓用单一 v<version> tag（而非 changesets 默认的「每包一个 tag」）
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "远端已有 tag v$VERSION，跳过打 tag"
+          else
+            git tag "v$VERSION"
+            git push origin "v$VERSION"
+          fi
+
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "GitHub Release v$VERSION 已存在，跳过创建"
+          else
+            gh release create "v$VERSION" --verify-tag --generate-notes --title "v$VERSION"
+          fi
+
+  # ══════════════════ 通道 B：tag / 手动（紧急、重试、演练）══════════════════
+
+  tag-release:
+    name: 校验并发布（tag / 手动）
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 创建 GitHub Release
+      id-token: write # npm Trusted Publishing（OIDC）+ provenance
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # 供 GitHub Release 生成 release notes 用
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -83,7 +218,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          # pnpm 会按依赖拓扑序发布，并自动跳过 npm 上已存在的版本（重复触发安全）。
+          # pnpm 按依赖拓扑序发布，并自动跳过 npm 上已存在的版本（重复触发安全）。
           # 注：pnpm 10 已修复「静态 token 抢跑导致 OIDC 被跳过」的 bug，
           #     设置了 NPM_TOKEN 也不影响 trusted publishing；未设置则纯 OIDC。
           pnpm -r publish --no-git-checks --access public
@@ -97,4 +232,10 @@ jobs:
         if: github.ref_type == 'tag' && (github.event_name == 'push' || inputs.dry_run == false)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" --verify-tag --generate-notes --title "${GITHUB_REF_NAME}"
+        run: |
+          set -euo pipefail
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "GitHub Release ${GITHUB_REF_NAME} 已存在，跳过创建"
+          else
+            gh release create "${GITHUB_REF_NAME}" --verify-tag --generate-notes --title "${GITHUB_REF_NAME}"
+          fi
