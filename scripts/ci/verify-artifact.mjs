@@ -171,13 +171,24 @@ const { tools } = await c.listTools()
 console.log(JSON.stringify({ info, tools: tools.map((t) => t.name) }))
 await c.close()
 `
-const probeFile = join(work, 'probe.mjs')
+/**
+ * probe 必须放在 pkgRoot 里，不能放临时目录根部。
+ *
+ * 原因：probe 自己也要 import '@modelcontextprotocol/sdk'，而 ESM 是从
+ * **probe 所在目录**开始向上找 node_modules 的。之前把它放在临时目录根部，
+ * 向上就会走到 %TEMP% → 用户目录 → 盘根，于是：
+ *   · Windows 本地：盘根恰好有 C:\Users\wjun\node_modules（某个意外残留），侥幸通过
+ *   · Linux CI：一路走到 / 都没有，直接 ERR_MODULE_NOT_FOUND
+ * 放进 pkgRoot 后，会命中上面刚建的 junction（pkgRoot/node_modules），
+ * 结果不再取决于机器上碰巧存在什么。
+ */
+const probeFile = join(pkgRoot, 'verify-probe.mjs')
 writeFileSync(probeFile, probe, 'utf8')
 
 let result
 try {
   const out = execFileSync(process.execPath, [probeFile], {
-    cwd: repoRoot,
+    cwd: pkgRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 60_000,

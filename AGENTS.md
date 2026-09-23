@@ -234,9 +234,9 @@ node scripts/ci/verify-release.mjs --check-registry
 - **`package.json` 的 `files` 写错，npm 不报错**：它只是安静地少打包，运行时才炸。
   所以有 `verify-pack.mjs` 把 tarball 拆开看。
 
-### 4.7 在 Windows 上写 Node 脚本会碰到的四件事
+### 4.7 写跨平台 Node 脚本会碰到的五件事
 
-写 `scripts/ci/verify-artifact.mjs` 时这四件事全踩了一遍。都不是本仓特有的 bug，但会反复消耗时间。
+写 `scripts/ci/verify-artifact.mjs` 时这五件事全踩了一遍。都不是本仓特有的 bug，但会反复消耗时间。
 
 **① `execFileSync('pnpm', ...)` 会 ENOENT**
 
@@ -273,6 +273,35 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 
 **结论：找依赖目录就直接查文件系统** —— 从起点逐层向上看 `node_modules/<dep>/package.json` 在不在。
 这与 Node 自身的查找规则一致，且完全绕开 `exports` 限制与双入口问题。
+
+**⑤ 「本地过、CI 挂」几乎总是环境依赖 —— 用一个干净环境复现**
+
+最隐蔽的一条。`verify-artifact.mjs` 在 Windows 本地全绿，推到 CI（Linux）直接红：
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@modelcontextprotocol/sdk'
+  imported from /tmp/stylewx-verify-xxxx/probe.mjs
+```
+
+原因是探针脚本自己也要 `import '@modelcontextprotocol/sdk'`，而 ESM 从**脚本所在目录**
+开始向上找 `node_modules`。探针放在临时目录根部，向上就会走到 `%TEMP%` → 用户目录 → 盘根，于是：
+
+- **Windows 本地**：盘根恰好有 `C:\Users\wjun\node_modules`（某个意外残留），**侥幸通过**
+- **Linux CI**：一路到 `/` 都没有 → 直接失败
+
+**这不是"CI 环境有问题"，是代码依赖了机器上碰巧存在的东西。** 正确做法是把探针放进
+被测包的目录（`pkgRoot`），命中刚建好的 junction，结果就不再取决于环境。
+
+**验证方法**：临时把可能被蹭到的上层目录改名，再跑一次。
+
+```bash
+mv ~/node_modules ~/node_modules.bak
+pnpm check:artifact          # 应当依然通过
+mv ~/node_modules.bak ~/node_modules
+```
+
+**教训**：凡是"在本地能过"的判断，先问一句 *它是不是蹭到了本机环境？*
+临时目录、盘根、用户目录都是容易被意外蹭到的地方。
 
 ## 5. 改动前先看哪里
 
