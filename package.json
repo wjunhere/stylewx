@@ -15,7 +15,7 @@
     "dev": "turbo run dev",
     "clean": "turbo run clean && rimraf node_modules",
     "check:release": "node scripts/ci/verify-release.mjs",
-    "check:pack": "pnpm --filter \"./packages/*\" --filter \"./apps/*\" pack --pack-destination ./pack-out && node scripts/ci/verify-pack.mjs ./pack-out",
+    "check:pack": "node -e \"require('fs').rmSync('pack-out',{recursive:true,force:true})\" && pnpm --filter \"./packages/*\" --filter \"./apps/*\" pack --pack-destination ./pack-out && node scripts/ci/verify-pack.mjs ./pack-out",
     "changeset": "changeset",
     "version:packages": "changeset version && pnpm install --lockfile-only",
     "release": "pnpm build && pnpm type-check && pnpm test && pnpm check:release && pnpm check:pack && pnpm -r publish --no-git-checks --access public",

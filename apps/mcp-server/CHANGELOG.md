@@ -1,5 +1,24 @@
 # @stylewx/mcp-server
 
+## 0.4.1
+
+### Patch Changes
+
+- 修复 `initialize` 握手返回的版本号一直停留在 `0.1.0`。
+  
+  `SERVER_VERSION` 是硬编码常量，从首个版本起就没跟过 `package.json`。
+  MCP 客户端把 `serverInfo.version` 显示给用户，所以每个装了 stylewx 的人
+  看到的都是 `0.1.0`（0.2.0 / 0.3.0 / 0.4.0 三个版本都受影响）。
+  
+  改为从包元数据读取，并新增回归测试：握手返回的版本必须与 `package.json` 一致，
+  版本升级忘记同步时会直接失败。
+- @stylewx/components@0.4.1
+  - @stylewx/core@0.4.1
+  - @stylewx/publisher@0.4.1
+  - @stylewx/service@0.4.1
+  - @stylewx/theme@0.4.1
+  - @stylewx/validator@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes
