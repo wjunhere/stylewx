@@ -97,6 +97,13 @@ jobs:
           pnpm --filter "./packages/*" --filter "./apps/*" pack --pack-destination ./pack-out
           node scripts/ci/verify-pack.mjs ./pack-out
 
+      - name: Verify artifact behavior
+        # 上面那一步只看 tarball 的**文件清单**，不看产物**行为**。
+        # 这里解包装产物、起真实 stdio 进程、连真实 Client，断言 initialize 握手
+        # 元数据与 package.json 一致 —— 0.4.0 曾把 serverInfo.version 发成硬编码的
+        # 0.1.0，单测全绿却三个版本没人发现，就是因为没有这一步。
+        run: pnpm check:artifact
+
       - name: Publish dry run
         # 走一遍真实发布路径（prepublishOnly / tarball 内容 / 访问级别），只差最后一步不上传
         run: pnpm -r publish --dry-run --no-git-checks --access public

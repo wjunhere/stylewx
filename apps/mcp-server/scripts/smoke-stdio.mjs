@@ -8,6 +8,7 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
@@ -28,6 +29,18 @@ async function main() {
 
   const { tools } = await client.listTools()
   console.log('[smoke] 已列出 tools:', tools.map((t) => t.name).join(', '))
+
+  // 握手元数据：每次 push 都跑的真实进程 + 真实 Client，所以这里顺手守住版本号。
+  // 曾经 SERVER_VERSION 硬编码成 '0.1.0'，连发三个版本没人发现 —— 就是因为
+  // 单测用 in-memory 传输、从不读握手返回值，而本脚本虽然起了真进程却没断言版本。
+  const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8'))
+  const info = client.getServerVersion()
+  assert(info?.name === 'stylewx', `serverInfo.name 应为 stylewx，实际 ${info?.name}`)
+  assert(
+    info?.version === pkg.version,
+    `握手版本 ${info?.version} 与 package.json 的 ${pkg.version} 不一致`,
+  )
+  console.log('[smoke] serverInfo =', info.name, info.version)
 
   // 只断言核心工具存在，不锁死总数：工具会随版本增加，锁总数只会让冒烟脚本变成噪音。
   const expected = ['list_themes', 'analyze_article', 'generate_theme', 'render_preview', 'validate_article', 'publish_draft', 'list_saved_themes', 'save_theme', 'export_theme']

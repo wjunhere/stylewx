@@ -507,6 +507,16 @@ node apps/mcp-server/scripts/publish-via-browser.mjs --html out/文章.html --ti
 `:::组件名` **必须在行首**，拼在段落句尾不会解析；组件前后都要空行。漏写闭合 `:::` 会把后面内容吞进去，
 `render_fragment` 的 `diagnostics` 会提示。
 
+### MCP 客户端里显示的版本号是 0.1.0
+
+`0.3.0` 及更早版本的 `initialize` 握手返回的版本号被硬编码成了 `0.1.0`，
+与包实际版本无关（不影响功能，只是显示）。已在 **0.4.1** 修复为读 `package.json`，
+升级即可：
+
+```bash
+npm i @stylewx/mcp-server@latest
+```
+
 ## 边界与校验
 
 - 只实现 `draft/add`（发布到草稿箱），未实现任何群发接口（`freepublish/submit`）。
@@ -595,7 +605,8 @@ CI（`.github/workflows/ci.yml`）在 push 到 main 与所有 PR 上跑，分两
   `smoke-stdio.mjs`（验证构建产物真能用，而不只是单测里的 in-memory 传输）。
 - **release-check**：`pnpm check:release`（9 个可发布包版本一致、`license`/`repository`/`files`/`publishConfig.access` 齐全）、
   `pnpm check:pack`（真的打一次 tarball 并拆开看：关键文件在不在、有没有把 private 包或 `.env` 打进去）、
-  以及 `pnpm -r publish --dry-run`。
+  `pnpm check:artifact`（解包装产物、起真实 stdio 进程、连真实 Client，断言 `initialize` 握手元数据
+  与 `package.json` 一致）、以及 `pnpm -r publish --dry-run`。
 
 发布用 **Changesets** 管版本，两条通道都放在 `.github/workflows/release.yml` 里（刻意合并：
 npm trusted publisher 是按 **workflow 文件名** 登记的，合在一起每个包只需登记一次）。
@@ -623,7 +634,7 @@ pnpm changeset
 ### 通道 B：紧急 / 重试 / 演练（打 tag 或手动触发）
 
 ```bash
-pnpm check:release && pnpm check:pack        # 本地先过闸（可选但推荐）
+pnpm check:release && pnpm check:pack && pnpm check:artifact   # 本地先过闸（可选但推荐）
 pnpm check:release -- --tag v0.3.1           # 确认 tag 与包版本匹配
 git tag v0.3.1 && git push origin v0.3.1      # 触发：校验 → 构建测试 → 产物校验 → 发布 → 回查 → Release
 ```
@@ -645,6 +656,20 @@ Settings → Trusted Publisher 登记本仓库 + workflow 文件名 **`release.y
 Actions 用 `GITHUB_TOKEN` 创建的 Release PR **不会触发其它 workflow**（GitHub 的防止递归机制），
 所以那个 PR 上不会跑 CI。发布 job 自己带了 build/type-check/test/产物校验，是最后一道闸。
 若想让 Release PR 也跑 CI，需要改用 GitHub App token 或 PAT 传给 `changesets/action`。
+
+---
+
+## 参与贡献 / 接手维护
+
+本仓库的**铁律、发布流程与踩过的坑**集中在 [`AGENTS.md`](./AGENTS.md)，
+给接手的 AI Agent 与人看。改动前建议先扫一遍，尤其是这三条：
+
+- **品牌色不进入 390px 画布** —— 改编辑器界面颜色前必读 [`docs/DESIGN.md` 第 21 节](./docs/DESIGN.md#21-品牌体系方向-b--协议-protocol)
+- **版本号只在 `package.json` 维护一处** —— 不要在源码里写版本常量
+- **发布前要装一次产物真跑** —— `pnpm test` 全绿不等于发出去的包能用
+
+文档分工：`README.md`（用法）· `docs/DESIGN.md`（设计决策与权衡）·
+`docs/COMPONENTS.md`（富组件）· `AGENTS.md`（铁律与失败教训）。
 
 ## 许可
 

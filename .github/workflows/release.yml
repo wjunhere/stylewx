@@ -213,6 +213,12 @@ jobs:
           pnpm --filter "./packages/*" --filter "./apps/*" pack --pack-destination ./pack-out
           node scripts/ci/verify-pack.mjs ./pack-out
 
+      # 上面只校验 tarball 的文件清单，这里验产物**行为**：解包装产物、起真实
+      # stdio 进程、连真实 Client，断言 initialize 握手元数据与 package.json 一致。
+      # 这一步是 0.4.0 漏发 serverInfo.version 之后加的，必须在发布前跑。
+      - name: Verify artifact behavior
+        run: pnpm check:artifact
+
       - name: Publish to npm
         if: github.ref_type == 'tag' && (github.event_name == 'push' || inputs.dry_run == false)
         env:

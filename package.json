@@ -18,13 +18,14 @@
     "check:pack": "node -e \"require('fs').rmSync('pack-out',{recursive:true,force:true})\" && pnpm --filter \"./packages/*\" --filter \"./apps/*\" pack --pack-destination ./pack-out && node scripts/ci/verify-pack.mjs ./pack-out",
     "changeset": "changeset",
     "version:packages": "changeset version && pnpm install --lockfile-only",
-    "release": "pnpm build && pnpm type-check && pnpm test && pnpm check:release && pnpm check:pack && pnpm -r publish --no-git-checks --access public",
+    "release": "pnpm build && pnpm type-check && pnpm test && pnpm brand:check && pnpm check:release && pnpm check:pack && pnpm check:artifact && pnpm -r publish --no-git-checks --access public",
     "stylewx:editor": "node apps/mcp-server/scripts/editor.mjs",
     "brand:assets": "node scripts/brand/gen-brand-assets.mjs",
     "brand:contrast": "node scripts/brand/check-contrast.mjs",
     "brand:check": "node scripts/brand/check-editor.mjs --check && node scripts/brand/check-contrast.mjs --check",
     "stylewx:editor:http": "node apps/mcp-server/scripts/editor.mjs . 3777",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "check:artifact": "node scripts/ci/verify-artifact.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
