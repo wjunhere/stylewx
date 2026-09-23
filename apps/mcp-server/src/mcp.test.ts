@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory'
-import { createMcpServer } from './server.js'
+import { createMcpServer, SERVER_NAME } from './server.js'
 import { getPresetTheme } from '@stylewx/theme'
 import { WeChatClient } from '@stylewx/publisher'
 import type { ToolDeps } from './tools.js'
@@ -408,5 +408,21 @@ describe('stylewx MCP Server (in-memory)', () => {
       delete process.env.STYLEWX_COMPONENTS_PATH
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+})
+describe('server 元数据', () => {
+  it('initialize 握手返回的版本与 package.json 一致', async () => {
+    // 回归：SERVER_VERSION 曾经硬编码成 '0.1.0'，连发三个版本都没人发现，
+    // 客户端 initialize 时看到的 serverInfo.version 一直停在 0.1.0。
+    // 这里直接比对包元数据，版本升级后忘了同步就会红。
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+      name: string
+      version: string
+    }
+    const { client } = await startClient()
+    const info = client.getServerVersion()
+    expect(info?.name).toBe(SERVER_NAME)
+    expect(info?.version).toBe(pkg.version)
+    expect(info?.version).not.toBe('dev')
   })
 })
