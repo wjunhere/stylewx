@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" width="640" height="200" role="img" aria-label="stylewx 排版内核，可校验">
+  <title>stylewx — 排版内核，可校验</title>
+  <rect width="640" height="200" fill="#f9fafb"/>
+
+  <g transform="translate(36 30)">
+    <rect width="30" height="30" rx="7" fill="#0c1015"/>
+    <g transform="translate(0.122 0.122) scale(0.8625)">
+    <rect x="6.5" y="6.5" width="19" height="19" rx="5" fill="none" stroke="#ffffff" stroke-width="2.6" opacity="0.38"/>
+    <rect x="11" y="12" width="10" height="3.2" rx="1.6" fill="#ffffff"/>
+    
+    <circle cx="25.5" cy="25.5" r="4.2" fill="#ffffff"/></g>
+    <text x="42" y="14" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" font-weight="600" letter-spacing="-0.36" fill="#0c1015">stylewx</text>
+    <text x="43" y="26" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9" letter-spacing="0.9" fill="#52565b">公众号排版 AGENT</text>
+  </g>
+
+  <text x="36" y="126" font-family="Iowan Old Style,Charter,Georgia,Songti SC,serif" font-size="40" font-weight="600" letter-spacing="-1.12" fill="#0c1015">排版内核，<tspan fill="#114cbf">可校验</tspan></text>
+
+  <text x="36" y="168" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="1.32" fill="#52565b">22 工具 · 26 主题 · 22 组件</text>
+</svg>

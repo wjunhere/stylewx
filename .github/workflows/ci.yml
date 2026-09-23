@@ -54,6 +54,11 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Brand system check
+        # 纯 Node 脚本，不需要 Playwright：核对 editor.html 的令牌/按钮层级/自包含，
+        # 以及 21 项对比度。品牌色被误改时在这里就能拦住。
+        run: pnpm brand:check
+
       - name: Smoke test (stdio MCP server)
         # 以 stdio 起真实服务进程，验证构建产物真的能用（不只是单测里的 in-memory 传输）
         run: pnpm --filter @stylewx/mcp-server exec node scripts/smoke-stdio.mjs

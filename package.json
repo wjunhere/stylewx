@@ -20,6 +20,9 @@
     "version:packages": "changeset version && pnpm install --lockfile-only",
     "release": "pnpm build && pnpm type-check && pnpm test && pnpm check:release && pnpm check:pack && pnpm -r publish --no-git-checks --access public",
     "stylewx:editor": "node apps/mcp-server/scripts/editor.mjs",
+    "brand:assets": "node scripts/brand/gen-brand-assets.mjs",
+    "brand:contrast": "node scripts/brand/check-contrast.mjs",
+    "brand:check": "node scripts/brand/check-editor.mjs --check && node scripts/brand/check-contrast.mjs --check",
     "stylewx:editor:http": "node apps/mcp-server/scripts/editor.mjs . 3777",
     "prepublishOnly": "pnpm build"
   },

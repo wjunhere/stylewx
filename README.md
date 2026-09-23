@@ -1,5 +1,12 @@
 # stylewx
 
+<p align="center">
+  <picture>
+    <source media="(max-width: 700px)" srcset="./docs/assets/banner-640x200.png">
+    <img src="./docs/assets/banner-1280x420.png" alt="stylewx：排版内核，可校验。22 个 MCP 工具 + REST API" width="100%">
+  </picture>
+</p>
+
 <p align="left">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-green.svg"></a>
   <a href="https://github.com/wjunhere/stylewx/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/wjunhere/stylewx/actions/workflows/ci.yml/badge.svg"></a>
@@ -7,10 +14,8 @@
   <a href="https://github.com/wjunhere/stylewx"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-wjunhere%2Fstylewx-181717?logo=github"></a>
   <img alt="Node" src="https://img.shields.io/badge/Node-%E2%89%A520-3C873A">
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-%E2%89%A510-F69220">
-</p>
-
-<p align="center">
-  <img src="./docs/assets/editor-preview.png" alt="stylewx 编辑器：左侧 Markdown + 富组件插入，右侧 390px 实时预览" width="100%">
+  <img alt="MCP tools" src="https://img.shields.io/badge/MCP_%E5%B7%A5%E5%85%B7-22-114cbf">
+  <img alt="themes" src="https://img.shields.io/badge/%E4%B8%BB%E9%A2%98-26-114cbf">
 </p>
 
 公众号排版服务，提供 MCP Server 与 REST API。Kimi Code、Claude Code、Cursor、Pi、Codex 等 Agent
@@ -19,6 +24,10 @@
 
 本项目只负责排版和发布草稿，不负责正文写作。另有一个可选的本地 Web 编辑器，在 HTTP 模式下开在
 `/editor`，用于人工排版、主题调试和最后收尾。
+
+<p align="center">
+  <img src="./docs/assets/editor-preview.png" alt="stylewx 编辑器：左侧 Markdown + 富组件插入，右侧 390px 实时预览" width="100%">
+</p>
 
 ## 功能
 
@@ -561,9 +570,22 @@ node packages/preview/scripts/audit-showcase-layout.mjs     # 390px 布局审计
 ### 维护 README 配图
 
 ```bash
-node packages/preview/scripts/capture-hero.mjs        # 重新截取 docs/assets/editor-preview.png
+node packages/preview/scripts/capture-hero.mjs        # 重新截取 docs/assets/editor-preview.png（已按品牌体系还原色板）
 node packages/preview/scripts/verify-hero-image.mjs   # 校验配图不是空白/纯色
 ```
+
+### 维护品牌资产
+
+品牌体系（六令牌、标志、banner）的完整说明见
+[`docs/DESIGN.md` 第 21 节](./docs/DESIGN.md#21-品牌体系方向-b--协议-protocol)。
+
+```bash
+node scripts/brand/gen-brand-assets.mjs   # logo + banner（SVG 源 → PNG 2x）
+pnpm brand:check                          # 上面两项 + 按钮层级与自包含检查（CI 也跑）
+```
+
+**改配色后必须跑 `check-contrast`**：它会把 `editor.html` 里的六令牌与文档核对一次，
+任何一处漂移或跌破 4.5:1 都会报出来。
 
 ## CI 与发布
 
