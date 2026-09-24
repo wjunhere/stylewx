@@ -29,13 +29,26 @@ import {
   listSavedComponents,
   deleteUserComponent,
   renderComponentPreviews,
+  withPlaceholderImages,
+  saveImageAsset,
+  readImageAssetByUrl,
   renderThemePreviews,
   parseFrontMatter,
   saveArticle,
 } from '@stylewx/service'
+import { renderCoverPng, prepareImage } from '@stylewx/preview'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
 import { htmlToMarkdown, buildPalette } from '@stylewx/components'
 import type { ToolDeps } from './tools.js'
+
+/** 本地路径 → MIME（只收真图片，别的扩展名一律不读）。 */
+const EXT_IMAGE_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+}
 
 interface CliOptions {
   transport: 'stdio' | 'http'
@@ -129,7 +142,10 @@ async function handleEditorApi(
       if (!markdown) return sendErr(res, { code: 'missing_content', message: '缺少 markdown 正文。', hint: '请提供 markdown 字段。' })
       const theme = resolveTheme(b.theme ?? 'magazine')
       // 编辑器用轻量渲染：跳过 Chromium 截图（每次键入都截会很贵），仅返回 HTML + 校验
-      const r = await renderPreview(markdown, theme, { includeScreenshot: false })
+      // placeholders=true 仅给组件库的实时预览用：把示例里的 example.com 占位图换成内联 SVG，
+      // 否则改个参数重渲染就变成一张裂图。用户自己的正文绝不能走这条分支。
+      const source = b.placeholders === true ? withPlaceholderImages(markdown) : markdown
+      const r = await renderPreview(source, theme, { includeScreenshot: false })
       return sendJson(res, {
         html: r.html,
         validation: r.validation,
@@ -307,7 +323,8 @@ async function handleEditorApi(
       const title = typeof b.title === 'string' && b.title.trim() ? b.title.trim() : ''
       const markdown = typeof b.markdown === 'string' ? b.markdown : ''
       if (!title) return sendErr(res, { code: 'missing_title', message: '缺少标题。', hint: '请提供 title。' })
-      const theme = resolveTheme(typeof b.theme === 'string' ? b.theme : 'magazine')
+      // 主题现在收完整对象（排版设置面板会改 token），不再退化到预置名
+      const theme = resolveTheme(b.theme ?? 'magazine')
       const { html } = await renderPreview(markdown, theme)
       // 封面：优先本地上传的原始字节（base64），否则用 URL
       const coverData =
@@ -326,8 +343,91 @@ async function handleEditorApi(
           const palette = buildPalette(theme.tokens)
           return { top: palette.primaryStrong, bottom: palette.primarySoft }
         })(),
+        // 正文里的本地图片：本服务的资产 URL 直接回读；绝对路径允许读（微信素材库本来就是自己的，
+        // 且只读图片字节），相对路径没有基准、明确不支持。其余交给默认 HTTP 下载。
+        resolveLocal: (src: string) => {
+          const fromStore = readImageAssetByUrl(src)
+          if (fromStore) return fromStore
+          let p = ''
+          if (src.startsWith('file://')) {
+            try { p = fileURLToPath(src) } catch { return undefined }
+          } else if (/^[a-zA-Z]:[\\/]/.test(src) || src.startsWith('/')) {
+            p = src
+          } else {
+            return undefined
+          }
+          const ext = p.slice(p.lastIndexOf('.')).toLowerCase()
+          const mime = EXT_IMAGE_MIME[ext]
+          if (!mime) return undefined
+          try {
+            const bytes = readFileSync(p)
+            if (bytes.length === 0 || bytes.length > 20 * 1024 * 1024) return undefined
+            return { bytes: new Uint8Array(bytes), mimeType: mime }
+          } catch {
+            return undefined
+          }
+        },
       })
       return sendJson(res, { media_id: result.media_id, uploadedImages: result.uploadedImages, coverMediaId: result.coverMediaId })
+    }
+
+    // 正文图片上传：编辑器把本地图片变成可引用的 URL（预览可看，发布时转微信 CDN）
+    if (path === '/editor/api/upload-image' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      const data = typeof b.data === 'string' && b.data ? b.data : ''
+      const mime = typeof b.mime === 'string' ? b.mime : 'image/jpeg'
+      if (!data) return sendErr(res, { code: 'missing_content', message: '缺少图片内容。', hint: '请提供 base64 的 data 字段。' })
+      try {
+        let bytes = new Uint8Array(Buffer.from(data, 'base64'))
+        // 压缩/缩放：GIF 会原样跳过；不需要处理的也原样返回，不做无损「洗一遍」
+        const prepared = await prepareImage(bytes, mime, { maxEdge: 1600, maxBytes: 900 * 1024, quality: 82 })
+        bytes = prepared.bytes
+        const saved = saveImageAsset(bytes, prepared.mimeType)
+        const rawBytes = typeof b.rawBytes === 'number' && b.rawBytes > 0 ? b.rawBytes : bytes.length
+        return sendJson(res, {
+          url: saved.urlPath,
+          bytes: saved.bytes,
+          width: prepared.width,
+          height: prepared.height,
+          changed: prepared.changed,
+          note: prepared.changed
+            ? `已压缩：${Math.round(rawBytes / 1024)}KB → ${Math.round(saved.bytes / 1024)}KB${prepared.width ? `（${prepared.width}×${prepared.height}）` : ''}`
+            : '',
+        })
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
+    }
+
+    // 本地资产图（GET）：预览 iframe 与发布时的 relocate 都依赖它
+    if (path.startsWith('/editor/api/asset/') && req.method === 'GET') {
+      const found = readImageAssetByUrl(path)
+      if (!found) return sendErr(res, { code: 'not_found', message: '图片不存在或已清理。', hint: '上传过的图片存在 ~/.stylewx/assets/，被手动删掉就会 404。' })
+      res.writeHead(200, {
+        'Content-Type': found.mimeType,
+        'Content-Length': String(found.bytes.length),
+        'Cache-Control': 'public, max-age=31536000, immutable', // 文件名含随机段，内容不可变
+      })
+      res.end(Buffer.from(found.bytes))
+      return
+    }
+
+    // 封面生成：主题色渐变 + 标题 + 品牌角标（带标题的封面，不再是纯渐变兜底）
+    if (path === '/editor/api/cover' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      try {
+        const theme = resolveTheme(b.theme ?? 'magazine')
+        const palette = buildPalette(theme.tokens)
+        const r = await renderCoverPng({
+          title: typeof b.title === 'string' && b.title.trim() ? b.title : '未命名文章',
+          brand: typeof b.brand === 'string' ? b.brand : undefined,
+          meta: typeof b.meta === 'string' ? b.meta : undefined,
+          primary: palette.primary,
+        })
+        return sendJson(res, { data: r.png.toString('base64'), mime: 'image/png' })
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
     }
 
     if (path === '/editor/api/optimize' && req.method === 'POST') {

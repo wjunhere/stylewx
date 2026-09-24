@@ -92,6 +92,18 @@ export const themeTokensSchema = z.object({
   dividerColor: colorSchema.optional().describe('分割线 / 虚线分隔颜色。'),
   /** 画布背景色（canvas 组件）。 */
   canvasBg: colorSchema.optional().describe('canvas 画布组件的背景底色。'),
+  /**
+   * 正文页底色（根节点 background-color）。可选，缺省不输出。
+   *
+   * 为什么要有它：微信深色模式会把页面背景变暗，而正文 inline 样式不会被改写 ——
+   * 根节点没有显式底色时，深色文字就贴在暗底上看不见。设了它，正文自带底色，
+   * 深色模式下依旧可读。
+   * 代价要说清：background-color 在微信 CSS 白名单的 GRAY 档（草稿 API 实测保留、
+   * 读者端需真机核对），所以校验会多一条灰档提示。
+   */
+  pageBackgroundColor: colorSchema
+    .optional()
+    .describe('正文页底色（根节点 background-color）。设了之后微信深色模式下文章不再透出暗底；代价是多一条白名单 GRAY 档提示。'),
   /** 全局圆角（卡片、图片、按钮等）。 */
   radius: lengthSchema.optional().describe('全局圆角（卡片、图片、按钮、进度条等），例如 12px。'),
 })

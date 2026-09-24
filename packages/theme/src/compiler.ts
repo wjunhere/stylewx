@@ -104,6 +104,9 @@ export function compileRootBaseStyle(theme: Theme, options: RootBaseStyleOptions
   // 有 :::canvas 时交给画布，避免与画布 padding 叠加。
   if (t.pagePadding && !options.hasCanvas) parts.push(`padding: ${t.pagePadding};`)
   if (t.wordBreak) parts.push(`word-break: ${t.wordBreak};`)
+  // 页底色（可选）：不设就不输出。它是深色模式下正文可读性的关键，
+  // 但 background-color 在白名单 GRAY 档，会带一条提示 —— 交由使用者权衡，不默认开启。
+  if (t.pageBackgroundColor) parts.push(`background-color: ${t.pageBackgroundColor};`)
   // 注意：不要添加 -webkit-text-size-adjust 等不在微信白名单内的属性，否则会被 validator 拦截。
   return parts.join(' ')
 }

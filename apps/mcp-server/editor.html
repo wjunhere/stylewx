@@ -121,7 +121,35 @@
   .comp-name code{font-family:var(--mono);font-size:12.5px;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-line);padding:1px 6px;border-radius:var(--m-r);margin-left:6px}
   .comp-desc{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.6}
   .comp-slots{font-size:11.5px;color:var(--muted);margin-top:6px}
+  /* 参数表：不只列取值，还能直接改 —— 枚举/布尔点 chip，其余给输入框；改完下方预览实时重渲染。
+     取值是作者最容易猜错的地方（tone 写错不报错，会**静默回退到 primary**），所以默认展开摆这里，
+     而不是折叠进 details。取值列表来自组件目录（catalog.ts）的 props[].type，编辑器不自己维护一份。
+     上限按「参数最多的组件」定：image / cover 各 7 个参数，渲染高度约 236px，
+     给到 300px 就不用内部滚动、也不会把预览挤没（最矮情况再用 34vh 兜一下）。 */
+  .comp-params{margin-top:10px;max-height:min(300px,34vh);overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm)}
+  .comp-params table{width:100%;border-collapse:collapse}
+  .comp-params th{position:sticky;top:0;z-index:1;background:color-mix(in oklch,var(--fg) 5%,var(--surface));font-size:10.5px;font-weight:600;color:var(--muted);text-align:left;padding:5px 9px;white-space:nowrap}
+  .comp-params td{border-top:1px solid var(--line2);padding:5px 9px;font-size:11.5px;line-height:1.5;color:var(--ink2);vertical-align:top}
+  .comp-params td:first-child,.comp-params td:nth-child(3){white-space:nowrap}
+  /* 改过的行左侧亮一条细线，扫一眼就知道哪里动过 */
+  .comp-params tr.dirty td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+  .comp-pname{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--fg)}
+  .comp-pdef{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .comp-type{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .comp-choice{display:inline-block;font-family:var(--mono);font-size:10.5px;line-height:18px;color:var(--ink2);background:var(--fg-soft);border:1px solid var(--line);border-radius:var(--m-r);padding:0 5px;margin:0 3px 2px 0;cursor:pointer;transition:background .12s ease,color .12s ease,border-color .12s ease}
+  .comp-choice:hover{border-color:var(--fg-line);color:var(--fg)}
+  .comp-choice.on{color:var(--accent);background:var(--accent-soft);border-color:var(--accent-line)}
+  .comp-choice:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .comp-input{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:11px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:var(--m-r);padding:2px 6px;outline:none}
+  .comp-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+  .comp-input::placeholder{color:var(--muted)}
+  .comp-notes{margin-top:8px;font-size:11.5px;line-height:1.6;color:var(--muted)}
+  .comp-notes>div{padding-left:9px;border-left:2px solid var(--line)}
+  .comp-notes>div+div{margin-top:4px}
+  .comp-diag{border-color:var(--warn);color:var(--warn)}
+  .comp-diag.err{border-color:var(--err);color:var(--err)}
   .comp-actions{display:flex;gap:8px;margin-top:10px}
+  #compGen.dirty{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
   /* 画布外的底板用与外壳同一纸底，让 390px 白面自己站住 */
   .comp-preview-wrap{flex:1;min-height:0;overflow:auto;background:var(--bg);padding:16px;display:flex;justify-content:center}
   .comp-preview{width:390px;min-height:100%;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);align-self:flex-start}
@@ -158,10 +186,26 @@
 
   /* ---------- 主区 ---------- */
   .main{flex:1;display:flex;flex-direction:column;gap:14px;min-width:0}
-  /* 顶栏：白面 + 描边，四组控件（标题/主题/封面/动作），1280 下不折行 */
-  .topbar{display:flex;align-items:center;gap:7px;padding:11px 16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);flex-wrap:wrap}
-  .topbar .right{margin-left:auto;display:flex;align-items:center;gap:7px;flex-wrap:nowrap}
-  .btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:var(--radius-sm);padding:7px 12px;min-height:40px;font-size:12.5px;cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease,transform .05s ease;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+  /* 顶栏：高频项（撤销/保存/主题/标题/封面/发布组）单行；窄屏时先允许标题收缩，
+     真放不下才整体折行，且折行后的动作组仍靠右 —— 不是靠 margin-left:auto（折行后失效）。 */
+  .topbar{display:flex;align-items:center;gap:6px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);flex-wrap:wrap}
+  .topbar .right{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;max-width:100%}
+  /* 标题可收缩到最小，让位于动作组；输入框本身 min-width:0 才能被 flex 压缩 */
+  #title{min-width:90px;flex:1 1 140px}
+  /* 封面弹层：入口做成按钮，面板右侧弹出（不是下拉，避免遮住标题）。
+     z-index 要压过「主题管理」的下拉（.theme-box z=30）：两个 details 是兄弟，
+     后来者 coverPanel 只在自身定位有效时才能参与比较，所以容器也要 position+z-index。 */
+  .cover-wrap{position:relative;z-index:40}
+  details#coverPanel>summary{list-style:none}
+  details#coverPanel>summary::-webkit-details-marker{display:none}
+  details#coverPanel[open] .cover-box{display:block}
+  /* 弹层与「主题管理」一致：白面 + 发丝线分层，不用投影（§21.4 投影全部取消）；
+     叠在预览上时靠 1px 描边 + 底色区分，另外把弹层底色提到 --surface 之外多压一层 fg，
+     避免和它盖住的白面完全同色而分不出边界。 */
+  .cover-box{position:absolute;right:0;top:calc(100% + 6px);z-index:60;width:264px;padding:10px 12px 12px;
+    background:color-mix(in oklch,var(--fg) 3%,var(--surface));border:1px solid var(--line);border-radius:var(--radius-sm);}
+  .cover-box .menu-item{padding:7px 9px}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:var(--radius-sm);padding:7px 10px;min-height:40px;font-size:12.5px;cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease,transform .05s ease;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
   .btn svg,.subnav button svg{flex:none}
   .btn:hover{border-color:var(--fg);background:var(--fg-soft)}
   .btn:active{transform:translateY(1px)}
@@ -205,6 +249,17 @@
   .theme-box .menu-item:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
   .theme-box .menu-item svg{flex:none;color:var(--muted)}
   .theme-box .menu-sep{height:1px;background:var(--line2);margin:8px -4px}
+  /* 排版设置：改的是主题 token，不是富文本工具——所以只有这几项全局量 */
+  .tp-row{display:flex;align-items:center;gap:8px;margin:7px 0}
+  .tp-row>label{flex:none;width:56px;font-size:11.5px;color:var(--muted)}
+  .tp-row>select,.tp-row>input[type=text]{flex:1;min-width:0;font-size:11.5px;padding:3px 6px;border:1px solid var(--line);border-radius:var(--m-r);background:var(--surface);color:var(--fg)}
+  .tp-row>input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+  .tp-row>input[type=color]{width:30px;height:22px;padding:0;border:1px solid var(--line);border-radius:var(--m-r);background:none;cursor:pointer}
+  .tp-row>code{font-family:var(--mono);font-size:10.5px;color:var(--ink2);min-width:56px;text-align:right}
+  .tp-row .btn{flex:none;padding:2px 8px;font-size:11.5px}
+  .tp-hint{font-size:11px;line-height:1.55;color:var(--muted);margin:6px 0 2px}
+  .tp-hint b{color:var(--warn)}
+  .tp-dirty{color:var(--accent)}
 
   /* ---------- 内容区 ---------- */
   .content{flex:1;display:flex;gap:14px;min-height:0}
@@ -218,6 +273,11 @@
   .tb-btn.on{background:var(--fg-soft);color:var(--fg);border-color:var(--border)}
   .tb-btn b{font-weight:700}
   .tb-btn svg{display:block;margin:auto}
+  /* 上标/下标：.tb-btn 是 flex 容器，sup/sub 会被 blockify 吃掉 vertical-align（见 AGENTS.md §4.6），
+     所以标记里包了一层 span 还原行内上下文；但 sup/sub 默认还会把行盒撑高，
+     导致「x²」与「x₂」的 x 不在同一水平线（实测差 2.83px）。
+     line-height:0 让它们不参与行盒高度计算，两份标签的 x 基线就对齐了（实测 0px）。 */
+  .tb-btn sup,.tb-btn sub{line-height:0}
   /* Typora 式表格大小选择器 */
   .table-picker{position:fixed;z-index:70;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px 11px;display:none}
   .table-picker .tlabel{font-size:12px;color:var(--ink2);margin-bottom:9px;text-align:center;font-weight:600}
@@ -389,7 +449,7 @@
     <div class="topbar">
       <button class="btn ghost" id="undoBtn" title="撤销" disabled>↶</button>
       <button class="btn ghost" id="redoBtn" title="重做" disabled>↷</button>
-      <details class="theme-panel" id="savePanel"><summary title="保存到文件（Ctrl+S）"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><span id="saveLabel">保存到文件</span></summary><div class="theme-box save-box">
+      <details class="theme-panel" id="savePanel"><summary title="保存到文件（Ctrl+S）"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><span id="saveLabel"></span></summary><div class="theme-box save-box">
         <h4>当前文件</h4>
         <div class="save-path" id="filePath" title="">（未关联文件）</div>
         <div class="menu-items">
@@ -397,7 +457,7 @@
           <button class="menu-item" id="saveAsBtn" title="保存为新文件">另存为…</button>
         </div>
       </div></details>
-      <select id="themeSel" style="max-width:150px" title="主题"></select>
+      <select id="themeSel" style="max-width:132px" title="主题"></select>
       <details class="theme-panel" id="themePanel"><summary><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>主题管理</summary><div class="theme-box">
         <div class="menu-items">
           <button class="menu-item" id="genBtn" title="按当前文章用 AI 生成主题"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/><path d="M5 15l.7 1.8 1.8.7-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>生成主题</button>
@@ -405,16 +465,48 @@
           <button class="menu-item" id="thPreviewBtn" title="用统一示例文章对比所有主题的排版效果"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>主题预览…</button>
         </div>
         <div class="menu-sep"></div>
+        <h4>排版设置（改当前主题）</h4>
+        <div id="typePanel">
+          <div class="tp-row"><label>字体</label><select id="tpFont"></select></div>
+          <div class="tp-row"><label>自定义</label><input type="text" id="tpFontCustom" placeholder="Georgia, SimSun, serif" /></div>
+          <div class="tp-row"><label>字号</label><input type="range" id="tpSize" min="13" max="20" step="0.5" /><code id="tpSizeVal"></code></div>
+          <div class="tp-row"><label>行高</label><input type="range" id="tpLine" min="1.4" max="2.4" step="0.05" /><code id="tpLineVal"></code></div>
+          <div class="tp-row"><label>字距</label><input type="range" id="tpTrack" min="0" max="0.12" step="0.005" /><code id="tpTrackVal"></code></div>
+          <div class="tp-row"><label>正文色</label><input type="color" id="tpText" /><code id="tpTextVal"></code></div>
+          <div class="tp-row"><label>主色</label><input type="color" id="tpPrimary" /><code id="tpPrimaryVal"></code></div>
+          <div class="tp-row"><label>页面底色</label><input type="color" id="tpPageBg" /><button type="button" class="btn ghost" id="tpPageBgClear">跟随主题</button></div>
+          <div class="tp-hint">页面底色会写进根节点的 inline style，微信深色模式下文章不再透出暗底。<b>代价</b>：background-color 在白名单 GRAY 档，校验会多一条提示。</div>
+          <div class="tp-row" style="margin-top:8px">
+            <button type="button" class="btn" id="tpReset">还原主题</button>
+            <button type="button" class="btn ink" id="tpSaveAs">另存为主题…</button>
+          </div>
+          <div class="tp-hint" id="tpState"></div>
+        </div>
+        <div class="menu-sep"></div>
         <h4>已保存的自定义主题</h4>
         <div id="themeList" style="max-height:150px;overflow:auto;font-size:12px;color:var(--ink2);line-height:1.9"></div>
       </div></details>
-      <label class="lbl">标题</label><input type="text" id="title" placeholder="文章标题" style="flex:1 1 120px;max-width:230px" />
-      <label class="lbl">封面</label><input type="text" id="cover" placeholder="封面URL" style="width:120px" title="封面图 URL(900×383/2.35:1)；留空则用正文首图或自动生成" />
-      <button class="btn" id="coverUpload" title="上传本地图片作封面">上传</button>
-      <span id="coverThumbWrp" style="display:none;position:relative;line-height:0">
-        <img id="coverThumb" alt="封面预览" style="width:54px;height:26px;object-fit:cover;border-radius:6px;vertical-align:middle;border:1px solid var(--line)" />
-        <button class="btn ghost" id="coverClear" title="清除封面" style="position:absolute;top:-9px;right:-9px;padding:0 5px;font-size:13px;line-height:18px;border-radius:9px">×</button>
-      </span>
+      <label class="lbl">标题</label><input type="text" id="title" placeholder="文章标题" style="flex:1 1 90px;min-width:80px;max-width:150px" />
+      <div class="cover-wrap">
+        <details class="theme-panel" id="coverPanel"><summary class="btn" title="封面：生成 / 上传 / 填 URL">
+          <span id="coverDot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none"></span>
+          封面<span id="coverDotText"></span>
+        </summary>
+        <div class="theme-box cover-box">
+          <div id="coverThumbWrp" style="display:none;position:relative;line-height:0;margin-bottom:9px">
+            <img id="coverThumb" alt="封面预览" style="width:100%;aspect-ratio:900/383;object-fit:cover;border-radius:var(--m-r);border:1px solid var(--line);display:block" />
+            <button class="btn ghost" id="coverClear" title="清除封面" style="position:absolute;top:-9px;right:-9px;padding:0 5px;font-size:13px;line-height:18px;border-radius:9px">×</button>
+          </div>
+          <div class="menu-items">
+            <button class="menu-item" id="coverGen" title="按当前主题色+标题生成一张封面（900×383）">生成封面（主题色+标题）</button>
+            <button class="menu-item" id="coverUpload" title="上传本地图片作封面">上传本地图片…</button>
+          </div>
+          <div class="menu-sep"></div>
+          <input type="text" id="cover" placeholder="或填封面图 URL（900×383）" style="width:100%;box-sizing:border-box;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:var(--m-r);background:var(--surface);color:var(--fg)" />
+          <div class="tp-hint">900×383（2.35:1）。留空则用正文首图或自动生成。</div>
+        </div>
+      </details>
+      </div>
       <input type="file" id="coverFile" accept="image/*" style="display:none" />
       <div class="right">
       <button class="btn" id="valBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>校验</button>
@@ -434,21 +526,25 @@
           <button class="tb-btn tm-trigger" data-a="heading" title="标题"><b>H</b></button>
           <span class="tb-sep"></span>
           <button class="tb-btn" data-a="quote" title="引用"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M9.5 4C5.9 4 3 6.9 3 10.5V20h8v-8H7c0-2.2 1.3-4 2.5-4V4zm11 0C16.9 4 14 6.9 14 10.5V20h8v-8h-4c0-2.2 1.3-4 2.5-4V4z"/></svg></button>
-          <button class="tb-btn" data-a="code" title="行内代码"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></button>
-          <button class="tb-btn" data-a="sup" title="上标">x<sup>2</sup></button>
-          <button class="tb-btn" data-a="sub" title="下标">x<sub>2</sub></button>
-          <button class="tb-btn tm-trigger" data-a="list" title="列表"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1.4" fill="currentColor"/><circle cx="4.5" cy="12" r="1.4" fill="currentColor"/><circle cx="4.5" cy="18" r="1.4" fill="currentColor"/></svg></button>
-          <button class="tb-btn" data-a="highlight" title="高亮"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 4.5 19.5 10 9.5 20H3.5v-6z"/><path d="M4 20h17"/></svg></button>
+          <button class="tb-btn" data-a="code" title="行内代码"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></button>
+          <!-- .tb-btn 是 flex 容器，flex item 会被 blockify、vertical-align 直接失效，
+               不包这一层的话上标/下标两个图标会渲染成一模一样 -->
+          <button class="tb-btn" data-a="sup" title="上标"><span>x<sup>2</sup></span></button>
+          <button class="tb-btn" data-a="sub" title="下标"><span>x<sub>2</sub></span></button>
+          <button class="tb-btn tm-trigger" data-a="list" title="列表"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1.4" fill="currentColor"/><circle cx="4.5" cy="12" r="1.4" fill="currentColor"/><circle cx="4.5" cy="18" r="1.4" fill="currentColor"/></svg></button>
+          <button class="tb-btn" data-a="highlight" title="高亮"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 4.5 19.5 10 9.5 20H3.5v-6z"/><path d="M4 20h17"/></svg></button>
           <span class="tb-sep"></span>
-          <button class="tb-btn" data-a="link" title="链接"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
-          <button class="tb-btn" data-a="img" title="图片"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button>
-          <button class="tb-btn" data-a="table" title="表格"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/></svg></button>
-          <button class="tb-btn" data-a="hr" title="分隔线"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h16"/></svg></button>
-          <button class="tb-btn tm-trigger" data-a="callout" title="警告框"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg></button>
-          <button class="tb-btn tm-trigger" data-a="component" title="富组件"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><path d="M17 13v8M13 17h8"/></svg></button>
+          <button class="tb-btn" data-a="link" title="链接"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+          <button class="tb-btn" data-a="img" title="插入图片（可上传本地图或填 URL）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button>
+          <button class="tb-btn" data-a="imgupload" title="上传本地图到正文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
+          <input type="file" id="bodyImgFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" />
+          <button class="tb-btn" data-a="table" title="表格"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/></svg></button>
+          <button class="tb-btn" data-a="hr" title="分隔线"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 12h16"/></svg></button>
+          <button class="tb-btn tm-trigger" data-a="callout" title="警告框"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg></button>
+          <button class="tb-btn tm-trigger" data-a="component" title="富组件"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><path d="M17 13v8M13 17h8"/></svg></button>
           <span class="tb-sep"></span>
-          <button class="tb-btn" data-a="clear" title="清除格式"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-          <button class="tb-btn" data-a="help" title="Markdown 帮助"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
+          <button class="tb-btn" data-a="clear" title="清除格式"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          <button class="tb-btn" data-a="help" title="Markdown 帮助"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
         </div>
         <textarea class="markdown" id="md" spellcheck="false" placeholder="# 在这里输入 Markdown…"></textarea>
         <div class="ed-status"><span id="wc">字数 0</span><span id="rt">0 分钟阅读</span><span class="grow"></span><span id="saveState">就绪</span></div>
@@ -456,7 +552,7 @@
 
       <!-- 右栏：预览 -->
       <section class="preview-pane">
-        <div class="preview-head"><span class="tab active" id="p1">实时预览</span><span class="tab" id="p2">手机视图</span><span class="grow"></span><button class="tab" id="syncToggle" aria-pressed="true" title="左右栏同步滚动">同步滚动</button><span style="color:var(--muted)">390px</span></div>
+        <div class="preview-head"><span class="tab active" id="p1">实时预览</span><span class="tab" id="p2">手机视图</span><span class="grow"></span><button class="tab" id="darkToggle" aria-pressed="false" title="模拟微信深色模式：页底变暗，检查正文是否会看不清"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 14.2A8.5 8.5 0 0 1 9.8 3.6a7 7 0 1 0 10.6 10.6z"/></svg>深色模式</button><button class="tab" id="syncToggle" aria-pressed="true" title="左右栏同步滚动">同步滚动</button><span style="color:var(--muted)">390px</span></div>
         <div class="preview-wrap" id="previewWrap"><div class="empty" id="pvEmpty">正在渲染…</div><iframe class="preview" id="pv" style="display:none"></iframe></div>
         <div class="val-bar" id="status"><span class="v plain">就绪 · 输入 Markdown 自动渲染</span></div>
       </section>
@@ -497,9 +593,13 @@
           <div class="comp-name" id="compName">选择一个组件</div>
           <div class="comp-desc" id="compDesc">左侧列表可以搜索、点击查看效果</div>
           <div class="comp-slots" id="compSlots"></div>
+          <div class="comp-params" id="compParams" style="display:none"></div>
+          <div class="comp-notes" id="compNotes" style="display:none"></div>
           <div class="comp-actions">
             <button class="btn ink" id="compInsert" disabled>插入到正文</button>
+            <button class="btn" id="compGen" disabled>生成示例</button>
             <button class="btn" id="compCopy" disabled>复制示例</button>
+            <button class="btn ghost" id="compReset" disabled>重置</button>
           </div>
         </div>
         <div class="comp-preview-wrap"><div class="comp-empty" id="compEmpty">正在渲染…</div><iframe class="comp-preview" id="compPreview" style="display:none" sandbox="allow-same-origin"></iframe></div>
@@ -665,6 +765,7 @@ const KEY_ACTIONS=[
   // 插入
   {id:'link',  label:'链接',      cat:'insert', run:()=>ACTIONS.link()},
   {id:'img',   label:'图片',      cat:'insert', run:()=>ACTIONS.img()},
+  {id:'imgupload', label:'上传图片', cat:'insert', run:()=>$('#bodyImgFile').click()},
   {id:'sup',   label:'上标',      cat:'insert', run:()=>ACTIONS.sup()},
   {id:'sub',   label:'下标',      cat:'insert', run:()=>ACTIONS.sub()},
   {id:'hr',    label:'分隔线',    cat:'insert', run:()=>ACTIONS.hr()},
@@ -862,16 +963,102 @@ async function loadThemes(){
   if(saved.length){const og=document.createElement('optgroup');og.label='我的主题';saved.forEach(t=>og.appendChild(new Option(t.name,t.name)));sel.appendChild(og);}
   const pg=document.createElement('optgroup');pg.label='预置主题';presets.forEach(t=>pg.appendChild(new Option(t.name,t.name)));sel.appendChild(pg);
   if(keep)sel.value=keep; else if(themesCache[0])sel.value=themesCache[0].name;
+  fillTypePanel();   // 主题列表重载后面板必须重填 —— 否则字体下拉是空的（首次打开就撞过这个）
   $('#themeList').innerHTML=saved.length?saved.map(t=>'<div>• '+t.name+'</div>').join(''):'<div>暂无（用「生成/保存主题」加入）</div>';
   return sel.value;
 }
 
 // ---- 渲染 (防抖) ---
 let timer;
+// ---- 主题 token 覆写（排版设置面板）----
+// 关键：编辑器只传主题「名」时，服务端永远拿预置值；要能改字体/字号/颜色，
+// 就必须把改过的完整主题对象发过去 —— resolveTheme 本来就收对象。
+let themeOverrides={};   // token 字段 → 值；只记动过的
+const FONT_PRESETS=[
+  ['系统默认（推荐）',''],
+  ['宋体（衬线）','Georgia, "Songti SC", "SimSun", serif'],
+  ['黑体（无衬线）','-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'],
+  ['楷体','"Kaiti SC", "KaiTi", "STKaiti", serif'],
+  ['等宽','ui-monospace, "SF Mono", Consolas, "Courier New", monospace'],
+];
+function baseTheme(){ return themesCache.find(t=>t.name===$('#themeSel').value); }
+function currentTheme(){
+  const base=baseTheme();
+  if(!base) return $('#themeSel').value;   // 主题还没加载完时退回名字
+  const t=JSON.parse(JSON.stringify(base));
+  for(const [k,v] of Object.entries(themeOverrides)){
+    if (v===''||v==null){ delete t.tokens[k]; continue; }
+    if(k==='spacing'&&v&&typeof v==='object'){ t.tokens.spacing={...t.tokens.spacing,...v}; continue; }
+    t.tokens[k]=v;
+  }
+  // 页面底色用专用 token（见 schema 注释），不再借用 canvasBg
+  return t;
+}
+function overrideCount(){ return Object.keys(themeOverrides).length; }
+function paintTypeState(){
+  const n=overrideCount();
+  const el=$('#tpState');
+  if(!el) return;
+  el.innerHTML=n?`<span class="tp-dirty">已改 ${n} 项 · 只对当前预览/发布生效，可用「另存为主题」固化</span>`:'未修改。改动只发往预览与发布，不自动写回主题库。';
+}
+
+// ---- 深色模式预览 ----
+// 模拟的是「微信把页底变暗、不改正文 inline 样式」这一件事，
+// 再在真实 DOM 里扫「深色文字且无底色」的元素 —— 这就是深色模式下会看不见的那批。
+let darkOn=false;
+const DARK_PAGE_BG='#1f1f22';
+function applyDarkMode(){
+  const f=$('#pv');
+  if(!f||!f.contentDocument) return;
+  const doc=f.contentDocument;
+  doc.documentElement.style.background=darkOn?DARK_PAGE_BG:'';
+  doc.body.style.background=darkOn?DARK_PAGE_BG:'';
+}
+function scanDarkRisk(){
+  const f=$('#pv');
+  if(!f||!f.contentDocument) return [];
+  const doc=f.contentDocument, out=[];
+  const lum=(c)=>{ // 相对亮度（简化 sRGB）
+    const m=/rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c); if(!m) return null;
+    const [r,g,b]=[m[1],m[2],m[3]].map(Number).map(x=>{const s=x/255;return s<=0.03928?s/12.92:Math.pow((s+0.055)/1.055,2.4);});
+    return 0.2126*r+0.7152*g+0.0722*b;
+  };
+  // 有效底色 = 从自身往上找第一层不透明的背景；都没有才是「裸贴页底」
+  const effBg=(el)=>{
+    for(let n=el;n;n=n.parentElement){
+      const c=doc.defaultView.getComputedStyle(n).backgroundColor;
+      if(c&&c!=='rgba(0, 0, 0, 0)'&&c!=='transparent') return c;
+    }
+    return '';
+  };
+  const walker=doc.createTreeWalker(doc.body,NodeFilter.SHOW_ELEMENT);
+  let el;
+  while((el=walker.nextNode())){
+    if(!el.textContent||!el.textContent.trim()) continue;
+    const cs=doc.defaultView.getComputedStyle(el);
+    if(cs.display==='none'||cs.visibility==='hidden') continue;
+    if(effBg(el)) continue;                       // 有底色就安全
+    const L=lum(cs.color);
+    if(L===null) continue;
+    if(L<0.2) out.push(el);   // 深色文字贴暗页 → 看不清
+  }
+  return out;
+}
+function reportDarkRisk(){
+  if(!darkOn){ setVal([]); render(); return; }
+  applyDarkMode();
+  const bad=scanDarkRisk();
+  const rows=[];
+  rows.push({kind:bad.length?'err':'ok',text:bad.length?`深色模式：${bad.length} 处深色文字无底色，会看不清`:'深色模式：未发现深色文字裸贴暗底'});
+  if(bad.length) rows.push({kind:'warn',text:'→ 在左侧「主题管理 → 排版设置」把「页面底色」设为白色即可修复（代价：多一条白名单 GRAY 档提示）'});
+  setVal(rows);
+}
+$('#darkToggle').onclick=()=>{ darkOn=!darkOn; $('#darkToggle').setAttribute('aria-pressed',String(darkOn)); if(darkOn) reportDarkRisk(); else { setVal([]); render(); } };
+
 async function render(){
   clearTimeout(timer);
   timer=setTimeout(async()=>{
-    const markdown=$('#md').value, theme=$('#themeSel').value;
+    const markdown=$('#md').value, theme=currentTheme();
     // 空文档不必打后端（否则会拿到 400，白刷一条控制台报错）
     if(!markdown.trim()){
       lastHtml=''; $('#pv').srcdoc=''; $('#pv').style.display='none'; $('#pvEmpty').style.display='';
@@ -883,6 +1070,7 @@ async function render(){
       const d=await api('/editor/api/render',{markdown,theme});
       lastHtml=d.html;
       $('#pv').srcdoc=d.html; $('#pv').style.display=''; $('#pvEmpty').style.display='none';
+      if(darkOn){ applyDarkMode(); reportDarkRisk(); }
       const c=markdown.replace(/\s+/g,''); $('#wc').textContent='字数 '+c.length;
       $('#rt').textContent=Math.max(1,Math.round(c.length/400))+' 分钟阅读';
       const v=d.validation||{}; const issues=(v.issues||[]).map(i=>'['+i.rule+'] '+i.message);
@@ -1243,6 +1431,155 @@ $('#impRun').onclick=async()=>{
 document.querySelectorAll('[data-close-imp]').forEach(b=>b.onclick=()=>closeModal('#impOverlay'));
 // ---- 组件库预览页 ----
 let compPreviews=[]; let compCurrent=null;
+// 参数编辑状态：base=示例里原本的值（undefined 表示示例没写）、init=初次展示值、values=当前值。
+// 「改过」的判据是 values !== init：只把用户真动过的参数写回 markdown，
+// 没动过的 token 原样保留（含原本的引号写法），生成的示例不会被整体重排。
+let compBase={}, compInit={}, compValues={};
+let compDiags=[]; let compTimer=null;
+
+const COMP_FRAME_CSS='<style>body{margin:0;padding:14px;background:#fff;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}</style>';
+function compFrame(html){ return '<html><head><meta charset="utf-8">'+COMP_FRAME_CSS+'</head><body>'+(html||'')+'</body></html>'; }
+function escAttr(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// 与 packages/service/src/previews.ts 的 propString 同一套规则：纯 [A-Za-z0-9._-] 不加引号
+function compPropToken(k,v){ return /^[A-Za-z0-9._-]+$/.test(v) ? k+'='+v : k+'="'+String(v).replace(/"/g,'&quot;')+'"'; }
+// 与 packages/components/src/parse.ts 的 OPEN_RE / 参数正则保持一致
+const COMP_OPEN_RE=/^[ \t]{0,3}(:{3,})\s*([a-zA-Z][a-zA-Z0-9-]*)(?:\s*\{([^}]*)\})?\s*(.*)$/;
+const COMP_PROP_RE=/([a-zA-Z][a-zA-Z0-9-]*)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"']+)))?/g;
+
+function compParseSample(sample){
+  const lines=String(sample||'').split('\n');
+  const m=COMP_OPEN_RE.exec(lines[0]||'');
+  if(!m) return null;
+  const inner=m[3]||'', props={};
+  COMP_PROP_RE.lastIndex=0; let t;
+  while((t=COMP_PROP_RE.exec(inner))!==null){
+    props[(t[1]||'').toLowerCase()]=t[2]===undefined?'true':(t[3]!==undefined?t[3]:(t[4]!==undefined?t[4]:t[5]));
+  }
+  return { fence:m[1], name:(m[2]||'').toLowerCase(), inner, tail:lines.slice(1).join('\n'), props };
+}
+// 当前参数 → markdown（组件本体，不含预览前缀）
+function compBuildSample(){
+  if(!compCurrent) return '';
+  const parsed=compParseSample(compCurrent.sample||'');
+  if(!parsed) return compCurrent.sample||'';
+  const changed={};
+  Object.keys(compValues).forEach(k=>{ if(compValues[k]!==compInit[k]) changed[k]=compValues[k]; });
+  const out=[], seen={};
+  COMP_PROP_RE.lastIndex=0; let t;
+  while((t=COMP_PROP_RE.exec(parsed.inner))!==null){
+    const key=(t[1]||'').toLowerCase(); seen[key]=1;
+    if(key in changed){ if(changed[key]!=='') out.push(compPropToken(key,changed[key])); }
+    else out.push(t[0]);
+  }
+  Object.keys(changed).forEach(k=>{ if(!seen[k] && changed[k]!=='') out.push(compPropToken(k,changed[k])); });
+  return parsed.fence+parsed.name+(out.length?'{'+out.join(' ')+'}':'')+'\n'+parsed.tail;
+}
+function compDirtyCount(){ return Object.keys(compValues).filter(k=>compValues[k]!==compInit[k]).length; }
+
+// 参数表：枚举/布尔点 chip，其余给输入框。取值列表来自组件目录的 props[].type。
+function compRenderParams(c){
+  const box=$('#compParams');
+  const props=c.props||[];
+  if(!props.length){
+    box.style.display='none'; box.innerHTML='';
+    // 自定义组件没声明参数时给一句话，避免留白看着像坏了
+    compPaintNotes('自定义组件未声明参数：参数名以模板里的占位符为准，可在下方「示例 Markdown」里看到实际写法。');
+    return;
+  }
+  const choicesOf=t=>{
+    if(t==='boolean') return ['true','false'];
+    if(t.indexOf('|')>=0) return t.split('|').map(s=>s.trim()).filter(Boolean);
+    return null;
+  };
+  const rows=props.map(p=>{
+    const key=p.name.toLowerCase(), list=choicesOf(p.type||''), cur=compValues[key]||'';
+    const val=list
+      ? list.map(v=>'<button type="button" class="comp-choice'+(v===cur?' on':'')+'" data-k="'+escAttr(key)+'" data-v="'+escAttr(v)+'">'+esc(v)+'</button>').join('')
+      : '<input class="comp-input" data-k="'+escAttr(key)+'" value="'+escAttr(cur)+'" spellcheck="false" /> '
+        +'<span class="comp-type">'+esc(p.type||'text')+'</span>';
+    const def=p.default?'<code class="comp-pdef">'+esc(p.default)+'</code>':'<span class="comp-type">—</span>';
+    return '<tr data-row="'+escAttr(key)+'"><td><code class="comp-pname">'+esc(p.name)+'</code></td><td>'+val+'</td><td>'+def+'</td><td>'+esc(p.description||'—')+'</td></tr>';
+  }).join('');
+  box.innerHTML='<table><thead><tr><th>参数</th><th>取值（可直接改）</th><th>默认</th><th>说明</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  box.style.display='';
+  compPaintRows(); compPaintNotes();
+}
+function compPaintRows(){
+  document.querySelectorAll('#compParams tr[data-row]').forEach(tr=>{
+    const k=tr.dataset.row;
+    tr.querySelectorAll('.comp-choice').forEach(ch=>ch.classList.toggle('on', ch.dataset.v===compValues[k]));
+    tr.classList.toggle('dirty', compValues[k]!==compInit[k]);
+  });
+}
+// notes（组件自带的实现说明）+ 诊断（如模板缺参数）一处输出
+function compPaintNotes(extra){
+  const el=$('#compNotes'), parts=[];
+  if(compCurrent&&compCurrent.notes) parts.push('<div>'+esc(compCurrent.notes)+'</div>');
+  if(extra) parts.push('<div>'+esc(extra)+'</div>');
+  (compDiags||[]).forEach(d=>{ if(d.level==='info') return; parts.push('<div class="comp-diag'+(d.level==='error'?' err':'')+'">'+esc(d.message)+'</div>'); });
+  el.innerHTML=parts.join(''); el.style.display=parts.length?'':'none';
+}
+function compSyncDirty(){
+  const n=compDirtyCount();
+  const b=$('#compGen');
+  b.textContent=n>0?('生成示例 · '+n+' 处改动'):'生成示例';
+  b.classList.toggle('dirty', n>0);
+  $('#compReset').disabled=!n;
+}
+function compSetPreview(html){ $('#compPreview').srcdoc=compFrame(html); }
+// 改动后防抖重渲染：只重渲染组件本体（预览前缀接回去），占位图交给服务端替换，否则改参数就变裂图
+function compRenderLive(){
+  clearTimeout(compTimer);
+  compTimer=setTimeout(async()=>{
+    if(!compCurrent) return;
+    const md=(compCurrent.previewPrefix||'')+compBuildSample();
+    try{
+      const d=await api('/editor/api/render',{markdown:md,theme:currentTheme(),placeholders:true});
+      compSetPreview(d.html||'');
+      compDiags=d.diagnostics||[];
+    }catch(e){ compDiags=[]; compSetPreview('<p style="color:#888;font-size:13px">渲染失败：'+esc(e.message)+'</p>'); }
+    compPaintNotes();
+  },240);
+}
+function compSelect(name){
+  const c=compPreviews.find(x=>x.name===name); if(!c) return;
+  compCurrent=c; clearTimeout(compTimer);
+  // 初始化参数：示例里写的值优先，其次目录默认值（两者都不分大小写）
+  const parsed=compParseSample(c.sample||'');
+  compBase={}; compInit={}; compValues={};
+  (c.props||[]).forEach(p=>{
+    const key=p.name.toLowerCase();
+    const fromSample=parsed&&parsed.props[key]!==undefined?parsed.props[key]:undefined;
+    compBase[key]=fromSample;
+    compInit[key]=fromSample!==undefined?fromSample:(p.default!==undefined?String(p.default):'');
+    compValues[key]=compInit[key];
+  });
+  compDiags=c.diagnostics||[];
+  $('#compName').innerHTML=':::'+esc(c.name)+(c.origin==='user'?'<code>自定义</code>':'');
+  $('#compDesc').textContent=c.summary||'';
+  $('#compSlots').textContent='可定制部位：'+(c.slots||['root','*']).join(' / ');
+  compRenderParams(c);
+  $('#compSrc').textContent=c.sample||'';
+  const srcBox=document.querySelector('.comp-src'); if(srcBox) srcBox.open=false;
+  $('#compEmpty').style.display='none';
+  const f=$('#compPreview'); f.style.display='';
+  f.srcdoc=compFrame(c.html||'');
+  $('#compInsert').disabled=false; $('#compCopy').disabled=false; $('#compGen').disabled=false;
+  compSyncDirty();
+  compRenderList($('#compSearch').value);
+}
+// 参数改了就只刷新那一行 + 防抖重渲染，不重建表格（否则输入框会丢焦点）
+$('#compParams').addEventListener('click',e=>{
+  const b=e.target.closest('.comp-choice'); if(!b||!b.dataset.k) return;
+  compValues[b.dataset.k]=b.dataset.v;
+  compPaintRows(); compSyncDirty(); compRenderLive();
+});
+$('#compParams').addEventListener('input',e=>{
+  const i=e.target.closest('.comp-input'); if(!i||!i.dataset.k) return;
+  compValues[i.dataset.k]=i.value;
+  compPaintRows(); compSyncDirty(); compRenderLive();
+});
 function compRenderList(filter){
   const kw=(filter||'').trim().toLowerCase();
   const hit=(c)=>!kw || c.name.toLowerCase().includes(kw) || (c.summary||'').toLowerCase().includes(kw);
@@ -1255,27 +1592,14 @@ function compRenderList(filter){
   if(!html) html='<div class="comp-empty">没有匹配的组件</div>';
   $('#compList').innerHTML=html;
 }
-function compSelect(name){
-  const c=compPreviews.find(x=>x.name===name); if(!c) return;
-  compCurrent=c;
-  $('#compName').innerHTML=':::'+esc(c.name)+(c.origin==='user'?'<code>自定义</code>':'');
-  $('#compDesc').textContent=c.summary||'';
-  $('#compSlots').textContent='可定制部位：'+(c.slots||['root','*']).join(' / ');
-  $('#compSrc').textContent=c.sample||'';
-  $('#compEmpty').style.display='none';
-  const f=$('#compPreview'); f.style.display='';
-  f.srcdoc='<html><head><meta charset="utf-8"><style>body{margin:0;padding:14px;background:#fff;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}</style></head><body>'+(c.html||'')+'</body></html>';
-  $('#compInsert').disabled=false; $('#compCopy').disabled=false;
-  compRenderList($('#compSearch').value);
-}
 async function openComponentLibrary(){
   openModal('#compOverlay','#compSearch');
   $('#compEmpty').style.display=''; $('#compEmpty').textContent='正在渲染…';
   $('#compPreview').style.display='none';
   $('#compList').innerHTML='';
-  $('#compInsert').disabled=true; $('#compCopy').disabled=true;
+  $('#compInsert').disabled=true; $('#compCopy').disabled=true; $('#compGen').disabled=true; $('#compReset').disabled=true;
   try{
-    const d=await api('/editor/api/component-previews',{theme:$('#themeSel').value});
+    const d=await api('/editor/api/component-previews',{theme:currentTheme()});
     compPreviews=d.previews||[];
     $('#compCount').textContent='当前主题：'+$('#themeSel').value+' · 共 '+compPreviews.length+' 个';
     compRenderList('');
@@ -1293,13 +1617,31 @@ $('#compList').addEventListener('click',e=>{
 });
 $('#compInsert').onclick=()=>{
   if(!compCurrent) return;
-  insertBlock(compCurrent.sample, '');
+  // 插入的是「当前参数」的版本，与右侧预览一致，而不是原示例
+  const md=compBuildSample();
+  insertBlock(md, '');
+  $('#compSrc').textContent=md;
   closeModal('#compOverlay'); toast('已插入 :::'+compCurrent.name);
+};
+// 把改过的参数重组回 markdown 写进下方代码块（与原始示例对比）
+$('#compGen').onclick=()=>{
+  if(!compCurrent) return;
+  $('#compSrc').textContent=compBuildSample();
+  const box=document.querySelector('.comp-src'); if(box) box.open=true;
+  toast(compDirtyCount()>0?('已按当前参数生成示例（'+compDirtyCount()+' 处改动）'):'已生成示例');
 };
 $('#compCopy').onclick=async()=>{
   if(!compCurrent) return;
-  try{ await navigator.clipboard.writeText(compCurrent.sample); toast('已复制示例'); }
+  try{ await navigator.clipboard.writeText(compBuildSample()); toast('已复制示例'); }
   catch(e){ toast('复制失败：'+e.message,false); }
+};
+$('#compReset').onclick=()=>{
+  if(!compCurrent) return;
+  compValues=Object.assign({},compInit);
+  compRenderParams(compCurrent);
+  compSyncDirty();
+  compRenderLive();
+  toast('已恢复示例原值');
 };
 document.querySelectorAll('[data-close-comp]').forEach(b=>b.onclick=()=>closeModal('#compOverlay'));
 $('#compOverlay').addEventListener('click',e=>{ if(e.target.id==='compOverlay') closeModal('#compOverlay'); });
@@ -1424,7 +1766,7 @@ $('#newBtn').onclick=()=>{ $('#md').value=''; $('#title').value=''; undoStack.le
 // ---- 主题操作 ----
 $('#genBtn').onclick=async()=>{ busy($('#genBtn'),true); toast('正在生成主题（LLM）…'); try{ const d=await api('/editor/api/generate',{article:$('#md').value,save:true}); if(d.theme&&d.theme.name){await loadThemes();$('#themeSel').value=d.theme.name;} toast('已生成'+(d.saved?'并保存':'')+'：'+(d.theme&&d.theme.name)); render(); }catch(e){ toast('生成失败：'+e.message,false); } finally{ busy($('#genBtn'),false); } $('#themePanel').open=false; };
 $('#saveBtn').onclick=async()=>{ const name=$('#themeSel').value; const th=themesCache.find(t=>t.name===name); if(!th)return toast('请先选择主题',false); busy($('#saveBtn'),true); try{ await api('/editor/api/savetheme',{theme:th}); await loadThemes(); $('#themeSel').value=name; toast('已保存：'+name); }catch(e){ toast('保存失败：'+e.message,false); } finally{ busy($('#saveBtn'),false); } $('#themePanel').open=false; };
-$('#valBtn').onclick=async()=>{ const md=$('#md').value,theme=$('#themeSel').value; try{ const d=await api('/editor/api/render',{markdown:md,theme}); const v=d.validation||{}; const issues=(v.issues||[]).map(i=>'['+i.rule+'] '+i.message); setVal([{kind:v.pass?'ok':'err',text:v.pass?'✓ 校验通过':'✗ 校验未通过'},...issues.map(t=>({kind:v.pass?'warn':'err',text:t}))]); toast(v.pass?'校验通过':'校验未通过',v.pass); }catch(e){ toast('校验失败：'+e.message,false); } };
+$('#valBtn').onclick=async()=>{ const md=$('#md').value,theme=currentTheme(); try{ const d=await api('/editor/api/render',{markdown:md,theme}); const v=d.validation||{}; const issues=(v.issues||[]).map(i=>'['+i.rule+'] '+i.message); setVal([{kind:v.pass?'ok':'err',text:v.pass?'✓ 校验通过':'✗ 校验未通过'},...issues.map(t=>({kind:v.pass?'warn':'err',text:t}))]); toast(v.pass?'校验通过':'校验未通过',v.pass); }catch(e){ toast('校验失败：'+e.message,false); } };
 
 // ---- 写回 .md 文件（Ctrl+S）----
 // 只有通过 ?file= 打开、或「另存为」过一次，才有 linkedFile；有它才能原地保存。
@@ -1434,9 +1776,10 @@ function markFileDirty(){ if(!fileDirty){ fileDirty=true; updateSaveFileBtn(); }
 function updateSaveFileBtn(){
   const has=!!linkedFile, ready=!!$('#md').value.trim();
   const label=$('#saveLabel');
-  if(label) label.textContent = has ? ('保存到文件'+(fileDirty?' •':'')) : '另存为…';
+  // 入口改成纯图标后，状态用「•」缀在 tooltip 里；label 只在未关联文件时提示「另存为…」
+  if(label) label.textContent = has ? (fileDirty?'•':'') : '另存为…';
   const sum=document.querySelector('#savePanel > summary');
-  if(sum) sum.title = has ? ('写回 '+linkedFile+'（Ctrl+S）') : '保存为新文件（Ctrl+S）';
+  if(sum) sum.title = (has ? ('写回 '+linkedFile+'（Ctrl+S）') : '保存为新文件（Ctrl+S）') + (fileDirty?' · 有未保存改动':'');
   const path=$('#filePath');
   if(path){ path.textContent = linkedFile || '（未关联文件，下面「另存为…」选择位置）'; path.title = linkedFile || ''; }
   const save=$('#saveFileBtn'); if(save) save.disabled = !has || !ready;
@@ -1452,7 +1795,7 @@ async function saveToFile(forcePrompt, force){
     if(!target.trim()) return;
   }
   const btn=$('#saveFileBtn'); busy(btn,true);
-  const payload={path:target,markdown:md,title:$('#title').value,theme:$('#themeSel').value};
+  const payload={path:target,markdown:md,title:$('#title').value,theme:currentTheme()};
   let d;
   try{
     try{
@@ -1509,10 +1852,113 @@ async function copyRich(html,msg){
   }catch(e){ toast('复制失败（浏览器限制）：'+e.message,false); }
 }
 $('#copyWxBtn').onclick=()=> lastHtml?copyRich(lastHtml,'已复制富文本，去公众号编辑器粘贴'):toast('请先渲染',false);
-$('#pubBtn').onclick=async()=>{ const title=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名'); busy($('#pubBtn'),true); toast('正在发布草稿箱…'); try{ const cover=$('#cover').value.trim(); const d=await api('/editor/api/publish',{markdown:$('#md').value,title,theme:$('#themeSel').value,relocate:$('#relocateOpt').checked,coverImage:cover||undefined,coverData:coverFile?coverFile.data:undefined,coverMime:coverFile?coverFile.mime:undefined}); toast('已发布 media_id='+(d.media_id||'').slice(0,20)+'…'); const cs=coverFile?'本地上传':(cover?'自定义URL':(d.coverMediaId?'自动':'')); setVal([{kind:'ok',text:'✅ 已发布草稿 media_id='+d.media_id+(cs?'（封面：'+cs+'）':'')}]); saveSnap(); }catch(e){ toast('发布失败：'+e.message,false); } finally{ busy($('#pubBtn'),false); } };
+$('#pubBtn').onclick=async()=>{ const title=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名'); busy($('#pubBtn'),true); toast('正在发布草稿箱…'); try{ const cover=$('#cover').value.trim(); const d=await api('/editor/api/publish',{markdown:$('#md').value,title,theme:currentTheme(),relocate:$('#relocateOpt').checked,coverImage:cover||undefined,coverData:coverFile?coverFile.data:undefined,coverMime:coverFile?coverFile.mime:undefined}); toast('已发布 media_id='+(d.media_id||'').slice(0,20)+'…'); const cs=coverFile?'本地上传':(cover?'自定义URL':(d.coverMediaId?'自动':'')); setVal([{kind:'ok',text:'✅ 已发布草稿 media_id='+d.media_id+(cs?'（封面：'+cs+'）':'')}]); saveSnap(); }catch(e){ toast('发布失败：'+e.message,false); } finally{ busy($('#pubBtn'),false); } };
 
 // ---- 侧栏导航 / 设置 / AI 优化 ----
 function nav(id){ document.querySelectorAll('.subnav button').forEach(b=>b.classList.remove('active')); var b=document.getElementById(id); if(b)b.classList.add('active'); }
+// ---- 排版设置面板：改的是当前主题的 token ----
+function fillTypePanel(){
+  const t=baseTheme(); if(!t) return;
+  const tok=t.tokens||{};
+  const sel=$('#tpFont');
+  if(!sel.options.length){
+    FONT_PRESETS.forEach(([label,val])=>{ const o=document.createElement('option'); o.value=val; o.textContent=label; sel.append(o); });
+  }
+  const stack=tok.fontFamily||'';
+  const hit=FONT_PRESETS.find(([,v])=>v&&stack.replace(/\s/g,'').toLowerCase()===v.replace(/\s/g,'').toLowerCase());
+  sel.value=hit?hit[1]:'';
+  $('#tpFontCustom').value=hit?'':stack;
+  $('#tpSize').value=String(parseFloat(tok.fontSize||'16'));
+  $('#tpSizeVal').textContent=tok.fontSize||'';
+  $('#tpLine').value=String(tok.lineHeight??2);
+  $('#tpLineVal').textContent=String(tok.lineHeight??'');
+  $('#tpTrack').value=String(parseFloat(tok.letterSpacing||'0')||0);
+  $('#tpTrackVal').textContent=tok.letterSpacing||'—';
+  $('#tpText').value=toHex(tok.textColor)||'#333333';
+  $('#tpTextVal').textContent=tok.textColor||'';
+  $('#tpPrimary').value=toHex(tok.primaryColor)||'#000000';
+  $('#tpPrimaryVal').textContent=tok.primaryColor||'';
+  const pageBg=tok.pageBackgroundColor?toHex(tok.pageBackgroundColor):'';
+  $('#tpPageBg').value=pageBg||'#ffffff';
+  $('#tpPageBgClear').style.display=pageBg?'':'none';
+  paintTypeState();
+}
+// 主题色可以是 oklch() 等 CSS 颜色，而 <input type=color> 只吃 #rrggbb：
+// 不认识的就先落在黑色上，但数值列仍显示原值，用户一改才覆盖。
+function toHex(c){
+  const s=String(c||'').trim();
+  const hex=/^#([0-9a-f]{6})$/i.exec(s); if(hex) return '#'+hex[1];
+  const short=/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(s); if(short) return '#'+short.slice(1).map(x=>x+x).join('');
+  const d=document.createElement('div'); d.style.color=s; document.body.append(d);
+  const rgb=getComputedStyle(d).color; d.remove();
+  const m=/rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb); if(!m) return '';
+  return '#'+[m[1],m[2],m[3]].map(x=>Number(x).toString(16).padStart(2,'0')).join('');
+}
+function setOverride(token,val){
+  if(val===''||val==null) delete themeOverrides[token];
+  else themeOverrides[token]=val;
+  paintTypeState(); render();
+}
+$('#tpFont').onchange=()=>{ const v=$('#tpFont').value; if(v){ themeOverrides.fontFamily=v; delete themeOverrides._fontCustom; } $('#tpFontCustom').value=''; paintTypeState(); render(); };
+$('#tpFontCustom').onchange=()=>{ const v=$('#tpFontCustom').value.trim(); if(v) themeOverrides.fontFamily=v; else delete themeOverrides.fontFamily; paintTypeState(); render(); };
+$('#tpSize').oninput=()=>{ setOverride('fontSize', Number($('#tpSize').value).toFixed(1).replace(/\.0$/,'')+'px'); $('#tpSizeVal').textContent=$('#tpSize').value+'px'; };
+$('#tpLine').oninput=()=>{ setOverride('lineHeight', Number($('#tpLine').value)); $('#tpLineVal').textContent=Number($('#tpLine').value).toFixed(2); };
+$('#tpTrack').oninput=()=>{ const v=Number($('#tpTrack').value); setOverride('letterSpacing', v?v.toFixed(3)+'em':''); $('#tpTrackVal').textContent=v?v.toFixed(3)+'em':'—'; };
+$('#tpText').oninput=()=>{ setOverride('textColor', $('#tpText').value); $('#tpTextVal').textContent=$('#tpText').value; };
+$('#tpPrimary').oninput=()=>{ setOverride('primaryColor', $('#tpPrimary').value); $('#tpPrimaryVal').textContent=$('#tpPrimary').value; };
+$('#tpPageBg').oninput=()=>{ setOverride('pageBackgroundColor', $('#tpPageBg').value); $('#tpPageBgClear').style.display=''; if(darkOn) reportDarkRisk(); };
+$('#tpPageBgClear').onclick=()=>{ delete themeOverrides.pageBackgroundColor; $('#tpPageBgClear').style.display='none'; paintTypeState(); if(darkOn) reportDarkRisk(); };
+$('#tpReset').onclick=()=>{ themeOverrides={}; fillTypePanel(); render(); if(darkOn) reportDarkRisk(); toast('已还原当前主题原值'); };
+$('#tpSaveAs').onclick=async()=>{
+  const base=baseTheme(); if(!base) return toast('请先选择主题',false);
+  const defName=(base.name+' 自定义').slice(0,30);
+  const name=prompt('另存为主题名：',defName); if(!name||!name.trim()) return;
+  const t=currentTheme(); t.name=name.trim();
+  try{ await api('/editor/api/savetheme',{theme:t}); await loadThemes(); $('#themeSel').value=t.name; themeOverrides={}; fillTypePanel(); render(); toast('已另存为：'+t.name); }
+  catch(e){ toast('保存失败：'+e.message,false); }
+};
+
+// ---- 正文图片上传（本地图片终于有通路了）----
+$('#bodyImgFile').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0]; e.target.value='';
+  if(!f) return;
+  if(f.size>20*1024*1024) return toast('图片过大(>20MB)',false);
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    const data=String(reader.result).split(',')[1];
+    toast('正在处理图片…');
+    try{
+      const d=await api('/editor/api/upload-image',{data,mime:f.type||'image/jpeg',rawBytes:f.size});
+      wrap('![',']('+location.origin+d.url+')');
+      render();
+      toast(d.note||('已插入 '+Math.round(d.bytes/1024)+'KB'));
+    }catch(err){ toast('上传失败：'+err.message,false); }
+  };
+  reader.readAsDataURL(f);
+});
+
+// 封面状态指示：有封面时入口按钮上亮一个点 + 标注来源
+function paintCoverState(){
+  const url=$('#cover').value.trim();
+  const on=!!(coverFile||url);
+  $('#coverDot').style.display=on?'':'none';
+  $('#coverDotText').textContent=coverFile?'（本地图）':(url?'（URL）':'');
+}
+// ---- 生成封面（主题色 + 标题，不再是纯渐变）----
+$('#coverGen').onclick=async()=>{
+  const title=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名文章');
+  busy($('#coverGen'),true); toast('正在生成封面…');
+  try{
+    const d=await api('/editor/api/cover',{title,theme:currentTheme(),meta:''});
+    coverFile={ data:d.data, mime:d.mime };
+    $('#coverThumb').src='data:'+d.mime+';base64,'+d.data;
+    $('#coverThumbWrp').style.display=''; $('#cover').value='';
+    paintCoverState();
+    toast('封面已生成（900×383）');
+  }catch(e){ toast('生成失败：'+e.message,false); }
+  finally{ busy($('#coverGen'),false); }
+};
+
 $('#navTheme').onclick=()=>{ nav('navTheme'); $('#themePanel').open=true; $('#themeSel').focus(); };
 // 点击页面其他位置关闭「主题管理」下拉；点侧栏「文章主题」或下拉内部（含 summary/菜单项）时不关闭
 document.addEventListener('click',e=>{
@@ -1634,12 +2080,14 @@ $('#coverFile').addEventListener('change',e=>{
   const f=e.target.files && e.target.files[0]; if(!f) return;
   if(f.size > 5*1024*1024){ toast('图片过大(>5MB)，请换小图',false); return; }
   const reader=new FileReader();
-  reader.onload=()=>{ coverFile={ data:String(reader.result).split(',')[1], mime:f.type||'image/jpeg' }; $('#coverThumb').src=String(reader.result); $('#coverThumbWrp').style.display=''; $('#cover').value=''; toast('已选择本地封面'); };
+  reader.onload=()=>{ coverFile={ data:String(reader.result).split(',')[1], mime:f.type||'image/jpeg' }; $('#coverThumb').src=String(reader.result); $('#coverThumbWrp').style.display=''; $('#cover').value=''; paintCoverState(); toast('已选择本地封面'); };
   reader.readAsDataURL(f);
 });
-$('#coverClear').onclick=()=>{ coverFile=null; $('#coverThumbWrp').style.display='none'; $('#coverThumb').src=''; $('#cover').value=''; toast('已清除封面'); };
+$('#coverClear').onclick=()=>{ coverFile=null; $('#coverThumbWrp').style.display='none'; $('#coverThumb').src=''; $('#cover').value=''; paintCoverState(); toast('已清除封面'); };
+// 填 URL 也算设了封面（发布时走 coverImage），即时反映在入口上
+$('#cover').addEventListener('input',paintCoverState);
 
-$('#themeSel').addEventListener('change',()=>{ markFileDirty(); render(); });
+$('#themeSel').addEventListener('change',()=>{ markFileDirty(); themeOverrides={}; fillTypePanel(); render(); });
 // ---- 撤销/重做栈（自定义快照，覆盖工具栏程序化改动与键盘输入）----
 let undoStack=[], redoStack=[];
 let prevMd='', lastInputTs=0;

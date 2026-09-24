@@ -51,6 +51,32 @@ export const PALETTE_KEYS = [
   'radiusLg',
 ] as const
 
+/**
+ * 从模板里提取**用户参数名**（剔除 `theme.*` / `body` / `this` / `@index` 与块语法）。
+ *
+ * 为什么需要：自定义组件的 `defaults` 经常是空的或只写了一半，但模板里的 `{{title}}`
+ * 是「这个参数存在」的事实来源。组件库要给出可编辑的参数表、并让作者知道该填什么，
+ * 就得从模板补这一份——否则模板里用了参数、界面上却看不见，只能靠撞。
+ */
+export function templatePropNames(template: string): string[] {
+  const names = new Set<string>()
+  const re = /\{\{([^{}]+)\}\}/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(template)) !== null) {
+    let expr = (m[1] ?? '').trim().replace(/\|\s*raw\s*$/, '').trim()
+    if (!expr) continue
+    // 块标签：{{#if x}} {{/each}} {{else}}
+    if (expr.startsWith('#') || expr.startsWith('/') || expr === 'else') continue
+    const head = expr.split(/\s+/)[0] ?? ''
+    if (!head) continue
+    if (head === 'body' || head === 'this' || head.startsWith('this.')) continue
+    if (head === '@index' || head.startsWith('theme.')) continue
+    if (!/^[a-zA-Z][a-zA-Z0-9-]*$/.test(head)) continue
+    names.add(head.toLowerCase())
+  }
+  return [...names]
+}
+
 interface Scope {
   props: Record<string, string>
   bodyRaw: string

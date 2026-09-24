@@ -54,6 +54,7 @@ async function processImages(
   node: HastNode,
   client: WeChatClient,
   result: RelocateResult,
+  resolveLocal?: RelocateOptions['resolveLocal'],
 ): Promise<void> {
   if (!isElement(node)) return
 
@@ -68,7 +69,9 @@ async function processImages(
       result.skipped.push(src)
     } else {
       try {
-        const { bytes, mimeType } = await client.downloadImage(src)
+        // 先问本地（编辑器资产库 / 文件路径），拿不到再走 HTTP 下载
+        const local = resolveLocal?.(src)
+        const { bytes, mimeType } = local ?? (await client.downloadImage(src))
         const filename = guessFilename(src)
         const uploaded = await client.uploadImage(bytes, filename, mimeType)
         const finalUrl = uploaded.url ?? uploaded.media_id
@@ -104,10 +107,19 @@ function guessFilename(src: string): string {
  * 搬运 HTML 中所有外链图片到微信素材库。
  * @param html 已渲染的内联样式 HTML
  * @param client 已配置的微信客户端
+ * @param options.resolveLocal 可选：把非 http(s) 引用（本地路径 / 本地资产 URL）解析回字节。
+ *   返回 undefined 表示调用方不认识这个源，交回默认的 HTTP 下载。
+ *   为什么做成钩子：publisher 只负责微信协议，不该知道本地文件系统长什么样。
  */
+export interface RelocateOptions {
+  /** 把非 http(s) 引用解析回字节；返回 undefined 则交回默认 HTTP 下载。 */
+  resolveLocal?: (src: string) => { bytes: Uint8Array; mimeType: string } | undefined
+}
+
 export async function relocateExternalImages(
   html: string,
   client: WeChatClient,
+  options: RelocateOptions = {},
 ): Promise<RelocateResult> {
   const processor = unified()
     .use(rehypeParse, { fragment: true })
@@ -116,7 +128,7 @@ export async function relocateExternalImages(
 
   const result: RelocateResult = { html: '', uploaded: [], skipped: [], failed: [] }
   if (tree.children) {
-    for (const child of tree.children) await processImages(child, client, result)
+    for (const child of tree.children) await processImages(child, client, result, options.resolveLocal)
   }
   result.html = String(processor.stringify(tree as never))
   return result

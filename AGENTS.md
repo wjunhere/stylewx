@@ -170,8 +170,18 @@ CSS 对未定义变量不报错，静默回退。
 - **原生 `FormData` 在 undici 下 body 会被吞**（微信报 41005）—— 见 §19.7。
 - **自动化点「确认类」按钮很危险** —— 曾用 opencli 的 `click --text "下一步"`，该参数精确匹配失败时
   会**退化模糊匹配**，结果点到「退出登录」导致账号登出。定位必须精确唯一并配危险名单兜底。见 §20.5。
+- **直接调 `renderMarkdownToHtml` 会漏掉自定义组件** —— `renderPreview` / `renderFragment` 都经过
+  `safeUserComponents()`，不传就从 `~/.stylewx/components.json` 兜底读；而绕过它们直接调核心渲染时
+  必须自己传 `userComponents`，否则 `:::我的组件` 会被当成普通文本渲染，只报一条
+  「未知组件」，看着就像组件坏了。组件库预览曾因此五个自定义组件全部不渲染。
 - **`package.json` 的 `files` 写错 npm 不报错** —— 只是安静地少打包，运行时才炸。
   所以有 `verify-pack.mjs` 把 tarball 拆开看。
+- **flex 容器里的 `vertical-align` 是死属性** —— flex item 会被 blockify，`vertical-align`（以及
+  `text-align`、`float`）对它们无效。工具条「上标/下标」两个按钮曾因此渲染成**一模一样**：
+  `x<sup>2</sup>` 里的 `<sup>` 成了 flex item，`vertical-align:super` 被忽略。
+  防线：这类行内内容要包一层元素还原行内上下文（`editor.html` 工具条上标/下标那两个按钮上就带着这条注释）。
+  半连的另一个坑：sup/sub 还会把**行盒撑高**，于是 `x²` 与 `x₂` 的 x 不在同一水平线（实测差 2.83px），
+  还得给 sup/sub 加 `line-height:0` 把它们从行盒高度计算里摘出去。两个坑合起来才算真对齐。
 
 ### 4.7 写跨平台 Node 脚本会碰到的五件事
 

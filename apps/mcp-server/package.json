@@ -51,6 +51,7 @@
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@stylewx/components": "workspace:*",
     "@stylewx/core": "workspace:*",
+    "@stylewx/preview": "workspace:*",
     "@stylewx/publisher": "workspace:*",
     "@stylewx/service": "workspace:*",
     "@stylewx/theme": "workspace:*",

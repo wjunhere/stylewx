@@ -28,6 +28,8 @@ export interface PublishParams {
   relocate?: boolean
   /** 无封面图时，自动生成封面用的主题色（top=深色端，bottom=浅色端）。 */
   coverPalette?: { top?: string; bottom?: string }
+  /** 把非 http(s) 图片引用解析回字节（编辑器资产库 / 本地路径）。 */
+  resolveLocal?: (src: string) => { bytes: Uint8Array; mimeType: string } | undefined
 }
 
 export interface PublishResult {
@@ -101,7 +103,7 @@ export async function publishDraft(
   const relocated =
     params.relocate === false
       ? { html: params.content, uploaded: [], failed: [] }
-      : await relocateExternalImages(params.content, client)
+      : await relocateExternalImages(params.content, client, { resolveLocal: params.resolveLocal })
   const coverMediaId = await resolveThumbMediaId(client, params, relocated.uploaded)
 
   const article: DraftArticle = {

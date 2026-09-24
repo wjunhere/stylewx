@@ -2,8 +2,8 @@
  * 组件库预览：给每个组件生成一段示例 Markdown 并用当前主题渲染，
  * 供编辑器「组件库」页面展示真实效果。
  */
-import { COMPONENT_CATALOG, getComponentSpec, slotsForComponent } from '@stylewx/components'
-import type { ComponentDiagnostic, UserComponentDef } from '@stylewx/components'
+import { COMPONENT_CATALOG, getComponentSpec, slotsForComponent, templatePropNames } from '@stylewx/components'
+import type { ComponentDiagnostic, ComponentPropSpec, UserComponentDef } from '@stylewx/components'
 import { renderMarkdownToHtml } from '@stylewx/core'
 import type { Theme } from '@stylewx/theme'
 import { validateTheme } from '@stylewx/theme'
@@ -16,6 +16,12 @@ export interface ComponentPreview {
   summary: string
   /** 可被主题样式覆盖的部位。 */
   slots: string[]
+  /** 组件参数表（含每个参数的合法取值与默认值）。仅内置组件有声明。 */
+  props?: ComponentPropSpec[]
+  /** 实现约束说明（如微信端的限制）。仅部分组件有。 */
+  notes?: string
+  /** 仅预览用的上下文前缀（如 `toc` 需要先有标题）。渲染时**拼在 sample 前面**。 */
+  previewPrefix?: string
   /** 用于预览的示例 Markdown（也是「复制示例」的内容）。 */
   sample: string
   /** 用当前主题渲染后的 HTML 片段。 */
@@ -59,7 +65,12 @@ export function placeholderImageUrl(index: number, label: string): string {
 }
 
 /** 把示例里的图片地址换成占位图（只用于渲染预览）。 */
-function withPlaceholderImages(sample: string): string {
+/**
+ * 把示例里的占位图 URL 换成内联 SVG 占位图。
+ * 组件示例里的 `https://example.com/…` 浏览器加载不出来，预览就是一片空白。
+ * 只给「预览样例」的路径用（组件库 / 组件库的实时重渲染），用户自己的正文不能走这里。
+ */
+export function withPlaceholderImages(sample: string): string {
   let n = 0
   return sample
     // Markdown 图片：![图一](https://example.com/1.jpg)
@@ -117,8 +128,10 @@ export function renderComponentPreviews(
   const safeTheme = check.theme
   const users = options.userComponents ?? listUserComponents()
   const wanted = options.names?.length ? new Set(options.names) : undefined
+  const userMap: Record<string, UserComponentDef> = {}
+  for (const def of users) userMap[def.name] = def
 
-  const entries: { name: string; origin: 'builtin' | 'user'; summary: string; slots: string[]; sample: string }[] = []
+  const entries: { name: string; origin: 'builtin' | 'user'; summary: string; slots: string[]; sample: string; props?: ComponentPropSpec[]; notes?: string; previewPrefix?: string }[] = []
 
   for (const spec of COMPONENT_CATALOG) {
     if (wanted && !wanted.has(spec.name)) continue
@@ -128,6 +141,9 @@ export function renderComponentPreviews(
       summary: spec.summary,
       slots: spec.slots ?? slotsForComponent(spec.name),
       sample: spec.example,
+      props: spec.props,
+      notes: spec.notes,
+      previewPrefix: spec.previewPrefix,
     })
   }
   // 别名（follow）也给一份预览，方便用户看到
@@ -140,6 +156,9 @@ export function renderComponentPreviews(
         summary: '结尾卡片别名（与 end-card 同一渲染器）',
         slots: slotsForComponent('follow'),
         sample: endCard.example.replace(':::end-card', ':::follow'),
+        props: endCard.props,
+        notes: endCard.notes,
+        previewPrefix: endCard.previewPrefix,
       })
     }
   }
@@ -151,12 +170,39 @@ export function renderComponentPreviews(
       summary: def.description || '自定义组件',
       slots: def.slots ?? ['root', '*'],
       sample: userComponentSample(def),
+      // 自定义组件没有类型声明，参数名取 `defaults` ∪ 模板里的 `{{占位符}}`，全列出来：
+      // 模板用了但页面看不见的参数，作者只能靠撞。没有默认值的也列，方便在参数表里现场填。
+      // 按小写合并：解析器把参数名统一小写（`{{brandName}}` 与 `brandname` 是同一个），
+      // 展示时保留 defaults 里的原始写法。
+      props: (() => {
+        const declared = new Map(
+          Object.entries(def.defaults ?? {}).map(([k, v]) => [k.toLowerCase(), { name: k, value: String(v) }]),
+        )
+        const ordered: { name: string; value?: string }[] = [...declared.values()]
+        for (const name of templatePropNames(def.template ?? '')) {
+          if (!declared.has(name)) ordered.push({ name })
+        }
+        return ordered.length
+          ? ordered.map((o) => ({
+              name: o.name,
+              type: '自定义',
+              description: o.value === undefined ? '模板里用到，未声明默认值' : '模板参数',
+              default: o.value,
+            }))
+          : undefined
+      })(),
     })
   }
 
   const previews: ComponentPreview[] = entries.map((entry) => {
     try {
-      const { html, diagnostics } = renderMarkdownToHtml(withPlaceholderImages(entry.sample), safeTheme)
+      // 自定义组件必须显式注册：`renderPreview` 会自己兜底读 ~/.stylewx/components.json，
+      // 而这里直接调 `renderMarkdownToHtml`，不传的话 :::my-comp 会被当成普通文本渲染。
+      const { html, diagnostics } = renderMarkdownToHtml(
+        withPlaceholderImages((entry.previewPrefix ?? '') + entry.sample),
+        safeTheme,
+        { userComponents: userMap },
+      )
       return { ...entry, html, diagnostics: diagnostics ?? [] }
     } catch (error) {
       return {

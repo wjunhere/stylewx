@@ -74,6 +74,9 @@ importers:
       '@stylewx/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@stylewx/preview':
+        specifier: workspace:*
+        version: link:../../packages/preview
       '@stylewx/publisher':
         specifier: workspace:*
         version: link:../../packages/publisher
