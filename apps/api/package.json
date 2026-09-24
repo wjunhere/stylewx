@@ -1,6 +1,6 @@
 {
   "name": "@stylewx/api",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "stylewx REST API: mirrors the MCP tools as HTTP endpoints, reusing the same service layer.",
   "keywords": [
     "wechat",

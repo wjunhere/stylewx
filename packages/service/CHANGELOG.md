@@ -1,5 +1,28 @@
 # @stylewx/service
 
+## 0.5.0
+
+### Minor Changes
+
+- b71ae67: 编辑器新增四项能力，均为「补齐与主流公众号编辑器的必要差距」：
+  
+  - **正文图片上传**：本地图经 Chromium 规范化（等比缩放、降质，GIF 不重编）后存入本地资产库，正文可引用；发布时 `relocate` 经 `resolveLocal` 钩子解析回字节并搬运到微信素材库。此前正文只能引用 http(s) 外链。
+  - **封面生成**：`renderCoverPng` 按主题色渐变 + 标题 + 品牌角标生成 900×383 封面，替代原先无文字的纯渐变兜底。
+  - **深色模式预览**：模拟微信暗色页底，用真实计算样式扫描「深色文字且无任何底色」的元素；新增可选 token `pageBackgroundColor`（白名单 GRAY 档）写进根节点，未设置时不输出，预置主题不受影响。
+  - **排版设置面板**：字体/字号/行高/字距/正文色/主色/页面底色；编辑器改为向 API 传递完整主题对象，支持另存为自定义主题。
+  
+  修复：组件库参数表未初始化、切主题不回填；顶栏结构未闭合导致主内容被吞入；「主题管理」下拉遮挡封面弹层。
+
+### Patch Changes
+
+- Updated dependencies [b71ae67]
+  - @stylewx/preview@0.5.0
+  - @stylewx/publisher@0.5.0
+  - @stylewx/theme@0.5.0
+  - @stylewx/components@0.5.0
+  - @stylewx/core@0.5.0
+  - @stylewx/validator@0.5.0
+
 ## 0.4.1
 
 ### Patch Changes
