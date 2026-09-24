@@ -136,6 +136,31 @@ async function waitForVersions(pkgs) {
   return live
 }
 
+/**
+ * 轮询超时后的最终复核，用一个更全的查询再确认一次。
+ *
+ * 为什么需要：轮询走的是 `/<name>/<version>` 精确端点，个别包（实测 @stylewx/api@0.5.0）
+ * 会比同批其它包晚几分钟才在**该端点**可见——registry 的 CDN 复制是逐包的，不是原子的。
+ * 而 packument（`/<name>` 整包文档）与 dist-tags 由源站直接供数，往往先于精确端点就绪。
+ * 所以「精确端点 404」≠「没发出去」：不经这一步就把超时判成失败，是误报
+ * （会让人怀疑发布坏了，甚至重发一遍）。
+ *
+ * 返回值：true = 已确认可见（误报，降级为警告）；false = 两条路径都查不到（真失败）。
+ */
+async function confirmViaPackument(name, version) {
+  try {
+    const res = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}`, {
+      signal: AbortSignal.timeout(15_000),
+      headers: { Accept: 'application/vnd.npm.install-v1+json' },
+    })
+    if (!res.ok) return false
+    const data = await res.json()
+    return data?.versions?.[version] != null || data?.['dist-tags']?.latest === version
+  } catch {
+    return false
+  }
+}
+
 const packages = collectPackages()
 const publishable = packages.filter((p) => !p.private)
 const privatePkgs = packages.filter((p) => p.private)
@@ -184,13 +209,25 @@ if (tagVersion) console.log(`tag 校验：v${tagVersion}${version ? ` ↔ ${vers
 if (process.argv.includes('--check-registry') && version) {
   console.log(`\n核对 npm 上的版本（共 ${publishable.length} 个包）：`)
   const live = await waitForVersions(publishable)
+  const warned = []
   for (const pkg of publishable) {
     if (live.has(pkg.name)) {
       console.log(`  ✓ ${pkg.name}@${pkg.version}`)
-    } else {
-      console.log(`  ✗ ${pkg.name}@${pkg.version} 在等待超时后仍未出现在 registry 上`)
-      fail(`${pkg.name}@${pkg.version} 发布后未在 npm 上查到（已轮询等待，不是「刚发完还在处理」）`)
+      continue
     }
+    console.log(`  … ${pkg.name}@${pkg.version} 轮询超时，换 packument 最终复核…`)
+    const confirmed = await confirmViaPackument(pkg.name, pkg.version)
+    if (confirmed) {
+      // 复制延迟的误报：包在 npm 上是真实存在的，不能算失败，否则会诱导重复发布
+      console.log(`  ✓ ${pkg.name}@${pkg.version}（精确端点延迟，packument 已确认可见）`)
+      warned.push(pkg.name)
+    } else {
+      console.log(`  ✗ ${pkg.name}@${pkg.version} 两条查询路径均不可见`)
+      fail(`${pkg.name}@${pkg.version} 发布后未在 npm 上查到（已轮询等待并复核，不是「刚发完还在处理」）`)
+    }
+  }
+  if (warned.length) {
+    console.log(`  · 提示：${warned.join(', ')} 的精确端点有复制延迟（不影响安装与解析），稍后自会就绪`)
   }
 }
 

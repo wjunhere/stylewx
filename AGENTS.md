@@ -176,6 +176,12 @@ CSS 对未定义变量不报错，静默回退。
   「未知组件」，看着就像组件坏了。组件库预览曾因此五个自定义组件全部不渲染。
 - **`package.json` 的 `files` 写错 npm 不报错** —— 只是安静地少打包，运行时才炸。
   所以有 `verify-pack.mjs` 把 tarball 拆开看。
+- **直接 import 的包必须自己声明依赖，靠传递依赖在 monorepo 里能跑通、在产物里必断** ——
+  workspace 链接是平的，`@stylewx/preview` 作为 service 的传递依赖在 dev 环境能解析到，
+  于是 mcp-server 直接 import 它却没写进自己的 dependencies，也没人发现；
+  直到 `check:artifact` 起真实产物进程才报 ERR_MODULE_NOT_FOUND。
+  单测、`check:pack` 都查不出来，因为它们不解析依赖图。规则：**写一行 import 就补一行声明**，
+  拿不准就看 `check:artifact`（它就是为这类「装上产物才暴露」的问题存在的）。
 - **flex 容器里的 `vertical-align` 是死属性** —— flex item 会被 blockify，`vertical-align`（以及
   `text-align`、`float`）对它们无效。工具条「上标/下标」两个按钮曾因此渲染成**一模一样**：
   `x<sup>2</sup>` 里的 `<sup>` 成了 flex item，`vertical-align:super` 被忽略。
