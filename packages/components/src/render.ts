@@ -2,10 +2,12 @@
  * 组件分发与渲染。
  */
 import { mediaComponents } from './components/media.js'
+import { videoComponents } from './components/video.js'
 import { structureComponents } from './components/structure.js'
 import { decorComponents } from './components/decor.js'
 import { interactiveComponents } from './components/interactive.js'
 import { articleComponents } from './components/article.js'
+import { mermaidComponents } from './components/mermaid.js'
 import { parseComponents } from './parse.js'
 import { escapeAttr } from './style.js'
 import { ALL_SLOT, ROOT_SLOT, applyComponentStyles } from './overrides.js'
@@ -15,27 +17,31 @@ import type { ComponentNode, ComponentRenderer, HeadingInfo, RenderContext, Rend
 /** 全部已注册组件。 */
 export const COMPONENT_RENDERERS: Record<string, ComponentRenderer> = {
   ...mediaComponents,
+  ...videoComponents,
   ...structureComponents,
   ...decorComponents,
   ...interactiveComponents,
   ...articleComponents,
+  ...mermaidComponents,
 }
 
 /** 已注册的组件名（不含别名）。 */
 export const COMPONENT_NAMES: string[] = [
   ...Object.keys(mediaComponents),
+  ...Object.keys(videoComponents),
   ...Object.keys(structureComponents),
   ...Object.keys(decorComponents).filter(
     (n) => !['info', 'tip', 'important', 'warning', 'danger', 'success', 'note'].includes(n),
   ),
   ...Object.keys(interactiveComponents),
   ...Object.keys(articleComponents).filter((n) => n !== 'follow'),
+  ...Object.keys(mermaidComponents),
 ]
 
 /** 正文按原始文本保存的组件：结构化正文（`- 时间 | 内容`、表格、图片行）从 DOM 还原会失真。 */
-const RAW_BODY = new Set(['image', 'gallery', 'image-card', 'carousel', 'timeline', 'steps', 'compare', 'reveal'])
+const RAW_BODY = new Set(['image', 'gallery', 'image-card', 'carousel', 'timeline', 'steps', 'compare', 'reveal', 'mermaid'])
 /** 不使用正文、仅靠 props 的组件。 */
-const PROPS_ONLY = new Set(['divider', 'section-title', 'toc', 'progress', 'pulse', 'cover', 'badge'])
+const PROPS_ONLY = new Set(['divider', 'section-title', 'toc', 'progress', 'pulse', 'cover', 'badge', 'video'])
 
 /** props → URL 编码串（写进 data-swx-props，导入时精确还原）。 */
 function encodeProps(props: Record<string, string>): string {

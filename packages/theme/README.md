@@ -43,7 +43,7 @@ const { theme: adjusted } = tweakTheme(theme, {
 ## 预置主题
 
 `tech-minimal`、`business`、`magazine`、`gov-red`、`academic`、`dark-code`，
-外加 22 个 WeMD 兼容主题（`basic`、`code-github`、`aurora-glass` 等）。
+外加 20 个 WeMD 兼容主题（`basic`、`code-github`、`aurora-glass` 等）。
 完整列表就是 `PRESET_THEMES`。
 
 ## 设计约束

@@ -114,6 +114,27 @@ export const COMPONENT_CATALOG: ComponentSpec[] = [
     ],
     notes: '微信会剥离 id，因此不能使用 SVG 渐变/裁剪引用；轮播用叠加 <image> + 错峰 opacity 动画实现。',
   },
+  {
+    name: 'video',
+    category: 'image',
+    summary: '视频占位块：标出「此处该有视频」。真视频发布后到公众号「视频 → 本地上传」放。',
+    example: `:::video{src="https://example.com/cover.jpg" title="视频标题" caption="图注"}
+:::`,
+    props: [
+      { name: 'src', type: 'url', description: '封面图地址（占位显示这张图 + 播放三角；发布时自动搬运到素材库）' },
+      { name: 'title', type: 'text', description: '视频标题（写进占位标记，便于发布脚本 `--video` 定位）' },
+      { name: 'caption', type: 'text', description: '图注' },
+      { name: 'vid', type: 'text', description: '已插入真视频后的 vid（可选，仅作记录标记，不影响渲染）' },
+      { name: 'hint', type: 'text', description: '无封面时显示的提示语', default: '视频将在发布时由编辑器插入' },
+      { name: 'show-hint', type: 'boolean', description: '无封面时是否显示提示语', default: 'true' },
+    ],
+    notes:
+      '微信正文无法通过 API 写入可播放的视频（实测：mpvideo 存活但渲染成 0×0，iframe/videosnap 直接被删）。' +
+      '本组件只出占位块，并写入 data-swx-video / data-swx-video-title 标记，供发布脚本定位。' +
+      '真视频在公众号编辑器点「视频 → 本地上传」放置（原生文件选择器，扩展驱动不了；' +
+      'cua-driver 能自动填路径，但「打开」那一下必须人按）。' +
+      '注意 API（add_material?type=video）传的视频微信标为「限菜单/自动回复」，在正文里永远是禁用态。详见 docs/DESIGN.md §20.10。',
+  },
 
   // ---------------- 结构 ----------------
   {
@@ -377,6 +398,21 @@ export const COMPONENT_CATALOG: ComponentSpec[] = [
       { name: 'footer', type: 'text', description: '底部小字' },
       { name: 'tone', type: TONE_CHOICES, description: '配色', default: 'primary' },
     ],
+  },
+  {
+    name: 'mermaid',
+    category: 'article',
+    summary: 'Mermaid 图：流程图 / 时序图 / 类图 / 甘特图 / 思维导图 / 饼图 / 状态图 / ER 图 / 时间线 / 用户旅程，渲染为图片发布。',
+    example: `:::mermaid{caption="发布流程"}
+graph TD
+  A[写文章] --> B{AI 排版}
+  B --> C[渲染预览]
+  C --> D[发布草稿箱]
+:::`,
+    props: [
+      { name: 'caption', type: 'text', description: '图注（可省略）' },
+    ],
+    notes: '正文就是 Mermaid 源码（与 mermaid.live 同语法）。渲染发生在服务端：Chromium 里跑官方 mermaid 出 PNG，发布时同其它图片一起搬运到微信素材库 —— SVG 原样发到微信会因 id 被剥离而裂图，所以这里必须走图片。',
   },
 ]
 

@@ -55,3 +55,6 @@ scripts/comparison/output/
 
 # 本机 npm 2FA 恢复码（凭据，绝不提交）
 recoverycode.txt
+
+# 界面截图基线（本机对比用，node packages/preview/scripts/ui-shots.mjs 生成）
+.ui-shots/

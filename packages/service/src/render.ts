@@ -7,6 +7,7 @@ import type { ComponentDiagnostic, UserComponentDef } from '@stylewx/components'
 import { validateHtml } from '@stylewx/validator'
 import type { ValidationReport } from '@stylewx/validator'
 import { renderIphonePreview } from '@stylewx/preview'
+import { inlineMermaidDiagrams } from './mermaid.js'
 import { serviceError } from './errors.js'
 
 export interface RenderPreviewResult {
@@ -57,9 +58,19 @@ export async function renderPreview(
 ): Promise<RenderPreviewResult> {
   const safeTheme = assertValidTheme(theme)
 
-  const { html, diagnostics } = renderMarkdownToHtml(markdown, safeTheme, {
+  const { html: rawHtml, diagnostics: rawDiagnostics } = renderMarkdownToHtml(markdown, safeTheme, {
     userComponents: safeUserComponents(options.userComponents),
   })
+  // :::mermaid 占位 → <img>（Chromium 出图，落本地资产库）；在校验之前做，
+  // 校验的才是真正会发布的 HTML。
+  const mermaid = await inlineMermaidDiagrams(rawHtml)
+  const html = mermaid.html
+  const diagnostics: ComponentDiagnostic[] = [...(rawDiagnostics ?? [])]
+  if (mermaid.failed.length) {
+    for (const f of mermaid.failed) {
+      diagnostics.push({ component: 'mermaid', message: f.reason, level: 'error' })
+    }
+  }
   const validation = validateHtml(html)
 
   const result: RenderPreviewResult = {
@@ -112,9 +123,17 @@ export async function renderFragment(
   options: RenderFragmentOptions = {},
 ): Promise<RenderFragmentResult> {
   const safeTheme = assertValidTheme(theme)
-  const { html, diagnostics } = renderMarkdownToHtml(markdown, safeTheme, {
+  const { html: rawHtml, diagnostics: rawDiagnostics } = renderMarkdownToHtml(markdown, safeTheme, {
     userComponents: safeUserComponents(options.userComponents),
   })
+  const mermaid = await inlineMermaidDiagrams(rawHtml)
+  const html = mermaid.html
+  const diagnostics: ComponentDiagnostic[] = [...(rawDiagnostics ?? [])]
+  if (mermaid.failed.length) {
+    for (const f of mermaid.failed) {
+      diagnostics.push({ component: 'mermaid', message: f.reason, level: 'error' })
+    }
+  }
   const validation = validateHtml(html)
 
   const components = parseComponents(markdown)

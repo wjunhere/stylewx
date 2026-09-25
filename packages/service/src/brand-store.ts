@@ -18,6 +18,7 @@ import { validateTheme, completeThemeBlocks } from '@stylewx/theme'
 import type { Theme } from '@stylewx/theme'
 import type { UserComponentDef } from '@stylewx/components'
 import { validateUserComponent, saveUserComponent } from './component-store.js'
+import { saveTheme } from './theme-store.js'
 import { serviceError } from './errors.js'
 
 const DEFAULT_DIR = join(homedir(), '.stylewx', 'brands')
@@ -25,6 +26,8 @@ const DEFAULT_DIR = join(homedir(), '.stylewx', 'brands')
 export interface BrandStoreOptions {
   /** 覆盖品牌根目录（测试用）。 */
   dir?: string
+  /** 覆盖主题库文件路径（测试用）——品牌主题会同步写到这里。 */
+  themesFile?: string
 }
 
 function brandsDir(opts?: BrandStoreOptions): string {
@@ -328,6 +331,14 @@ export function brandSave(input: unknown, opts?: BrandStoreOptions): BrandSaveRe
     if (existsSync(tmp)) rmSync(tmp)
   }
 
+  // 主题同步进主题库，让「人」也能在编辑器里选到它。
+  //
+  // 为什么必须做：profile.json 是 agent 的真相源（brand_apply 会把它交回调用方），但编辑器
+  // 的主题下拉读的是 themes.json —— 只写 profile 就会出现「agent 能用、人选不到」的不对称。
+  // 实测踩过：hippie-youth 品牌建好了，主题库却没有它，编辑器里根本选不出来。
+  // 主题名已在上面被强制对齐为品牌名，所以覆盖写入是幂等的。
+  const savedTheme = saveTheme(themeCheck.theme, { file: opts?.themesFile })
+
   const existing = existsSync(profilePath(name, opts)) ? readProfile(name, opts) : undefined
   const profile: BrandProfile = {
     name,
@@ -410,7 +421,10 @@ export function brandApply(name: string, opts?: BrandStoreOptions): BrandApplyRe
     saveUserComponent(c)
     synced.push(c.name)
   }
-  return { profile, theme: structuredClone(profile.theme), doc: readBrandDoc(name, opts), components: structuredClone(profile.components), syncedComponents: synced }
+  // 同步主题进主题库：品牌可能是早期版本建的（那时只写 profile.json），
+  // 或用户手改了 themes.json。这里幂等补齐，保证 brand_apply 之后编辑器一定能选到。
+  const theme = saveTheme(profile.theme, { file: opts?.themesFile }).theme
+  return { profile, theme, doc: readBrandDoc(name, opts), components: structuredClone(profile.components), syncedComponents: synced }
 }
 
 /** 读取品牌宪法正文（人可能手改过，以文件为准；缺失则从 profile 重新生成）。 */

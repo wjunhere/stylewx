@@ -288,7 +288,7 @@ node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
 
 ## 8. 自定义组件（agent 自己定义新组件）
 
-内置 22 个组件之外，agent 可以用 **HTML 模板定义全新组件**，存到本地组件库，之后用 `:::名字` 调用。
+内置 23 个组件之外，agent 可以用 **HTML 模板定义全新组件**，存到本地组件库，之后用 `:::名字` 调用。
 这让「组件库」本身变成可扩展的，而不是固定菜单。
 
 ### 8.1 定义

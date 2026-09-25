@@ -41,6 +41,7 @@
   "dependencies": {
     "@stylewx/components": "workspace:*",
     "@stylewx/theme": "workspace:*",
+    "mermaid": "^11.17.2",
     "playwright": "^1.49.0"
   },
   "publishConfig": {

@@ -329,6 +329,59 @@ describe('组件目录', () => {
   })
 })
 
+describe('video 占位组件', () => {
+  // 为什么是「占位」：微信正文无法用 API 写入可播放的视频（docs/DESIGN.md §20.10）。
+  // 这些断言守住两件事：① 占位标记必须写出去（发布脚本靠它定位插入点）；
+  // ② 不能产出任何看起来能播、实际是死链的东西（不写 video/iframe、不造假 src）。
+  it('写出 data-swx-video 标记，供发布脚本定位插入点', () => {
+    const html = render(':::video{src="https://x/cover.jpg" title="短片"}\n:::')
+    expect(html).toContain('data-swx-video="1"')
+    expect(html).toContain('data-swx-video-title="短片"')
+  })
+
+  it('产出封面图 + 播放三角，而不是空框', () => {
+    const html = render(':::video{src="https://x/cover.jpg" title="短片"}\n:::')
+    expect(html).toContain('https://x/cover.jpg')
+    expect(html).toContain('<svg')
+  })
+
+  it('无封面时给虚线提示框，文案说明真视频要人工插入', () => {
+    const html = render(':::video{title="待插入"}\n:::')
+    expect(html).toContain('data-swx-video')
+    expect(html).toContain('dashed')
+    expect(html).toContain('发布时由编辑器插入')
+  })
+
+  it('绝不产出 video / iframe / 假 src——那会看起来能播但实际是坏的', () => {
+    const html = render(':::video{src="https://x/c.jpg" title="T" vid="apiv_1"}\n:::')
+    expect(html).not.toContain('<video')
+    expect(html).not.toContain('<iframe')
+    expect(html).not.toContain('mpvideo')
+  })
+
+  it('不用 position / filter——微信草稿 API 会裁掉它们，校验会报 error', () => {
+    // 踩过：第一版用 position:absolute 叠播放三角，直接被校验器拦下（BANNED 档）。
+    // 现在整块用 SVG 画（与 carousel 同路数）。
+    const withCover = render(':::video{src="https://x/c.jpg" title="T"}\n:::')
+    const noCover = render(':::video{title="T"}\n:::')
+    for (const html of [withCover, noCover]) {
+      expect(html).not.toContain('position')
+      expect(html).not.toContain('filter')
+    }
+  })
+
+  it('vid 只写进占位标记，不进 src', () => {
+    const html = render(':::video{src="https://x/c.jpg" title="T" vid="apiv_123"}\n:::')
+    expect(html).toContain('data-swx-video-vid="apiv_123"')
+    expect(html).not.toMatch(/src="apiv/)
+  })
+
+  it('能往返回导为 :::video（编辑器改完还能导回）', () => {
+    const html = render(':::video{src="https://x/cover.jpg" title="短片"}\n:::')
+    expect(htmlToMarkdown(html).markdown).toContain(':::video')
+  })
+})
+
 describe('组件样式覆盖（root / * / 语义槽位）', () => {
   // 每个组件一份「把所有部位都写出来」的样本，确保登记表里的槽位都真的可达
   const SLOT_SAMPLES: Record<string, string> = {

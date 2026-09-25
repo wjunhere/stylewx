@@ -11,6 +11,19 @@ export interface UploadResult {
   url?: string
 }
 
+/** 视频素材上传结果。`vid` 是正片嵌入所需（形如 `apiv_4709954571878367233`）。 */
+export interface VideoUploadResult extends UploadResult {
+  /** 视频 ID。用 `getMaterial` 取回。 */
+  vid: string
+}
+
+export interface VideoDescription {
+  /** 视频标题（后台素材列表显示）。 */
+  title: string
+  /** 视频描述，可为空串。 */
+  introduction: string
+}
+
 export interface DraftArticle {
   title: string
   content: string
@@ -101,11 +114,52 @@ export class WeChatClient {
     return this.uploadMaterial('thumb', buffer, filename, mimeType)
   }
 
+  /**
+   * 上传视频到永久素材库（type=video）。
+   *
+   * 三个实测得到的硬约束（见 docs/DESIGN.md §20.10）：
+   *   1. **必须带 description**（title + introduction），否则微信报 40007；
+   *   2. 接口限制 **MP4 且 ≤10MB**（后台 UI 上传更宽松，但接口就是这条线）；
+   *   3. **上传后要过审才能用**，且本方法返回的 media_id 拿不到 vid——
+   *      vid 必须另调 `getMaterial()` 取（微信只在 get_material 里回 vid）。
+   *
+   * @returns media_id 与 vid（已自动调 getMaterial 回填）。
+   */
+  async uploadVideo(
+    buffer: ArrayBuffer | Uint8Array,
+    filename: string,
+    description: VideoDescription,
+    mimeType = 'video/mp4',
+  ): Promise<VideoUploadResult> {
+    const uploaded = await this.uploadMaterial('video', buffer, filename, mimeType, description)
+    const detail = await this.getMaterial(uploaded.media_id)
+    const vid = typeof detail.vid === 'string' ? detail.vid : ''
+    if (!vid) {
+      throw new Error(
+        `视频已上传（media_id=${uploaded.media_id}）但未能取到 vid，可能仍在审核中。请稍后重试或到素材库核对。`,
+      )
+    }
+    return { ...uploaded, vid }
+  }
+
+  /** 读取一个永久素材的详情。视频会返回 `vid` 与 `down_url`。 */
+  async getMaterial(mediaId: string): Promise<Record<string, unknown>> {
+    const token = await this.getAccessToken()
+    const url = `${this.baseUrl}/cgi-bin/material/get_material?access_token=${encodeURIComponent(token)}`
+    const response = await this.fetchImpl(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ media_id: mediaId }),
+    })
+    return parseJson(await response.text())
+  }
+
   private async uploadMaterial(
-    type: 'image' | 'thumb',
+    type: 'image' | 'thumb' | 'video',
     buffer: ArrayBuffer | Uint8Array,
     filename: string,
     mimeType?: string,
+    description?: VideoDescription,
   ): Promise<UploadResult> {
     const token = await this.getAccessToken()
     const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
@@ -114,18 +168,40 @@ export class WeChatClient {
     // 原因（真实验证）：Node 原生 FormData + Blob 在 undici fetch（尤其挂 ProxyAgent dispatcher）
     // 下 body 会被吞掉，微信返回 41005 media data missing；手写 multipart 在所有 fetch 实现下都稳定。
     const boundary = `----stylewx${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
-    const ctype = mimeType && mimeType.includes('/') ? mimeType : 'image/jpeg'
+    const ctype = mimeType && mimeType.includes('/') ? mimeType : (type === 'video' ? 'video/mp4' : 'image/jpeg')
     const enc = new TextEncoder()
-    const head = enc.encode(
-      `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="media"; filename="${filename.replace(/"/g, '')}"\r\n` +
-        `Content-Type: ${ctype}\r\n\r\n`,
-    )
-    const tail = enc.encode(`\r\n--${boundary}--\r\n`)
-    const body = new Uint8Array(head.length + bytes.length + tail.length)
-    body.set(head, 0)
-    body.set(bytes, head.length)
-    body.set(tail, head.length + bytes.length)
+    const parts: Uint8Array[] = [
+      enc.encode(
+        `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="media"; filename="${filename.replace(/"/g, '')}"\r\n` +
+          `Content-Type: ${ctype}\r\n\r\n`,
+      ),
+      bytes,
+    ]
+    // 视频必须带 description 字段，否则 40007 invalid media_id。
+    if (type === 'video') {
+      parts.push(
+        enc.encode(
+          `\r\n--${boundary}\r\nContent-Disposition: form-data; name="description"\r\n\r\n` +
+            JSON.stringify({ title: description?.title ?? filename, introduction: description?.introduction ?? '' }) +
+            `\r\n`,
+        ),
+      )
+    }
+    // 结束 boundary 前必须有 CRLF（multipart 规范）：上一个 part 的数据与 boundary 之间
+    // 没有换行，严格解析器会把数据尾当成 boundary 的一部分，文件尾就不是合法文件尾 ——
+    // 真实微信对 add_material 的文件嗅探会报 40113 unsupported file type（实测，
+    // 同一字节直连同构造加 \r\n 即成功）。视频分支的 description part 自带前置 \r\n，
+    // 图片分支此前漏了它 —— 这就是「上传图片偶发 40113」的根源。
+    parts.push(enc.encode(`\r\n--${boundary}--\r\n`))
+
+    const total = parts.reduce((n, p) => n + p.length, 0)
+    const body = new Uint8Array(total)
+    let off = 0
+    for (const p of parts) {
+      body.set(p, off)
+      off += p.length
+    }
 
     const url = `${this.baseUrl}/cgi-bin/material/add_material?access_token=${encodeURIComponent(token)}&type=${type}`
     const response = await this.fetchImpl(url, {

@@ -42,7 +42,7 @@ function readPackageVersion(): string {
 
 export const SERVER_VERSION = readPackageVersion()
 
-/** 创建已注册全部 MCP tools 的 MCP Server（当前 22 个，见 README「MCP 工具」）。 */
+/** 创建已注册全部 MCP tools 的 MCP Server（数量见 README「MCP 工具」，由 mcp.test.ts 的清单断言守住）。 */
 export function createMcpServer(deps: ToolDeps = {}): McpServer {
   const server = new McpServer({
     name: SERVER_NAME,

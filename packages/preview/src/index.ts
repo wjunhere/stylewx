@@ -7,6 +7,7 @@ import { chromium } from 'playwright'
 import type { Browser, Page } from 'playwright'
 import { contrastText, darken, lighten, mix } from '@stylewx/components'
 import { browserProbeSize, browserReencode } from './browser-image.js'
+import { renderMermaidToPng, closeMermaidPage } from './mermaid.js'
 
 export interface PreviewOptions {
   /** 视口宽度（默认 390，即常见 iPhone 逻辑宽度）。 */
@@ -29,7 +30,7 @@ export interface PreviewResult {
 let browserPromise: Promise<Browser> | null = null
 
 /** 惰性启动浏览器实例（多进程共享，避免重复启动开销）。 */
-async function getBrowser(): Promise<Browser> {
+export async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
     browserPromise = chromium
       .launch({ headless: true })
@@ -281,3 +282,4 @@ export async function prepareImage(input: Uint8Array, mime: string, options: Pre
     await page.close()
   }
 }
+export { renderMermaidToPng, closeMermaidPage }

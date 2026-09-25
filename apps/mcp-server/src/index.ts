@@ -35,6 +35,8 @@ import {
   renderThemePreviews,
   parseFrontMatter,
   saveArticle,
+  listDir,
+  makeDir,
 } from '@stylewx/service'
 import { renderCoverPng, prepareImage } from '@stylewx/preview'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
@@ -302,6 +304,26 @@ async function handleEditorApi(
         root: r.root,
         savedAt: Date.now(),
       })
+    }
+
+    if (path === '/editor/api/list-dir' && req.method === 'GET') {
+      // 「另存为」选位置：列出文章根目录下某层的内容。
+      const url = new URL(req.url ?? '/', 'http://localhost')
+      try {
+        return sendJson(res, listDir(url.searchParams.get('dir') ?? ''))
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
+    }
+
+    if (path === '/editor/api/make-dir' && req.method === 'POST') {
+      // 「另存为」里的新建文件夹。
+      const b = await readJsonBody(req)
+      try {
+        return sendJson(res, makeDir(typeof b.dir === 'string' ? b.dir : ''))
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
     }
 
     if (path === '/editor/api/savetheme' && req.method === 'POST') {

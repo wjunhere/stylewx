@@ -242,7 +242,8 @@ if (existsSync(editorPath)) {
     fail('favicon 不是内联 data URI');
   }
 
-  const externals = [...html.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)].map((m) => m[1])
+  // 自包含指「资源加载」不能指向网络；导航链接（页脚 GitHub）不算，离线只是不跳转。
+  const externals = [...html.matchAll(/<(?!a\b)[a-z][^>]*\b(?:src|href)="(https?:\/\/[^"#]+)"/g)].map((m) => m[1])
   externals.length === 0
     ? pass('无外部 CDN 依赖（离线可用）')
     : fail(`编辑器存在外部依赖：${externals.slice(0, 3).join(', ')}`)

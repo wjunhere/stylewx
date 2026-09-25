@@ -92,7 +92,7 @@ async function processImages(
   }
 
   if (node.children) {
-    for (const child of node.children) await processImages(child, client, result)
+    for (const child of node.children) await processImages(child, client, result, resolveLocal)
   }
 }
 

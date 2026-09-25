@@ -178,7 +178,7 @@ MCP 与 REST 的错误统一为：
 - `data-swx` = 组件名；`data-swx-props` = URL 编码的参数；`data-swx-body` = Markdown 正文容器。
 - 结构化正文（时间线 / 步骤 / 对比表 / 图库 / 轮播 / 点击展开 / 单图）额外把原始正文写进 `data-swx-src`，
   导入时直接取用——DOM 还原对 `- 2023 | 启动` 这类结构化文本会失真。
-- 标记注入集中在 `renderComponent()`（对返回结果的首个元素打标），因此 22 个组件渲染器无需各自改动。
+- 标记注入集中在 `renderComponent()`（对返回结果的首个元素打标），因此每个组件渲染器无需各自改动。
 
 **冒号分配**：导入时先预扫描整棵树的组件最大嵌套层数，再按 `colons = 3 + (maxDepth - depth - 1)`
 分配，保证「外层冒号更多」的语法约定在任意嵌套深度下都成立。
@@ -223,7 +223,9 @@ SVG 属性还原时用白名单保持驼峰（`viewBox` / `preserveAspectRatio`�
 | `save_article` | Markdown 落盘 + 返回 `editorUrl` | 建立「agent 生成 → 人微调」的交接点 |
 
 `tweak_theme` 的纯函数实现放在 `@stylewx/theme`（`tweak.ts`），service 层负责解析主题名、
-校验与可选截图；写入路径限制在 `STYLEWX_ARTICLES_DIR`（默认 cwd）内，防目录穿越。
+校验与可选截图；写入路径限制在 `writeRoots()`（文章根目录 + 用户主目录，可用 `STYLEWX_WRITE_ROOTS`
+追加）内，防目录穿越。编辑器「另存为」弹窗可像文件管理器一样逐层浏览到这些根的任意位置，
+但系统位置（`C:\Windows` 等）天然在主目录之外，不可达 —— 见 §21.11。
 
 ### 交接闭环
 
@@ -266,7 +268,7 @@ editorUrl = <STYLEWX_EDITOR_URL>/editor?file=<绝对路径>
 
 **没有采用「把 144 处硬编码抽成 token」的方案**：那个方案成本高（26 套预置主题要重新校准），
 但自由度只到「组件级」——依然改不了「卡片标题栏」。改为在渲染后做样式合并后处理，做到**部位级**，
-且不需要改动 22 个渲染器的主体逻辑。
+且不需要改动各渲染器的主体逻辑。
 
 **标记的产出是有条件的**：`ctx.slot()` 只在「该组件确实配置了覆盖」时才输出 `data-swx-slot`。
 未配置覆盖时输出与改造前**逐字节一致**（有回归测试比对整篇 showcase 的 HTML）。
@@ -289,7 +291,7 @@ editorUrl = <STYLEWX_EDITOR_URL>/editor?file=<绝对路径>
 
 ### 目标
 
-内置 22 个组件是菜单，自定义组件让它变成**可扩展的**：agent 遇到「内置覆盖不到」的表达
+内置组件是菜单，自定义组件让它变成**可扩展的**：agent 遇到「内置覆盖不到」的表达
 （数据对比条、评分卡、CTA 块…）时，可以先定义一个组件，再在正文里用 `:::名字` 调用。
 
 ### 模板引擎（`packages/components/src/user-component.ts`）
@@ -343,7 +345,7 @@ editorUrl = <STYLEWX_EDITOR_URL>/editor?file=<绝对路径>
 
 ### 改法
 
-**不把内置列表搬到后端**：编辑器手写的 22 个片段带中文标签和贴心的占位值
+**不把内置列表搬到后端**：编辑器手写的组件片段带中文标签和贴心的占位值
 （「封面头图」「整篇画布（包裹全文）」），比自动生成的 `:::cover{...}` 更好用。
 所以只让**自定义组件**走后端：
 
@@ -358,7 +360,7 @@ POST /editor/api/delete-component    → { name }
 ### 为什么值得单独做
 
 这是「agent 生成 → 人微调」闭环里最容易漏掉的一环：agent 造了组件，人却看不见。
-修好之后，人的**可调范围**从「内置 22 个」扩到了「内置 + agent 造的任意组件」，
+修好之后，人的**可调范围**从「内置若干」扩到了「内置 + agent 造的任意组件」，
 而且新增组件**刷新即见**（每次打开面板都重新拉取，无需重启）。
 
 ### 顺带修的一个控制台报错
@@ -488,6 +490,38 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 
 ---
 
+### 19.8 品牌主题同步进主题库（一个「agent 能用、人选不到」的不对称）
+
+**症状**：品牌建好了，编辑器主题下拉里却找不到它。
+
+**原因**：`brand_save` **只把组件写进组件库，没把主题写进主题库**：
+
+```ts
+saveUserComponent(c)   // 组件 → ~/.stylewx/components.json  ✅
+// 主题 → 只写 profile.json，没调 saveTheme          ❌
+```
+
+`profile.json` 是 agent 的真相源（`brand_apply` 会把它交回调用方，这条链一直是通的），
+但**编辑器主题下拉读的是 `themes.json`**。于是出现不对称：agent 自动排版没问题，
+人想在编辑器里切到品牌主题却选不到。实测踩到——`hippie-youth` 品牌装配完整、渲染零错误，
+主题库里就是没有它（老品牌 `ink-ledger` 同样如此，说明是一贯行为，不是偶发）。
+
+**防线**：
+
+1. `brand_save` 保存后调 `saveTheme(theme)`；主题名已被强制对齐为品牌名，覆盖写入幂等。
+2. `brand_apply` 也同步一次——品牌可能是**早期版本**建的（那时只写 profile），
+   或用户手改过 `themes.json`；这里补齐，保证 `brand_apply` 之后编辑器一定能选到。
+3. `BrandStoreOptions` 加 `themesFile`（测试隔离用）。
+4. **测试隔离**：`mcp.test.ts` 的品牌用例原先只隔离了 `STYLEWX_BRANDS_PATH`，
+   现在 `brand_save` 会写主题库，不隔离就会把测试主题 `tide-notes` 写进用户真实主题库。
+   一并隔离 `STYLEWX_THEMES_PATH`。
+5. 断言加在品牌生命周期用例里：`list_saved_themes` 必须能看到该品牌主题。
+   （已验证这条断言有效——临时把 `saveTheme` 去掉，用例立刻报
+   `expected [] to include 'tide-notes'`。）
+
+**注意**：这条只解决「人选不到」。品牌主题与预置主题仍是两件事（见 §21.7 边界二），
+主题库里多一个 `origin: saved` 的条目，不改变「品牌色不进 390px 画布」那条边界。
+
 ## 20. 浏览器登录态发布（绕过 API IP 白名单）
 
 ### 20.1 问题
@@ -551,7 +585,254 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 （`edge://extensions` → Kimi → 详细信息 → 允许访问文件网址），否则上传封面报
 `upload needs Chrome's per-extension file access`。
 
+### 20.7 可编辑性：选通道的第一判据
+
+`draft/add` 写进草稿箱的文章**人在后台改不了**。判据只有一个：
+
+```
+draft/get 取回后，数 `leaf=` 出现次数
+  leaf = 0   → 后台编辑器没认领，整篇是一个外部导入块，能看能删、改不进去
+  leaf > 0   → 编辑器认领过，整篇可编辑
+```
+
+实测样本：`draft/add` 发的草稿 `leaf=0`；浏览器保存的 `leaf=30`；人手工写的 `leaf=49~97`。
+两者在 `draft/get` 里读起来几乎一样，**只有这个计数能区分** —— 曾经因此把一篇文章
+以「看起来正常」的状态发出去，人反馈「改不了」才发现。
+
+**规则：给人看的稿子走浏览器通道；只有不需要人再动手的机器流程才用 `draft/add`。**
+
+### 20.8 cua-driver 通道（Chrome，精确可控）
+
+除 kimi-webbridge 外，还实测了 cua-driver。两者管的是**不同浏览器**：
+
+| | kimi-webbridge | cua-driver |
+| --- | --- | --- |
+| 控制哪个浏览器 | **Edge**（扩展注入） | **Chrome**（CDP 绑定） |
+| 机制 | 扩展在页面里执行 JS（`evaluate`） | CDP 语义快照 + ref 点击 |
+| 会话 | 每次调用必须带同一个 `session` | 每个 session 都要重新 `browser_prepare` |
+| 现成脚本 | `publish-via-browser.mjs` 已封装全流程 | 需自行编排 |
+
+#### 为什么 Edge 不行、Chrome 行
+
+同一台机器、同一版本驱动，只换浏览器：
+
+| | Edge 153.0.4234.48 | Chrome 153.0.8010.53 |
+| --- | --- | --- |
+| `browser_prepare` | ✗ `no exact ... consent prompt appeared` | ✓ `status: ok` |
+| 远程调试开关 | 被自己回滚成 `false` | 保持 `true` |
+| 9222 监听 | 无 | 有 |
+| 绑定 | 失败 | ✓ `binding_quality: exact`、`mutation_allowed: true` |
+| 副作用 | 开设置页、勾开关、抢焦点 | **全部 `false`** |
+
+根因：**Chrome 144+ 有 agent auto-connect 桥**。profile 已在监听时，cua-driver 读
+`DevToolsActivePort` + 校验端口归属进程即可接上，**不需要勾设置、不需要确认框、不需要重启浏览器**。
+Edge 走的是「自动勾选 + 等确认框」那条路，而确认框出现在它的检查窗口之后 → 回滚 → 失败；
+手动点「允许」也无效。
+
+**结论：Windows 上要 CDP 就用 Chrome。**
+
+前置：`mcp.json` 的 cua-driver args 带 `--grant existing-profile`；
+Chrome 的「允许远程调试」开关为 `true`（`Local State` → `devtools`）。
+
+#### 演练过的完整链路
+
+```
+get_browser_state(pid, window_id)          → 绑定，拿 target_id + tab_id
+browser_navigate(target, tab, url)         → 打开页面（refs 失效，必须重新快照）
+get_browser_state(target, tab, query="…")   → 语义快照，拿 ref
+browser_click(ref="p6:0")                  → 后台点击，不抢焦点
+[draft/get 复核]                            → update_time 前进、leaf 不变
+```
+
+全程 `delivery.mode: background`、`foregrounding: not_requested` —— 不打断用户。
+
+#### 六个坑
+
+**① 快照会淹上下文。** 不加 `query` 的全页快照在公众号后台能吐出 3400 行 / 72KB。
+必须用 `query` 或 `max_elements` 收窄。
+
+**② 刷新即失效。** `browser_navigate` 之后旧 ref 全废，必须重新快照再拿 ref。
+
+**③ `active` 是三态。** `true` 唯一证明是选中页、`false` 证明未选中、`null` 是原生证据分不清。
+**`null` 时不要做写操作**，改用直接指定 URL 绕开。
+
+**④ 点列表里的链接会开新标签页**（进的是预览页而不是编辑器）。直接 `browser_navigate`
+到编辑 URL 更可控。
+
+**⑤ kimi-webbridge 不带 `session` 时 `list_tabs` 恒返回空数组**，于是「扩展已连接」
+但「找不到标签页」，很容易误判成断连。所有调用都要带同一个 session。
+
+**⑥ 别用固定 token。** token 是会话级的，Edge 和 Chrome 登同一个号也会不同。
+让页面自己 `location.href.match(/token=(\d+)/)` 取。
+
+### 20.9 安全纪律
+
+- **只用 snapshot 返回的 ref 点击，绝不用文本模糊匹配**（§20.5 的事故）。
+- **删草稿前先列一遍同名条目并逐个确认。** 曾把用户亲手写的原生草稿当「重复」删掉。
+- **不要盲按 `Ctrl+1/2/3` 切标签页** —— 看不清标签栏时靠猜位置，会误关页面。
+  要切标签用 `zoom` 先读标签栏，或用 `browser_navigate` 直接指定 URL。
+- **动剪贴板前先读原值，用完还原。** 曾把测试文本留在用户剪贴板里。
+
 ---
+
+### 20.10 正文嵌入视频：实测结论（2026-09-25）
+
+**结论：`draft/add` 这条路写不出能播的视频；只有浏览器走官方「视频」组件才行。**
+
+#### 已实测：什么能存活、什么不能
+
+用 `draft/add` 写入 5 种候选结构，再 `draft/get` 取回比对：
+
+| 写入的结构 | `draft/get` 取回后 | 真浏览器渲染 |
+| --- | --- | --- |
+| `<iframe class="video_iframe" data-vid=... src=...>` | ❌ **整个 iframe 被删** | — |
+| **`<mpvideo data-vid="apiv_…">`** | ✅ **完整存活**（属性都在） | ❌ **0×0，不可见** |
+| `<mp-common-videosnap data-vid=...>` | ❌ 被剥掉 | — |
+| `<iframe>`（不带 class） | ⚠️ 标签留着、**属性全剥** → `<iframe></iframe>` | 废 |
+| `<section class="video_iframe">` | ✅ 存活 | ❌ 不生成播放器 |
+
+**关键判据：`draft/get` 存活 ≠ 能播。** `<mpvideo>` 是唯一能完整持久化的，但读者端
+它既不进微信的渲染白名单（页面脚本里 `video_iframe` 在列、`mpvideo` **不在**），
+也不被升级成播放器 —— Playwright 实测它的 `getBoundingClientRect()` 是 **0×0**，
+页面里也没有 `mpvideo.qpic.cn` 这个真实视频流域名。
+
+**教训：以后判断「某结构能不能用」，必须走完 `draft/add → draft/get → 真浏览器渲染`
+三步。只做前两步会得出「能用」的错误结论**（`mpvideo` 就骗过了前两步）。
+
+#### 能用的路：素材库 + 浏览器 UI
+
+素材接口是通的，实测可用：
+
+```
+POST /cgi-bin/material/add_material?type=video   → { media_id }
+POST /cgi-bin/material/get_material              → { vid: "apiv_…", down_url }
+```
+
+- 上传成功，`get_material` 能拿到 **`vid`**（形如 `apiv_4709954571878367233`）
+- `batchget_material?type=video` 能列出，`materialcount.video_count` 会 +1
+- **API 上传限制：MP4、10MB 以内**（后台 UI 上传更宽松）
+- 上传后**要过审**才能用；审核状态可用 `get_material` / 查询接口轮询
+
+但**写进正文必须靠浏览器点官方「视频」组件**：编辑器工具栏有
+`视频` / `视频号` 两个入口，弹窗里能看到**我们自己通过 API 上传的那个视频**
+（实测：素材库列表显示 `stylewx 视频通路测试`），选中后由微信自己生成合法结构。
+**API 无法自己拼出那个结构** —— 这也是为什么「上传走 API、插入走浏览器」是唯一组合。
+
+#### 与 SMIL 的分工（别混用）
+
+| | SMIL 内联 SVG | 视频 |
+| --- | --- | --- |
+| 何时开始动 | **打开文章即动** | **必须点一下** |
+| 体积 | ~2.6KB/资产 | 25KB(3s) 起，GIF 更大 16 倍 |
+| 半透明 | ✅ 支持 | GIF 只有二值透明 |
+
+所以要「打开就有生命感」用 SMIL；视频是另一种媒介，不是动效的替代品。
+
+#### Remotion 的定位
+
+Remotion（4.0.52x）实测可用，3s/640×360 出 25.5KB MP4，产物能通过
+`add_material?type=video` 上传（10MB 限制下轻松）。但它**不能产出 SMIL**——
+它是逐帧渲染成视频的框架，官方明确不支持 SMIL/CSS 动画的 SVG。
+**用途是「做视频内容」，不是「替换现有动效资产」。**
+
+> **环境注意**：装 Remotion 时不要在仓库里 `pnpm add`——会把 2400+ 行写进根
+> `pnpm-lock.yaml` 污染 monorepo。要装在**仓库外的独立目录**（或加进 workspace 并
+> 约束），验证完删掉。踩过一次，已还原。
+
+#### B 方案：浏览器脚本自动插入（已实现，待过审视频验证）
+
+`publish-via-browser.mjs --video <名称>` 会在保存前完成插入。**探测到的关键 DOM（真实实测）**：
+
+| 元素 | 选择器 | 备注 |
+| --- | --- | --- |
+| 「视频」工具栏入口 | `li.tpl_item.jsInsertIcon.video` | 精确 class，不必文本匹配 |
+| 弹窗容器 | `.video-select-dialog` | 用**它**作作用域，避免全页误命中 |
+| 素材库条目 | `.more-video__item` | 名称取 `innerText` 第一行 |
+| 未过审条目 | `.more-video__item_disabled` | **必须跳过**，不能硬点 |
+| 底部按钮 | `.weui-desktop-dialog__ft` 里的 `确定` / `取消` | `确定` 未过审时也是 disabled |
+| 三个来源标签 | `素材库` / `视频链接` / `本地上传` | `视频链接` 支持公众号/腾讯视频链接 |
+
+**安全设计（比封面更严）**：只在 `.video-select-dialog` 内查找；条目名用**精确相等**比对
+（防同名误选）；`disabled` 一律跳过；出错时点「取消」回滚而不是留着半开弹窗。
+
+**两个发现改变了设计**：
+
+1. **`本地上传` 走的是原生文件选择器**，页面里不出现 `video` 类型的 `<input type=file>`
+   （只有一个 `accept` 全是图片的隐藏 input）。扩展的 `upload` 驱动不了它 ——
+   所以「绕开 API 的 10MB 限制」这条路**不通**，上传仍必须走 `upload_video`。
+2. **占位标记能活过 ProseMirror。** `data-swx-video` / `data-swx-video-title` 经
+   `execCommand('insertHTML')` 写入后**完整保留**（实测），因此插入点定位可靠。
+
+#### ⚠️ 决定性发现：API 上传的视频**不能用于图文正文**
+
+上一版这里写的是「等审核通过即可」。**实测推翻了它。** 轮询 25 分钟始终 disabled，
+于是去读条目 DOM 里的说明，微信自己写得很清楚：
+
+```html
+<span class="more-video__item-status">上传完成
+  <div class="weui-desktop-popover__desc">
+    API上传完成，可用于自定义菜单、自动回复等场景。
+  </div>
+</span>
+<label><input type="checkbox" disabled="disabled" ...></label>
+```
+
+**「可用于自定义菜单、自动回复等场景」——图文正文不在其中。** 这不是等待中的审核状态，
+是**通道级限制**：`add_material?type=video` 上传的视频，在正文里就是选不中
+（`li.more-video__item_disabled` + `input[disabled]` + 底部「确定」也 disabled），
+**永远如此**，等多久都一样。
+
+**推论**：`upload_video` 工具对「正文嵌视频」**没有用**。它的正确用途是自定义菜单/自动回复
+（这仍是有价值的工具，但描述里不能说「用于正文」）。正文嵌视频只剩这些路：
+人在编辑器点「本地上传」传本地 MP4 —— 因为**本地上传**走的是另一条通道。
+
+#### 本地上传：kimi-webbridge 不行，cua-driver 只能做一半
+
+**kimi-webbridge 完全不行**：点「本地上传」后页面里**不出现任何 `video` 类型的 `<input type=file>`**
+（只有 `accept` 全是图片的隐藏 input，`MutationObserver` 也捕获不到新增）——
+它唤起的是原生文件选择器，扩展无从插手。
+
+**cua-driver 能做的部分**（走**原生 UIA**，不依赖页面 DOM，这是与扩展/CDP 的本质区别）：
+
+| 步骤 | 能否 | 说明 |
+| --- | --- | --- |
+| 找到原生「打开」对话框 | ✅ | 它是 Chrome 的**独立子进程窗口**（pid ≠ 浏览器主进程），要按标题全桌面找 |
+| 滤掉幽灵窗口 | ✅ | 见下 |
+| 命中「文件名」输入框 | ✅ | UIA `ValuePattern.SetValue`，写完可回读核对 |
+| **点「打开」确认** | ❌ **不行** | 见下 |
+
+**为什么确认点不了**（这是本节的结论核心）：后台投递会**假成功**——
+`click` 返回 `{"delivery":{"mode":"background"},"effect":"unverifiable"}` 看似 OK，
+但对话框不关、文件不进；坐标点击直接报 `background_unavailable / uia_status: unavailable`。
+试过且都无效的路径：`bring_to_front` 后再 Invoke、聚焦输入框 + `press_key Enter`
+（`delivery_failed`，升 foreground 也无效）、`escalate_session`（`invalid_escalation_reason`）、
+`get_desktop_state`（返回 0 元素，拿不到桌面层）。
+
+**所以正确形态是「机器填好、人按回车」**（`scripts/lib/native-file-dialog.mjs`）：
+机器负责找窗口、滤幽灵、命中输入框、拼对路径、回读核对；人负责最后那下回车。
+**不要把它写成「全自动」** —— 曾写成自动点确认并报告成功，但那**不可复现**
+（当时窗口恰在前台才蒙对）。一个「有时能用」的自动化比没有更糟：
+它会半途停下，留下一个开着对话框的编辑器。
+
+**两个实测踩到的坑**：
+
+1. **幽灵窗口**：浏览器进程被杀后，它的「打开」对话框会**残留在系统窗口列表**里，
+   标题完全相同，但只有 5 个元素、没有文件名框。只按标题取第一个会拿到死的那个。
+   判据要用「有文件名框 + 有确认按钮」。
+2. **`element_token` 每次快照都在变**：实测 `s00000027:121` → `s00000028:121`，
+   只有后半截索引稳定。所以写入后的回读**不能按 token 比对**，要按 role+label 重新定位。
+
+所以 B 方案的最终结论：**脚本能正确定位、开窗、识别、回滚（这些都已验证），
+但在「API 上传的视频」这条数据源上注定插不进去**。要真正跑通，得先解决视频从哪来：
+
+| 视频来源 | 能否用于正文 | 备注 |
+| --- | --- | --- |
+| `add_material?type=video`（API） | ❌ **不能** | 微信明说限菜单/自动回复 |
+| 编辑器「本地上传」 | ✅ 能 | 原生选择器：扩展不行，**cua-driver 走 UIA 可以** |
+| 视频号已发布视频 | ✅ 能 | 需先有视频号内容 + 授权 |
+
+**`--video` 参数的代码保留**：逻辑正确、安全约束完整，一旦视频进了素材库的「可正文使用」
+状态（例如人先用本地上传传过一个），它就能工作。但当前**没有可用的自动化数据源**。
 
 ## 21. 品牌体系（方向 B · 协议 Protocol）
 
@@ -604,13 +885,35 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 「强调预算」管的是装饰（眉毛小标、分隔、背景铺色）；**选中态、聚焦环、状态色不算预算**，
 它们是控件状态，一个都不能省。这样一屏里可以同时看到蓝色描边和蓝色实底，而不会显得花。
 
-### 21.4 分层只靠发丝线，投影全部取消
+### 21.4 分层：发丝线管边界，柔影管纵深
 
-原来有三层蓝色投影（侧栏、顶栏、主按钮），叠在浅灰底上互相污染，边界反而更糊。
-`--shadow` 与 `--shadow-lg` 现在都是 `none`。
+这条规则在「柔结构」改版（2026-09）时反过一次，两边的理由都留在这里。
 
-代价要说清：白面与纸底的明度差只有 **1.6%**，所以 1px 描边撑住边界，
-**描边不能删，也不能调得更浅**。
+**旧规则（`--shadow:none`）**：原来有三层蓝色投影（侧栏、顶栏、主按钮），叠在浅灰底上互相污染，
+边界反而更糊，所以当时把投影全砍了。
+
+**新规则（现在）**：投影回来，但换了个性质 —— 不再当「蓝色的强调」用，而当「环境光」用：
+中性色相（从 `--fg` 混出）、极低透明、大半径扩散，且 `--shadow` / `--shadow-lg` /
+`--lift-1/2/3` 三档各司其职（卡片静置 / 浮层 / 弹窗）。
+这是「柔结构」视觉的签名，少了它整个界面就退回「加了描边的扁平」。
+
+代价要说清：白面与纸底的明度差只有 **1.6%**，所以 1px 描边照旧撑住边界，
+**描边不能删，也不能调得更浅**；柔影只负责纵深，不负责边界，两者不互相替代。
+输入控件另有一套「凹槽」材质（`--plane-3` 底 + `--inset-shadow` 顶边内阴影），
+与「浮起的卡」方向相反，两个方向都要有，界面才有纵深。
+
+机器闸门：`check-editor.mjs` 现在断言柔影必须存在、至少两层、且从令牌混出
+（硬编码 rgba/hex 一律拒绝），而不是断言 `none`。
+
+### 21.4.1 柔结构的其余签名（同样被 check-editor 守住）
+
+| 签名 | 令牌/规则 | 为什么 |
+| --- | --- | --- |
+| 面层级 | `--plane-1..4` | 纸底/白面/凹槽/深槽四档，控件陷、卡片浮 |
+| 圆角档 | 8 / 12 / 18（`--m-r/--radius-sm/--radius`） | 大圆角 + 同心内角（外 18 配内 12） |
+| 缓动 | `--ease: cubic-bezier(.32,.72,0,1)` | 禁止 linear / ease-in-out（无质量感） |
+| 字号阶 | `--fs-micro/cap/body/lead/title` 五档 | 层级靠字重与颜色拉，不靠字号暴涨 |
+| 入场动画 | `pop`（下拉）/ `sheet`（弹窗） | 只动 transform/opacity，GPU 安全 |
 
 ### 21.5 标志：校验帧 + 端点
 
@@ -687,7 +990,9 @@ PNG 是给 GitHub 与 npm 用的：GitHub 渲染 SVG 时对 `<style>` 有限制�
    示例里的 `example.com` 要换成内联 SVG，不然改个参数预览就变一张裂图。
 
 圆角档位从 10/14px 收到 **6/8/12px**（`--m-r` / `--radius-sm` / `--radius`），与品牌体系一致。
+（柔结构改版后调为 **8/12/18px**，见 §21.4.1。）
 触控高度：工具条按钮 32px、侧栏项 40px、主按钮 / 发布 40px+。
+（柔结构改版后工具条 34px、按钮 38px，仍是文档 ≥32 的达标值。）
 
 ### 21.9 校验条为什么要胶囊
 
@@ -702,3 +1007,284 @@ PNG 是给 GitHub 与 npm 用的：GitHub 渲染 SVG 时对 `<style>` 有限制�
 一个用词约束：「灰档」是产品里的**专有概念**，特指微信草稿 API 实测会保留、
 但读者端需真机核对的 CSS 属性。其余警告（如 `image-count-zero`）只能说「警告」，
 不能借用「灰档」这个词，否则用户会以为都是同一类问题。
+
+### 21.10 柔结构改版（全元素级）
+
+用户反馈「界面粗糙，要高级精致」，参考 soft-skill（Soft Structuralism：冷纸/白底、
+漫射环境影、Double-Bezel 嵌套、自定义缓动）做了一次全元素改版。六令牌与色系**一字未改**
+（用户要求色系保持一致；且 check-contrast 锁死六令牌值）。
+
+改了什么（每个面都能在截图里对上）：
+
+- **材质**：新增面层级（`--plane-1..4`）与柔影三档（`--lift-1/2/3`），输入控件换「凹槽」材质
+  （§21.4 / §21.4.1）。纸底叠两层极淡径向渐变，让白卡有「纸的厚度」。
+- **主题管理面板**（用户点名最简陋的一处）：从 260px 单列改为 328px 分节卡片
+  （字体 / 字阶 / 颜色三张内嵌卡）+ 自绘滑杆（填充段用 `--fill` 运行时变量）+ 色块行 +
+  粘底动作条；「已保存的自定义主题」从「• 名字」纯文本升级为行卡片
+  （色板 + 名字 + 当前标记，**点击即切换**，原来这个列表根本不能点）。
+- **弹窗统一规格**：标题 + 副标题 + 圆形关闭按钮（hover 旋转 90°）+ 凹槽输入 +
+  `::file-selector-button` 拉齐全站按钮 + 遮罩加一次轻模糊（只用在 fixed 遮罩上）。
+- **入场动画**：下拉 `pop`（从入口向下生长）、弹窗 `sheet`（从深处升起）、
+  toast 改为「从底下浮上来」，全部只动 transform/opacity。
+- **图标**：撤销/重做的裸文本 `↶ ↷`、新建的 `＋`、弹窗关闭的 `×` 全部换成同一套内联 SVG；
+  线宽按「有效线宽」归一（24 网格，14–20px 渲染 → CSS 属性选择器覆盖 presentation attribute）。
+  代价：多一条 CSS 规则；收益：30 个图标终于像一套。
+- **文案**：弹窗头部补一句副标题（原来标题不说人话，如「插入视频」不提为什么只能占位）；
+  快捷键弹窗的提示与副标题重复，改为冲突规则说明；可见文本中的破折号改写。
+
+**没有做的，和为什么**：
+
+- 不引外部图标库/字体（taste-skill 禁手写 SVG，但自包含是硬闸门，无 CDN 可用；
+  记录为有记录的 override）。
+- 不做暗色主题：深色模式按钮模拟的是**微信读者端**的暗色，不是编辑器自己的主题，
+  两者混用会破坏「品牌色不进 390px 画布」的边界。
+- 不用 AI 默认的紫色渐变/居中 Hero 那一套：这是工具界面，可预测性优先（DIAL：
+  VARIANCE 4 / MOTION 4 / DENSITY 5）。
+
+**验证方式**：`node packages/preview/scripts/ui-shots.mjs <目录>` 把 19 个面（主界面、
+顶栏三浮层、工具条两浮层、7 个弹窗、空态、两档窄屏、toast）各拍一张，
+改前改后各跑一次逐面对比；脚本只依赖 Playwright 与 3777 端口的编辑器，不进 CI。
+
+## 22. 踩过的坑（全量）
+
+按「症状 → 原因 → 防线」记，都是真实发生过的。
+
+### 22.1 `initialize` 握手版本号停在 0.1.0（三个版本没发现）
+
+**症状**：每个装了 stylewx 的人，在 MCP 客户端 `serverInfo` 里看到的版本都是 `0.1.0`，与 npm 对不上。
+
+**原因**：`apps/mcp-server/src/server.ts` 里写着 `export const SERVER_VERSION = '0.1.0'`，
+**从首个版本起就没跟过 `package.json`**。
+
+**为什么没被发现**：单测用 in-memory 传输，从不读握手返回值；`smoke-stdio.mjs` 虽然起了真实进程、
+连了真实 Client，却只断言工具列表与行为，**没断言版本**。"有真实进程"和"覆盖了真实契约"是两件事。
+
+**防线**：`server.ts` 改为从包元数据读（源码与 `dist/` 下 `../package.json` 都解析到正确位置）；
+`mcp.test.ts` 与 `smoke-stdio.mjs` 都断言握手版本等于 `package.json`；
+新增 `check:artifact`（§3.2）并接进 `pnpm release`。
+
+**更重要的教训**：我是**发完 0.4.0 才去验证已发布产物**时发现的，只能补发 0.4.1。
+**验证必须发生在不可逆动作之前。**
+
+### 22.2 `check:pack` 本地不幂等
+
+**症状**：本地连跑两次报 `✗ 存在未能对应到任何包的 tarball：stylewx-validator-0.4.0.tgz`。
+
+**原因**：它不清理 `pack-out/`，上一轮 tarball 被 `verify-pack.mjs` 当成"未能对应到任何包"。
+**CI 遇不到**，因为每次是新检出、`pack-out/` 天然为空。
+
+**防线**：`check:pack` 前置清理。用 `node -e "require('fs').rmSync(...)"`，**不要用 rimraf** ——
+这个仓库并没装它（原 `clean` 脚本里的 rimraf 同样是坏的）。
+
+**教训**：**只在 CI 跑的脚本，在本地可能是坏的。** 本地会累积状态，CI 不会 ——
+"CI 一直绿"不能证明脚本健壮。
+
+### 22.3 引用了从未定义的 CSS 变量
+
+**症状**：编辑器 AI 弹层选中态颜色不对（继承色而非品牌色）。
+
+**原因**：`.ai-chip` / `.ai-selinfo` / `.ai-prompt:focus` 引用了 `--blue`，而它**从未在 `:root` 定义过**。
+CSS 对未定义变量不报错，静默回退。
+
+**防线**：`scripts/brand/check-editor.mjs` 扫描所有 `var(--x)` 并比对已定义集合。
+**教训**：CSS 自定义变量的拼写错误是静默的，必须有脚本兜。
+
+### 22.4 同权重选择器让禁用态看起来可点
+
+**症状**：组件库弹层里禁用按钮仍渲染成实底深色，像是能点。
+
+**原因**：新加的 `.btn.ink`（墨色实底）与既有 `.btn:disabled` **特异性相同**，而后者写在前面，被盖掉了。
+
+**防线**：禁用态与每个实底变体**成对声明**：
+
+```css
+.btn.ink:disabled { background: color-mix(in oklch, var(--fg) 34%, var(--bg)); ... }
+```
+
+混色对象用 `--bg` 而非无彩的 `--surface`，避免在 oklch 插值里跑出怪色相。
+
+### 22.5 专有概念被挪用到别的语义上
+
+**症状**：校验条把 `[image-count-zero]`（正文没有图片）也标成「灰档」。
+
+**原因**：「灰档」是**专有概念** —— 特指微信草稿 API 实测会保留、但读者端需真机核对的 CSS 属性。
+用它描述普通警告，会让人以为两类问题是一回事。
+
+**防线**：只有 `[css-property-gray]` 能叫「灰档」，其余显示为「警告」。
+**教训**：领域词进了 UI 就是术语，不能当形容词用。
+
+### 22.6 其它值得知道的
+
+- **不要靠"写在后面"赢同权重样式** —— 见 `docs/DESIGN.md` §18.1。
+- **`prop()` 判空用 `||` 不用 `??`** —— 它缺省返回**空串**，`??` 对空串无效。见 §19.6。
+- **原生 `FormData` 在 undici 下 body 会被吞**（微信报 41005）—— 见 §19.7。
+- **自动化点「确认类」按钮很危险** —— 曾用 opencli 的 `click --text "下一步"`，该参数精确匹配失败时
+  会**退化模糊匹配**，结果点到「退出登录」导致账号登出。定位必须精确唯一并配危险名单兜底。见 §20.5。
+- **直接调 `renderMarkdownToHtml` 会漏掉自定义组件** —— `renderPreview` / `renderFragment` 都经过
+  `safeUserComponents()`，不传就从 `~/.stylewx/components.json` 兜底读；而绕过它们直接调核心渲染时
+  必须自己传 `userComponents`，否则 `:::我的组件` 会被当成普通文本渲染，只报一条
+  「未知组件」，看着就像组件坏了。组件库预览曾因此五个自定义组件全部不渲染。
+- **`package.json` 的 `files` 写错 npm 不报错** —— 只是安静地少打包，运行时才炸。
+  所以有 `verify-pack.mjs` 把 tarball 拆开看。
+- **直接 import 的包必须自己声明依赖，靠传递依赖在 monorepo 里能跑通、在产物里必断** ——
+  workspace 链接是平的，`@stylewx/preview` 作为 service 的传递依赖在 dev 环境能解析到，
+  于是 mcp-server 直接 import 它却没写进自己的 dependencies，也没人发现；
+  直到 `check:artifact` 起真实产物进程才报 ERR_MODULE_NOT_FOUND。
+  单测、`check:pack` 都查不出来，因为它们不解析依赖图。规则：**写一行 import 就补一行声明**，
+  拿不准就看 `check:artifact`（它就是为这类「装上产物才暴露」的问题存在的）。
+- **flex 容器里的 `vertical-align` 是死属性** —— flex item 会被 blockify，`vertical-align`（以及
+  `text-align`、`float`）对它们无效。工具条「上标/下标」两个按钮曾因此渲染成**一模一样**：
+  `x<sup>2</sup>` 里的 `<sup>` 成了 flex item，`vertical-align:super` 被忽略。
+  防线：这类行内内容要包一层元素还原行内上下文（`editor.html` 工具条上标/下标那两个按钮上就带着这条注释）。
+  半连的另一个坑：sup/sub 还会把**行盒撑高**，于是 `x²` 与 `x₂` 的 x 不在同一水平线（实测差 2.83px），
+  还得给 sup/sub 加 `line-height:0` 把它们从行盒高度计算里摘出去。两个坑合起来才算真对齐。
+
+### 22.7 写跨平台 Node 脚本会碰到的五件事
+
+写 `scripts/ci/verify-artifact.mjs` 时全踩了一遍。不是本仓特有的 bug，但会反复消耗时间。
+
+**① `execFileSync('pnpm', ...)` 会 ENOENT**：`D:\Nodejs\pnpm` 是 **POSIX shell 脚本**
+（真入口是 `pnpm.CMD`），不经 shell 执行不了。要么 `shell: true`，要么直接调 `.cmd`。
+同理别假设 `python`/`python3`/`tar` 背后是什么（实测 `python3` 是 Store 空壳）。
+
+**② GNU tar 会把 `C:\path` 当远程主机**（`Cannot connect to C: resolve failed`）：
+盘符冒号被当成 `host:path`。解法是**传文件名 + 把 cwd 设成目标目录**，
+而不是传 Windows 绝对路径 —— 比依赖 `--force-local`（GNU 专属）更稳。
+
+```js
+execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work })
+```
+
+**③ ESM 不读 `NODE_PATH`**：那是 CJS 的机制，而本仓全是 ESM。要让解包出来的包用上仓库依赖，
+得像 pnpm 一样做链接（`symlinkSync(real, target, 'junction')`，junction 在 Windows 上不需要管理员权限）。
+
+**④ `require.resolve('<pkg>/package.json')` 常会抛错**：现代包普遍用 `exports` 限定路径，
+很多只开放 `"."`（抛 `ERR_PACKAGE_PATH_NOT_EXPORTED`）；双入口包更麻烦，`require.resolve(dep)`
+会去要 `dist/cjs/index.js`，而该文件可能根本没装。
+**结论：找依赖目录就直接查文件系统** —— 逐层向上看 `node_modules/<dep>/package.json` 在不在，
+与 Node 自身查找规则一致，且绕开 `exports` 与双入口问题。
+
+**⑤ 「本地过、CI 挂」几乎总是环境依赖 —— 用一个干净环境复现。** 最隐蔽的一条。
+`verify-artifact.mjs` 在 Windows 本地全绿，推 CI（Linux）报
+`Cannot find package '@modelcontextprotocol/sdk' imported from /tmp/.../probe.mjs`。
+原因是探针自己也要 import SDK，而 ESM 从**脚本所在目录**向上找 `node_modules`：
+探针放在临时目录根部，向上会走到 `%TEMP%` → 用户目录 → 盘根，于是 Windows 上**盘根恰好有
+`C:\Users\wjun\node_modules`（意外残留）而侥幸通过**，Linux 一路到 `/` 都没有就失败。
+这不是"CI 环境有问题"，是代码依赖了机器上碰巧存在的东西 —— 把探针放进被测包目录（命中 junction）即可。
+
+验证方法：`mv ~/node_modules ~/node_modules.bak && pnpm check:artifact && mv ~/node_modules.bak ~/node_modules`。
+
+**教训**：凡是"在本地能过"的判断，先问一句 *它是不是蹭到了本机环境？*
+临时目录、盘根、用户目录都是容易被意外蹭到的地方。
+
+### 22.8 内联 SVG + SMIL 写动效资产会碰到的七件事
+
+微信正文禁 JS、禁外链动画，**内联 SVG + SMIL 是唯一真能动且实测存活的通道**。写
+`assets-src/gen-motion.mjs`（Hippie 青年的头/尾图与 logo）时这些坑各踩了一遍。
+
+**① 缩放不能用「绝对坐标 × s」。** 给灯头写 `g(v) = v * s` 会把灯心搬到 `(x·s, y·s)`，
+和灯柱的弧头脱开，`s` 越大偏得越远。要用 `transform="translate(x y) scale(s)"`
+先搬原点再缩放。**只在 1 倍下看一眼是发现不了的** —— 必须把 s ≠ 1 的实例都截出来。
+
+**② 父级挂了 `<animateTransform transform>` 时，子树里的静态 `transform` 会让整棵子树消失。**
+不是动画失效，是**图形整个不见**。原本想用「外层 g 做位移入场 + 内层 g 做静态 scale」两层结构，
+结果剪影完全画不出来。当时建了 case1..4 对照组才定位到：唯独这一组合什么都渲染不出。
+解法是**把坐标在生成器里烘成绝对值**，只让一个元素承载动画。
+
+**③ 深色底上「大面积 + 低透明」的暖色会调出脏灰。** 夜蓝 `#0A2A6B` 上叠一层
+`opacity:0.13` 的暖橘，实测变**芥末灰**。光晕在浅色头图里好看，在深色 logo 里就是泥。
+
+**④ logo 不是插画。** 第一版把整幅插画（灯柱 + 光晕 + 渐层天空）塞进 logo，
+`240px` 尚可，`48px` 糊成一团。**判据是缩放对照表**：把同一份 SVG 在 240 / 120 / 48px
+并排截出来再决定（`assets-src/contact.mjs` 就是干这个的）。logo 只留一个形、实心、高对比；
+光晕、渐变、呼吸这类「气氛」留给头图。
+
+**⑤ 别忽略画布裁切。** 灯罩半圆的顶端是 `y − 30·s`；`y=14, s=0.7` 时顶端为 `−7`，
+会被 viewBox 切平。SVG 不会报错，只会安静地切掉。
+
+**⑥ 灯头坐标必须等于 `灯柱 x + bend`。** `hip-end-a` 里灯柱写 `x=60, bend=-26`（弧头在 34），
+灯头却写 `x=86` —— **整盏灯向右飘了 52 单位**，而且全套 9 处灯里只有这一处不一致，
+所以尤其难发现。改灯柱参数时要同时改灯头，两者没有联动。
+
+**⑦ 同色相邻会“吃”掉形状。** logo 里白色的双腿正好压在同样白色的地平线上，
+腿直接消失。不同结构用同一颜色时必须降对比分层（地平线用 `opacity:0.45`）。
+同理：底色 `#0A2A6B` 上做暖色光晕会被调成芥末灰，要么缩小面积提高不透明度，要么改实心块。
+
+> 动效资产的可复用产物在 `docs/assets/brand-motion/`（SVG 源 + 组件模板 + 静帧），
+> 生成器是 `assets-src/gen-motion.mjs`，品牌档案 `~/.stylewx/brands/hippie-youth/`。
+> 本项目已定稿 **方案 A「归途」**（`hip-head-a` + `hip-end-a` + 抽象画青年 logo）。
+
+## 23. 手动验证脚本（不参与 CI）
+
+改动相关模块时按需跑。这些脚本不进 CI，所以**本地坏了不会有人发现** —— 跑之前先确认它还能用。
+
+| 脚本 | 验证什么 |
+|---|---|
+| `apps/mcp-server/scripts/verify-agent-workflow.mjs` | 模拟 agent 分步工作流（真实 MCP stdio）：微调主题 → 逐段 → 整篇 → 落盘 → editorUrl 读回 |
+| `apps/mcp-server/scripts/verify-handoff.mjs` | `save_article` 落盘后从编辑器端点读回（需编辑器在 3777 运行） |
+| `apps/mcp-server/scripts/verify-html-roundtrip.mjs` | 本地往返：渲染 → HTML 回导 → 再渲染，比对组件标记与纯文本 |
+| `apps/mcp-server/scripts/verify-wechat-showcase.mjs` | 真实微信端到端：发布 → 取回 → 核对组件存活 + 回导还原 |
+| `apps/mcp-server/scripts/publish-via-browser.mjs` | 浏览器登录态发布（免 IP 白名单，含封面上传） |
+| `scripts/comparison/run.mjs` | 品牌记忆 + 多组排版策略对比（4 篇 × 4 组），输出截图与量化指标 |
+| `packages/preview/scripts/test-editor-*.mjs` | 编辑器 E2E（导入 / 同步滚动 / 交接 / 组件面板，需 Playwright + 3777 运行） |
+| `packages/preview/scripts/capture-hero.mjs` | 重截 README 配图 `docs/assets/editor-preview.png` |
+| `apps/mcp-server/scripts/probe-mermaid-wechat.mjs` | mermaid 图真实微信链路（draft/add → get 回读，会写一条 [probe] 草稿） |
+| `packages/preview/scripts/ui-shots.mjs` | 编辑器 19 个面（主界面 / 浮层 / 7 弹窗 / 空态 / 窄屏 / toast）各拍一张，改前后逐面对比 |
+
+## 24. Mermaid 图（:::mermaid）
+
+工具栏「Mermaid 图」插入 `:::mermaid` 源码块，正文就是 mermaid.live 同语法
+（flowchart / sequence / class / state / ER / gantt / pie / mindmap / timeline / journey 十类已实测）。
+
+**渲染架构（为什么这么绕）**：
+
+1. `@stylewx/components` 的 mermaid 组件只渲染**占位符**（同步、无 DOM，图源码 base64url 进
+   `data-swx-mermaid`；占位符必须是叶子节点，service 靠正则整块替换）。
+2. `@stylewx/service` 的 renderPreview 在校验**之前**调 `inlineMermaidDiagrams`：
+   交给 `@stylewx/preview` 在 Chromium 里跑**官方 mermaid**（node_modules 注入，无 CDN）→
+   SVG → canvas 位图化（2x 白底 PNG）→ `saveImageAsset` 落资产库 → 替换成 `<img src="/editor/api/asset/…">`。
+3. 发布时 relocate 把资产 URL 搬到微信素材库（与用户上传的截图同一条已验证通道）。
+   编辑器防抖 300ms 一发渲染，靠内存缓存 + 资产文件内容寻址兜底。
+
+**为什么必须出 PNG 而不是内联 SVG**：mermaid SVG 依赖大量 id（url(#…) / marker / clipPath），
+微信剥 id（validator 的 `svg-url-ref-broken` 会直接报错），SVG 原样发到读者端必裂。
+
+**三个实测踩到的坑**（2026-09，修的都是既有管线的 bug）：
+
+- **`escapeAttr` 不转义 `>`**（有意为之，带引号的属性值里 `>` 合法），于是 `data-swx-src` 里的
+  mermaid 箭头 `-->` 会把天真正则 `[^>]*>` 的「标签结束」提前截断。service 的占位符正则必须写成
+  `(?:"[^"]*"|[^>"])*` 风格吞掉整个带引号属性。
+- **`relocate.ts` 递归漏传 `resolveLocal`**：`processImages(child, client, result)` 少了第四个参数，
+  导致所有嵌套在 section 里的正文图片（第 1 层起）发布时都走 HTTP 下载而不是本地资产解析。
+  相对资产 URL 在 `new URL()` 直接 throw —— 也就是说**修复前用户的本地图发布时根本搬不动**。
+- **multipart 结束 boundary 前缺 CRLF**：`client.uploadMaterial` 的图片分支在数据 part 后直接接
+  `--boundary--`，视频分支反而有前置 `\r\n`。微信对 add_material 的文件嗅探按规范解析时
+  文件尾损坏，报 40113 unsupported file type（同字节手工加 `\r\n` 直连即成功）。
+  这是「上传图片偶发 40113」的根源。
+
+**验证**：`node apps/mcp-server/scripts/probe-mermaid-wechat.mjs` —— 渲染 → 真实 draft/add →
+draft/get 回读，断言 `<img src="mmbiz…">` 存活且无 `url(#` 引用（会真实写一条 [probe] 草稿，可删）。
+
+## 25. 编辑器「另存为」：文件管理器式选位置
+
+**两代实现，第一代有真问题**：
+
+1. 最初用 `window.prompt` 问文件名 —— 被 Chrome 的「阻止此页面创建更多对话框」
+   静默禁用后 `prompt()` 直接返回 null，前端静默退出，表现为「点了没反应」
+   （而且连提示都没有）。本地 Web 应用**不要用原生对话框**做关键交互。
+2. 第一版弹窗只能选文章根目录内的位置 —— 用户合理质疑：为什么不能像文件管理器
+   一样选任意路径？
+
+**现行设计（便利与安全的折中）**：
+
+- 浏览范围 = **允许写入的根**（`writeRoots()`：文章根目录 + 用户主目录，
+  可用 `STYLEWX_WRITE_ROOTS` 追加，如把文章库放其他盘）。弹窗从「此电脑」层
+  （列出允许根）逐层进入，行为对齐文件管理器；上次保存位置优先打开。
+- **为什么不全盘开放**：编辑器是 HTTP 服务（localhost:3777），`/editor/api/*`
+  能被本机任意浏览器页面以 CSRF 方式打 —— 全盘写 = 任何网页可写启动项/SSH config。
+  主目录白名单已覆盖「文章放哪都行」的常见场景，系统位置天然在主目录之外。
+- `list-dir` / `make-dir` / `save-file` 三个端点共用同一道 `isInsideAnyRoot` 闸门；
+  盘根符号链（`c:` → `c:\`）在前端 `joinPath`/面包屑里统一处理。
+
+**教训**：加「目录浏览」这类能力时，浏览是只读的可以放宽，但**写入口子必须白名单**；
+且白名单的默认值要覆盖 90% 的真实需求（主目录），否则用户会反过来要求全盘开放。

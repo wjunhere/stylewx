@@ -29,6 +29,28 @@
     --fg-hover:color-mix(in oklch, var(--fg) 85%, var(--bg));
     --fg-line:color-mix(in oklch, var(--fg) 30%, var(--border));
 
+    /* 面层级（柔结构的地基）：纸底 → 白面 → 凹槽 → 深槽，共四档。
+       凹槽用来放输入控件与代码块。控件「陷进去」、卡片「浮起来」，
+       两个方向都有，界面才有纵深，而不是一堆同层级的白盒子。 */
+    --plane-1:var(--bg);
+    --plane-2:var(--surface);
+    --plane-3:color-mix(in oklch, var(--fg) 3.2%, var(--surface));
+    --plane-4:color-mix(in oklch, var(--fg) 6%, var(--surface));
+    /* 凹槽的顶边内阴影：输入框「内陷」的错觉来自这一条，不是边框 */
+    --inset-shadow:inset 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent);
+
+    /* 柔影（柔结构的签名）。三条硬规则，缺一条就不像柔结构：
+         1. 必须带色相：纯黑投影压在冷纸底上会发灰脏，所以掺一点纸底的色相；
+            看起来是环境光，不是灰雾。
+         2. 必须扩散：近影定边界 + 大半径低透明定浮起，两层缺一不可。
+         3. 必须分层级：卡片/面板/弹窗三档各不相同，不能一个值走天下。
+       发丝线仍然保留：线管边界，影管纵深，两者不互相替代。 */
+    --shadow:0 1px 2px color-mix(in oklch, var(--fg) 4%, transparent), 0 6px 16px -6px color-mix(in oklch, var(--fg) 9%, transparent);
+    --shadow-lg:0 2px 4px color-mix(in oklch, var(--fg) 4%, transparent), 0 16px 40px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+    --lift-1:var(--shadow);              /* 卡片、面板：静置 */
+    --lift-2:0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent), 0 12px 28px -10px color-mix(in oklch, var(--fg) 12%, transparent);
+    --lift-3:0 2px 6px color-mix(in oklch, var(--fg) 6%, transparent), 0 32px 64px -20px color-mix(in oklch, var(--fg) 20%, transparent);
+
     /* 深色不是主题，是材质：代码/终端块、封面底、图片占位四处共用同一个深色 */
     --dark:oklch(17% .012 255);
     --dark-surface:oklch(21.5% .014 255);
@@ -56,22 +78,49 @@
     --brand-sub:var(--accent-soft);
     --blue:var(--accent);
 
-    --sidebar-w:236px;
-    /* 圆角档位：6 / 8 / 12，与品牌体系一致（原来是 10 / 14） */
-    --radius:12px; --radius-sm:8px; --m-r:6px;
+    --sidebar-w:252px;
+    /* 圆角档位 8 / 12 / 18：柔结构要的是「大圆角 + 同心内角」。
+       外角 18 只能配内角 12（差 6），乱配会出现两条不平行弧线。 */
+    --radius:18px; --radius-sm:12px; --m-r:8px;
     --mono:ui-monospace,"SFMono-Regular","JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
     --serif:'Iowan Old Style','Charter',Georgia,'Songti SC','Source Han Serif SC',serif;
 
-    /* 分层不再靠投影：白面与纸底明度差只有 1.6%，必须由 1px 描边撑住边界 */
-    --shadow:none;
-    --shadow-lg:none;
+    /* 字号阶：柔结构靠字重与颜色拉层级，不靠字号暴涨。五档够用。 */
+    --fs-micro:10.5px;
+    --fs-cap:11.5px;
+    --fs-body:12.5px;
+    --fs-lead:14px;
+    --fs-title:16px;
+
+    /* 动效：禁止 linear / ease-in-out。全部走同一条「重物落定」曲线，
+       快出慢入，让面板有质量感；90ms 的按压反馈另行变速。 */
+    --ease:cubic-bezier(.32,.72,0,1);
+    --ease-out:cubic-bezier(.16,1,.3,1);
+    --t-fast:140ms;
+    --t-base:220ms;
+    --t-slow:340ms;
+
     color-scheme:light;
     accent-color:var(--accent);
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
-  body{font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--fg);overflow:hidden;-webkit-font-smoothing:antialiased}
+  body{font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:var(--fg);overflow:hidden;-webkit-font-smoothing:antialiased;
+    /* 纸底不是纯平涂：叠两层几乎看不见的冷色径向渐变，白面卡片浮上去才有「纸的厚度」。
+       平涂时白面与纸底只差 1.6% 明度，纵深就得全靠投影硬撑。 */
+    background:var(--bg);
+    background-image:radial-gradient(1200px 620px at 12% -8%,color-mix(in oklch,var(--accent) 3%,transparent),transparent 58%),radial-gradient(900px 520px at 96% 4%,color-mix(in oklch,var(--fg) 2%,transparent),transparent 55%);
+    background-attachment:fixed}
   button{font:inherit}
+  /* 图标线宽全局归一（taste-skill：一页只能有一套图标族）。
+     历史上这条限只给工具条（§21.8 第 8 条，2.4/24 ≈ 1.5px 有效线宽），
+     后来发现同一屏里 1.06px 与 1.5px 混用才是真正的「不像一套」。
+     所以这里按「有效线宽」统一，而不是按原始值：24 网格、15px 渲染时 2.4→1.5px，
+     16px 渲染时 2.25→1.5px。CSS 属性选择器覆盖 presentation attribute（零特异性，可被任何类覆盖）。 */
+  svg[stroke-width]{stroke-width:2.3}
+  svg[viewBox="0 0 24 24"][width="14"],svg[viewBox="0 0 24 24"][width="15"]{stroke-width:2.4}
+  svg[viewBox="0 0 24 24"][width="16"],svg[viewBox="0 0 24 24"][width="18"]{stroke-width:2.2}
+  svg[viewBox="0 0 24 24"][width="20"]{stroke-width:1.9}
   /* 选中文字与滚动条：一并声明，避免深色块里出现浏览器默认蓝 */
   ::selection{background:var(--accent);color:var(--surface)}
   .dark-panel ::selection,.comp-src ::selection{background:var(--dark-accent);color:var(--dark)}
@@ -80,116 +129,186 @@
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:var(--border);border:3px solid transparent;background-clip:content-box;border-radius:999px}
   ::-webkit-scrollbar-thumb:hover{background:color-mix(in oklch,var(--muted) 55%,var(--border));background-clip:content-box}
-  :focus-visible{outline:2px solid var(--fg);outline-offset:2px}
-  .app{display:flex;gap:14px;padding:14px;height:100vh}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--m-r)}
+  .app{display:flex;gap:16px;padding:16px;height:100vh}
+
+  /* ── 通用内陷槽 ────────────────────────────────────────────────────
+     柔结构的核心手法之一：输入控件不是「白底 + 描边」，而是「凹陷的槽」——
+     底色比所在容器深一档 + 顶边内阴影，视觉上就是被按进去的。 */
+  .well{background:var(--plane-3);border:1px solid var(--line2);box-shadow:var(--inset-shadow)}
+
+  /* ── 入场动画：浮层与弹窗的「被拿起来」感 ───────────────────────────
+     pop 用于下拉浮层（从入口向下生长）；sheet 用于居中弹窗（从深处升起）。
+     两者都只动 transform/opacity，不触发布局（GPU 安全）。
+     prefers-reduced-motion 时由底部全局断点归零。 */
+  @keyframes pop{
+    from{opacity:0;transform:translateY(-6px) scale(.97)}
+    to{opacity:1;transform:translateY(0) scale(1)}
+  }
+  @keyframes sheet{
+    from{opacity:0;transform:translateY(14px) scale(.985)}
+    to{opacity:1;transform:translateY(0) scale(1)}
+  }
+  @keyframes rise{
+    from{opacity:0;transform:translateY(6px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  @keyframes fade{
+    from{opacity:0}
+    to{opacity:1}
+  }
 
   /* ---------- 左侧栏 ---------- */
   /* 分层只靠 1px 发丝线：白面与纸底的明度差只有 1.6%，投影反而互相污染 */
-  .sidebar{width:var(--sidebar-w);flex:none;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
-  .side-top{display:flex;align-items:center;gap:9px;padding:16px 16px 14px}
-  .logo{width:28px;height:28px;border-radius:var(--radius-sm);background:var(--fg);display:flex;align-items:center;justify-content:center;color:var(--surface);flex:none}
-  .logo svg{width:17px;height:17px;display:block}
-  .side-brand{font-family:var(--mono);font-weight:600;font-size:14px;letter-spacing:-.01em}
-  .side-brand small{color:var(--muted);font-weight:400;margin-left:6px;font-size:11px;letter-spacing:0}
-  .new-btn{margin:4px 14px 16px;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--fg);color:var(--surface);border:1px solid var(--fg);border-radius:var(--radius-sm);padding:11px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s ease,border-color .15s ease}
-  .new-btn:hover{background:var(--fg-hover);border-color:var(--fg-hover)}
-  .side-actions{display:flex;gap:6px;margin:-8px 14px 16px}
-  .side-btn{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--ink2);border-radius:var(--radius-sm);padding:7px 0;font-size:12px;cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease;white-space:nowrap}
-  .side-btn:hover{border-color:var(--fg);color:var(--fg);background:var(--fg-soft)}
-  .side-btn[disabled]{color:var(--muted);cursor:not-allowed;background:var(--panel)}
+  .sidebar{width:var(--sidebar-w);flex:none;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--lift-1)}
+  .side-top{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+  /* 标志底板：墨色渐变底 + 内高光。内高光是「机加工件」错觉的来源，
+     少了它就只是一块深色方块。 */
+  .logo{width:30px;height:30px;border-radius:10px;background:linear-gradient(160deg,color-mix(in oklch,var(--fg) 90%,var(--surface)),var(--fg));display:flex;align-items:center;justify-content:center;color:var(--surface);flex:none;box-shadow:inset 0 1px 0 color-mix(in oklch,var(--surface) 22%,transparent),0 2px 6px -2px color-mix(in oklch,var(--fg) 30%,transparent)}
+  .logo svg{width:18px;height:18px;display:block}
+  .side-brand{font-family:var(--mono);font-weight:600;font-size:var(--fs-lead);letter-spacing:-.01em}
+  .side-brand small{color:var(--muted);font-weight:400;margin-left:6px;font-size:var(--fs-cap);letter-spacing:0}
+  /* 主 CTA：柔结构要的是「一颗饱满的胶囊」，所以要三层——
+     底色渐变 + 顶部内高光 + 外部落影，而不是一块纯色矩形。 */
+  .new-btn{margin:2px 14px 10px;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(180deg,color-mix(in oklch,var(--fg) 88%,var(--surface)),var(--fg));color:var(--surface);border:1px solid var(--fg);border-radius:var(--radius-sm);padding:11px;font-size:var(--fs-body);font-weight:600;cursor:pointer;letter-spacing:.01em;box-shadow:inset 0 1px 0 color-mix(in oklch,var(--surface) 18%,transparent),0 4px 12px -4px color-mix(in oklch,var(--fg) 34%,transparent);transition:box-shadow var(--t-base) var(--ease),transform 90ms var(--ease)}
+  .new-btn:hover{box-shadow:inset 0 1px 0 color-mix(in oklch,var(--surface) 24%,transparent),0 8px 20px -6px color-mix(in oklch,var(--fg) 42%,transparent);transform:translateY(-1px)}
+  .new-btn:active{transform:translateY(1px) scale(.985);box-shadow:inset 0 2px 4px color-mix(in oklch,var(--fg) 40%,transparent)}
+  .new-btn svg{flex:none;opacity:.9}
+  /* 导入导三连：并排三个同权重的按钮会显得散。做成「分段控件」——
+     共用一个凹槽底，段间用发丝线，读起来是一个控件而不是三个按钮。 */
+  .side-actions{display:flex;gap:0;margin:0 14px 14px;background:var(--plane-3);border:1px solid var(--line2);border-radius:var(--radius-sm);padding:2px;box-shadow:var(--inset-shadow)}
+  .side-btn{flex:1;background:none;border:0;color:var(--ink2);border-radius:calc(var(--radius-sm) - 4px);padding:7px 0;font-size:var(--fs-cap);cursor:pointer;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease);white-space:nowrap;position:relative}
+  .side-btn+.side-btn::before{content:'';position:absolute;left:0;top:24%;bottom:24%;width:1px;background:var(--line);transition:opacity var(--t-fast) var(--ease)}
+  .side-btn:hover{color:var(--fg);background:var(--plane-2);box-shadow:0 1px 2px color-mix(in oklch,var(--fg) 7%,transparent)}
+  .side-btn:hover::before,.side-btn:hover+.side-btn::before{opacity:0}
+  .side-btn[disabled]{color:var(--muted);cursor:not-allowed;background:none;box-shadow:none}
   /* 导入框：与编辑器同源的等宽正文 */
-  .imp-text{width:100%;min-height:190px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font:12.5px/1.6 var(--mono);color:var(--fg);resize:vertical;outline:none;background:var(--panel);transition:border-color .15s ease,box-shadow .15s ease}
+  .imp-text{width:100%;min-height:190px;border:1px solid var(--line2);border-radius:var(--radius-sm);padding:13px 14px;font:var(--fs-body)/1.65 var(--mono);color:var(--fg);resize:vertical;outline:none;background:var(--plane-3);box-shadow:var(--inset-shadow);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
   .imp-text:hover{border-color:var(--fg-line)}
-  .imp-text:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .imp-text:focus{border-color:var(--accent);background:var(--plane-2);box-shadow:0 0 0 3px var(--accent-soft)}
   /* 组件库预览页 */
   /* 用 .modal.comp-modal 提高优先级：基础 .modal/.modal-body 定义在后面，同优先级会覆盖掉这里 */
-  .modal.comp-modal{width:min(1200px,95vw);height:min(860px,92vh);max-width:none;display:flex;flex-direction:column;overflow:hidden}
+  .modal.comp-modal{width:min(1240px,95vw);height:min(880px,92vh);max-width:none;display:flex;flex-direction:column;overflow:hidden}
   .modal-body.comp-body{flex:1;min-height:0;display:flex;gap:0;padding:0;max-height:none;overflow:hidden}
-  .comp-side{width:262px;flex:none;border-right:1px solid var(--line2);display:flex;flex-direction:column;min-height:0}
-  .comp-search{margin:10px 12px;padding:8px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:12.5px;outline:none;background:var(--panel);color:var(--fg);transition:border-color .15s ease,box-shadow .15s ease}
+  /* 左栏是「导航列」：底板比右栏深一档（--plane-3），让两栏的分工一眼可读 */
+  .comp-side{width:272px;flex:none;border-right:1px solid var(--line2);display:flex;flex-direction:column;min-height:0;background:var(--plane-3)}
+  .comp-search{margin:12px 12px 8px;padding:8px 12px;border:1px solid var(--line2);border-radius:var(--radius-sm);font-size:var(--fs-body);outline:none;background:var(--plane-2);color:var(--fg);box-shadow:var(--inset-shadow);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
   .comp-search:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .comp-list{flex:1;overflow:auto;padding:0 8px 12px}
-  .comp-group{padding:9px 8px 4px;font-family:var(--mono);font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.09em;text-transform:uppercase}
-  .comp-item{display:block;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:var(--radius-sm);padding:7px 9px;font-size:12.5px;color:var(--fg);cursor:pointer;transition:background .12s ease,color .12s ease,border-color .12s ease}
-  .comp-item:hover{background:var(--fg-soft)}
+  .comp-group{padding:10px 9px 5px;font-family:var(--mono);font-size:var(--fs-micro);font-weight:600;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+  .comp-item{display:block;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:var(--radius-sm);padding:8px 10px;font-size:var(--fs-body);color:var(--fg);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+  .comp-item:hover{background:var(--plane-2);box-shadow:var(--shadow)}
   .comp-item.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
-  .comp-item .sub{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .comp-item .sub{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:400;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .comp-item.on .sub{color:color-mix(in oklch,var(--accent) 72%,var(--muted))}
+  /* 打开弹窗时列表条目逐条浮现（前 8 条带阶梯延迟）：
+     只动 transform/opacity；条目多时后面的直接出，不拖节奏 */
+  .overlay.show .comp-item{animation:rise var(--t-slow) var(--ease) both}
+  .overlay.show .comp-item:nth-child(-n+8):nth-child(1){animation-delay:40ms}
+  .overlay.show .comp-item:nth-child(-n+8):nth-child(2){animation-delay:80ms}
+  .overlay.show .comp-item:nth-child(-n+8):nth-child(3){animation-delay:120ms}
+  .overlay.show .comp-item:nth-child(-n+8):nth-child(4){animation-delay:160ms}
+  .overlay.show .comp-item:nth-child(-n+8):nth-child(5){animation-delay:200ms}
+  .overlay.show .comp-item:nth-child(-n+8):nth-child(6){animation-delay:240ms}
+  .overlay.show .comp-item:nth-child(-n+8):nth-child(7){animation-delay:280ms}
+  .overlay.show .comp-item:nth-child(-n+8):nth-child(8){animation-delay:320ms}
   .comp-detail{flex:1;min-width:0;display:flex;flex-direction:column}
-  .comp-head{padding:14px 18px 10px;border-bottom:1px solid var(--line2)}
-  .comp-name{font-size:15px;font-weight:700;color:var(--fg)}
+  .comp-head{padding:16px 20px 12px;border-bottom:1px solid var(--line2)}
+  .comp-name{font-size:var(--fs-title);font-weight:700;color:var(--fg);letter-spacing:-.01em}
   /* 组件名是等宽的 ::: 指令，用等宽字面而不是无衬线代码样式 */
-  .comp-name code{font-family:var(--mono);font-size:12.5px;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-line);padding:1px 6px;border-radius:var(--m-r);margin-left:6px}
-  .comp-desc{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.6}
-  .comp-slots{font-size:11.5px;color:var(--muted);margin-top:6px}
+  .comp-name code{font-family:var(--mono);font-size:var(--fs-body);font-weight:600;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-line);padding:1px 7px;border-radius:var(--m-r);margin-left:8px;vertical-align:2px}
+  .comp-desc{font-size:var(--fs-body);color:var(--muted);margin-top:7px;line-height:1.65}
+  .comp-slots{font-size:var(--fs-cap);color:var(--muted);margin-top:7px}
   /* 参数表：不只列取值，还能直接改 —— 枚举/布尔点 chip，其余给输入框；改完下方预览实时重渲染。
      取值是作者最容易猜错的地方（tone 写错不报错，会**静默回退到 primary**），所以默认展开摆这里，
      而不是折叠进 details。取值列表来自组件目录（catalog.ts）的 props[].type，编辑器不自己维护一份。
      上限按「参数最多的组件」定：image / cover 各 7 个参数，渲染高度约 236px，
      给到 300px 就不用内部滚动、也不会把预览挤没（最矮情况再用 34vh 兜一下）。 */
-  .comp-params{margin-top:10px;max-height:min(300px,34vh);overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm)}
+  .comp-params{margin-top:12px;max-height:min(300px,34vh);overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--plane-2)}
   .comp-params table{width:100%;border-collapse:collapse}
-  .comp-params th{position:sticky;top:0;z-index:1;background:color-mix(in oklch,var(--fg) 5%,var(--surface));font-size:10.5px;font-weight:600;color:var(--muted);text-align:left;padding:5px 9px;white-space:nowrap}
-  .comp-params td{border-top:1px solid var(--line2);padding:5px 9px;font-size:11.5px;line-height:1.5;color:var(--ink2);vertical-align:top}
+  .comp-params th{position:sticky;top:0;z-index:1;background:var(--plane-3);font-size:var(--fs-micro);font-weight:600;color:var(--muted);text-align:left;padding:6px 10px;white-space:nowrap;letter-spacing:.06em;text-transform:uppercase;font-family:var(--mono)}
+  .comp-params td{border-top:1px solid var(--line2);padding:6px 10px;font-size:var(--fs-cap);line-height:1.55;color:var(--ink2);vertical-align:top}
   .comp-params td:first-child,.comp-params td:nth-child(3){white-space:nowrap}
   /* 改过的行左侧亮一条细线，扫一眼就知道哪里动过 */
   .comp-params tr.dirty td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
-  .comp-pname{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--fg)}
-  .comp-pdef{font-family:var(--mono);font-size:11px;color:var(--muted)}
-  .comp-type{font-family:var(--mono);font-size:11px;color:var(--muted)}
-  .comp-choice{display:inline-block;font-family:var(--mono);font-size:10.5px;line-height:18px;color:var(--ink2);background:var(--fg-soft);border:1px solid var(--line);border-radius:var(--m-r);padding:0 5px;margin:0 3px 2px 0;cursor:pointer;transition:background .12s ease,color .12s ease,border-color .12s ease}
+  .comp-pname{font-family:var(--mono);font-size:var(--fs-cap);font-weight:600;color:var(--fg)}
+  .comp-pdef{font-family:var(--mono);font-size:var(--fs-cap);color:var(--muted)}
+  .comp-type{font-family:var(--mono);font-size:var(--fs-cap);color:var(--muted)}
+  .comp-choice{display:inline-block;font-family:var(--mono);font-size:var(--fs-micro);line-height:19px;color:var(--ink2);background:var(--plane-2);border:1px solid var(--line);border-radius:var(--m-r);padding:0 6px;margin:0 3px 2px 0;cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
   .comp-choice:hover{border-color:var(--fg-line);color:var(--fg)}
   .comp-choice.on{color:var(--accent);background:var(--accent-soft);border-color:var(--accent-line)}
   .comp-choice:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-  .comp-input{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:11px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:var(--m-r);padding:2px 6px;outline:none}
-  .comp-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+  .comp-input{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:var(--fs-cap);color:var(--fg);background:var(--plane-2);border:1px solid var(--line2);border-radius:var(--m-r);padding:3px 7px;outline:none;box-shadow:var(--inset-shadow)}
+  .comp-input:focus{border-color:var(--accent);background:var(--plane-2);box-shadow:0 0 0 2px var(--accent-soft)}
   .comp-input::placeholder{color:var(--muted)}
-  .comp-notes{margin-top:8px;font-size:11.5px;line-height:1.6;color:var(--muted)}
-  .comp-notes>div{padding-left:9px;border-left:2px solid var(--line)}
-  .comp-notes>div+div{margin-top:4px}
+  .comp-notes{margin-top:10px;font-size:var(--fs-cap);line-height:1.65;color:var(--muted)}
+  .comp-notes>div{padding:2px 0 2px 10px;border-left:2px solid var(--line)}
+  .comp-notes>div+div{margin-top:5px}
   .comp-diag{border-color:var(--warn);color:var(--warn)}
   .comp-diag.err{border-color:var(--err);color:var(--err)}
-  .comp-actions{display:flex;gap:8px;margin-top:10px}
+  .comp-actions{display:flex;gap:8px;margin-top:12px}
   #compGen.dirty{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
   /* 画布外的底板用与外壳同一纸底，让 390px 白面自己站住 */
-  .comp-preview-wrap{flex:1;min-height:0;overflow:auto;background:var(--bg);padding:16px;display:flex;justify-content:center}
-  .comp-preview{width:390px;min-height:100%;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);align-self:flex-start}
-  .comp-src{border-top:1px solid var(--line2);background:color-mix(in oklch,var(--fg) 3%,var(--surface));max-height:170px;overflow:auto}
-  .comp-src summary{padding:8px 18px;font-size:12px;color:var(--muted);cursor:pointer}
-  .comp-src pre{margin:0;padding:0 18px 14px;font:12px/1.65 var(--mono);color:var(--ink2);white-space:pre-wrap;word-break:break-all}
-  .comp-empty{padding:40px 18px;font-size:13px;color:var(--muted);text-align:center}
+  .comp-preview-wrap{flex:1;min-height:0;overflow:auto;background:var(--plane-3);padding:18px;display:flex;justify-content:center;box-shadow:inset 0 1px 3px color-mix(in oklch,var(--fg) 4%,transparent)}
+  .comp-preview{width:390px;min-height:100%;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);align-self:flex-start;box-shadow:var(--shadow)}
+  .comp-src{border-top:1px solid var(--line2);background:var(--plane-3);max-height:170px;overflow:auto}
+  .comp-src summary{padding:9px 20px;font-size:var(--fs-body);color:var(--muted);cursor:pointer;transition:color var(--t-fast) var(--ease)}
+  .comp-src summary:hover{color:var(--fg)}
+  .comp-src pre{margin:0;padding:0 20px 14px;font:var(--fs-body)/1.7 var(--mono);color:var(--ink2);white-space:pre-wrap;word-break:break-all}
+  .comp-empty{padding:44px 20px;font-size:var(--fs-body);color:var(--muted);text-align:center}
   /* 主题预览页 */
   .theme-prev{width:560px;max-width:100%;align-self:flex-start}
   .th-inline{display:flex;align-items:center;gap:6px}
   .th-dot{width:12px;height:12px;border-radius:50%;border:1px solid var(--border);display:inline-block;flex:none}
-  .th-swatches{display:flex;flex-wrap:wrap;gap:12px 16px;padding:12px 16px 4px}
-  .th-swatch{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink2)}
-  .th-swatch i{width:18px;height:18px;border-radius:var(--m-r);border:1px solid var(--border);display:inline-block;flex:none}
-  .th-swatch .hex{color:var(--muted);font-size:11px;font-family:var(--mono)}
-  .th-font{padding:6px 16px 14px;font-size:12px;color:var(--muted);line-height:1.7}
+  /* 调色板：每个色样是一颗带发丝边与内高光的圆片，与排版设置里的色块同一形态 */
+  .th-swatches{display:flex;flex-wrap:wrap;gap:12px 18px;padding:14px 20px 4px}
+  .th-swatch{display:flex;align-items:center;gap:8px;font-size:var(--fs-cap);color:var(--ink2)}
+  .th-swatch i{width:20px;height:20px;border-radius:var(--m-r);border:1px solid var(--fg-line);display:inline-block;flex:none;box-shadow:inset 0 1px 0 color-mix(in oklch,var(--surface) 40%,transparent),0 1px 2px color-mix(in oklch,var(--fg) 12%,transparent)}
+  .th-swatch .hex{color:var(--muted);font-size:var(--fs-cap);font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .th-font{padding:6px 20px 16px;font-size:var(--fs-body);color:var(--muted);line-height:1.75}
   /* 侧栏导航：选中态是校验蓝（它是控件状态，不是装饰，不占强调预算） */
-  .subnav{padding:0 12px 12px;display:flex;flex-direction:column;gap:3px}
-  .subnav button{display:flex;align-items:center;gap:9px;width:100%;min-height:40px;text-align:left;background:none;border:1px solid transparent;border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;color:var(--muted);cursor:pointer;transition:background .12s ease,color .12s ease,border-color .12s ease}
-  .subnav button svg{flex:none}
+  .subnav{padding:0 10px 10px;display:flex;flex-direction:column;gap:2px}
+  /* 导航项：选中态 = 白面浮起 + 左侧蓝色键。
+     那条 2px 的蓝是位置标记，比整块浅蓝底更克制，也更好扫读。 */
+  .subnav button{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:38px;text-align:left;background:none;border:1px solid transparent;border-radius:var(--radius-sm);padding:8px 11px;font-size:var(--fs-body);color:var(--muted);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),transform 90ms var(--ease)}
+  .subnav button svg{flex:none;opacity:.8;transition:opacity var(--t-fast) var(--ease)}
   .subnav button:hover{background:var(--fg-soft);color:var(--fg)}
-  .subnav button.active{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
-  .side-label{padding:10px 18px 6px;font-family:var(--mono);font-size:10.5px;color:var(--muted);font-weight:500;letter-spacing:.09em;text-transform:uppercase}
-  .history{flex:1;overflow:auto;padding:0 12px 14px}
-  .hist-search{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 11px;font-size:12px;margin-bottom:8px;background:var(--panel);color:var(--fg);outline:none;transition:border-color .15s ease,box-shadow .15s ease}
+  .subnav button:hover svg{opacity:1}
+  .subnav button:active{transform:scale(.985)}
+  .subnav button.active{background:var(--plane-2);border-color:var(--line);color:var(--fg);font-weight:600;box-shadow:var(--shadow)}
+  .subnav button.active svg{color:var(--accent);opacity:1}
+  .subnav button.active::before{content:'';position:absolute;left:-10px;top:50%;transform:translateY(-50%);width:3px;height:16px;border-radius:0 3px 3px 0;background:var(--accent)}
+  /* 分组小标：全大写等宽 + 宽字距，是全局唯一允许的「眉标」形制，
+     只在看两处用（历史记录 / 弹窗内分组），不滥用。 */
+  .side-label{padding:8px 20px 6px;font-family:var(--mono);font-size:var(--fs-micro);color:var(--muted);font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+  .history{flex:1;overflow:auto;padding:0 10px 14px}
+  .hist-search{width:100%;border:1px solid var(--line2);border-radius:var(--radius-sm);padding:8px 12px;font-size:var(--fs-body);margin-bottom:8px;background:var(--plane-3);color:var(--fg);outline:none;box-shadow:var(--inset-shadow);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
   .hist-search:hover{border-color:var(--fg-line)}
-  .hist-search:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .hist-search:focus{border-color:var(--accent);background:var(--plane-2);box-shadow:0 0 0 3px var(--accent-soft)}
   .hist-search::placeholder{color:var(--faint)}
-  .hist-item{padding:10px 11px;border-radius:9px;cursor:pointer;border:1px solid transparent}
-  .hist-item:hover{background:var(--fg-soft)}
-  .hist-item .h-title{font-size:13px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
-  .hist-item .h-meta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px}
-  .side-foot{padding:12px 18px;border-top:1px solid var(--line2);font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  /* 历史条目：静置态刻意不撞边界（20 张白卡会互相打架），
+     只给指针指向的那条做纵深。 */
+  .hist-item{padding:9px 11px;border-radius:var(--radius-sm);cursor:pointer;border:1px solid transparent;transition:background var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),transform var(--t-fast) var(--ease)}
+  .hist-item:hover{background:var(--plane-2);border-color:var(--line);box-shadow:var(--shadow);transform:translateY(-1px)}
+  .hist-item:active{transform:translateY(0) scale(.99)}
+  .hist-item .h-title{font-size:var(--fs-body);color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+  .hist-item .h-meta{font-family:var(--mono);font-size:var(--fs-micro);color:var(--muted);margin-top:3px}
+  /* 页脚：左边是版本号（等宽、降噪），右边是 GitHub 链接。
+     链接的悬停反馈只做颜色，不做位移（底部静止件不动） */
+  .side-foot{padding:11px 18px;border-top:1px solid var(--line2);font-family:var(--mono);font-size:var(--fs-micro);color:var(--muted);letter-spacing:.02em;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .side-foot .gh{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;border-radius:var(--m-r);padding:2px 4px;margin:-2px -4px;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+  .side-foot .gh:hover{color:var(--fg);background:var(--fg-soft)}
+  .side-foot .gh svg{flex:none}
 
   /* ---------- 主区 ---------- */
   .main{flex:1;display:flex;flex-direction:column;gap:14px;min-width:0}
   /* 顶栏：高频项（撤销/保存/主题/标题/封面/发布组）单行；窄屏时先允许标题收缩，
      真放不下才整体折行，且折行后的动作组仍靠右 —— 不是靠 margin-left:auto（折行后失效）。 */
-  .topbar{display:flex;align-items:center;gap:6px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);flex-wrap:wrap}
-  .topbar .right{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;max-width:100%}
+  .topbar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);flex-wrap:wrap;box-shadow:var(--lift-1)}
+  /* 顶栏右侧动作组：发布是一步不可逆，其它都是复制/校验。
+     给动作组前面加一条发丝线，让「扫到右边的发布」有个明确的视觉锚点。 */
+  .topbar .right{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;max-width:100%;padding-left:10px}
+  .topbar .right::before{content:'';align-self:stretch;width:1px;background:var(--line2);margin-right:4px}
   /* 标题可收缩到最小，让位于动作组；输入框本身 min-width:0 才能被 flex 压缩 */
   #title{min-width:90px;flex:1 1 140px}
   /* 封面弹层：入口做成按钮，面板右侧弹出（不是下拉，避免遮住标题）。
@@ -199,79 +318,172 @@
   details#coverPanel>summary{list-style:none}
   details#coverPanel>summary::-webkit-details-marker{display:none}
   details#coverPanel[open] .cover-box{display:block}
-  /* 弹层与「主题管理」一致：白面 + 发丝线分层，不用投影（§21.4 投影全部取消）；
-     叠在预览上时靠 1px 描边 + 底色区分，另外把弹层底色提到 --surface 之外多压一层 fg，
-     避免和它盖住的白面完全同色而分不出边界。 */
-  .cover-box{position:absolute;right:0;top:calc(100% + 6px);z-index:60;width:264px;padding:10px 12px 12px;
-    background:color-mix(in oklch,var(--fg) 3%,var(--surface));border:1px solid var(--line);border-radius:var(--radius-sm);}
+  /* 浮层规格（下拉/弹窗通用）：白面压深一档 + 1px 发丝线 + 二级柔影。
+     压深一档是为了不和它盖住的白面完全同色，投影只负责纵深。
+     圆角比入口大一档（18 对 12），同心弧线才有嵌套感。 */
+  .cover-box{position:absolute;right:0;top:calc(100% + 8px);z-index:60;width:280px;padding:10px 12px 12px;
+    background:var(--plane-3);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--lift-2);animation:pop var(--t-base) var(--ease) both}
   .cover-box .menu-item{padding:7px 9px}
-  .btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:var(--radius-sm);padding:7px 10px;min-height:40px;font-size:12.5px;cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease,transform .05s ease;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+  /* 封面 URL 输入框：全宽的凹槽（与弹窗内其它输入同一形制） */
+  .cover-box input[type=text]{width:100%;box-sizing:border-box;font-size:var(--fs-cap);padding:7px 10px;border:1px solid var(--line2);border-radius:var(--m-r);background:var(--plane-2);color:var(--fg);outline:none;box-shadow:var(--inset-shadow);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+  .cover-box input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  /* 封面缩略图：圆角与面板同心，右上角的清除按钮是一颗悬浮的圆片 */
+  #coverThumbWrp{margin-bottom:10px}
+  #coverThumb{border-radius:var(--m-r)}
+  #coverClear{position:absolute;top:-9px;right:-9px;width:22px;height:22px;border-radius:50%;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);display:grid;place-items:center;color:var(--muted);cursor:pointer;padding:0;font-size:13px;line-height:1;transition:color var(--t-fast) var(--ease),transform 90ms var(--ease)}
+  #coverClear:hover{color:var(--err);transform:scale(1.08)}
+
+  /* ── 按钮族：全站唯一的按钮形制 ─────────────────────────────────
+     柔结构里按钮是一颗「饱满的圆角片」：静置时白面 + 发丝线，
+     悬停时浮起（柔影变深）+ 背景压深一档，按下时回到原位（物理按压）。
+     三种实底（墨 / 蓝 / 禁用）共用同一套内高光，看起来是一家人。 */
+  .btn{position:relative;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:var(--radius-sm);padding:7px 12px;min-height:38px;font-size:var(--fs-body);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:7px;box-shadow:0 1px 1px color-mix(in oklch,var(--fg) 3%,transparent);transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),color var(--t-fast) var(--ease),box-shadow var(--t-base) var(--ease),transform 90ms var(--ease)}
   .btn svg,.subnav button svg{flex:none}
-  .btn:hover{border-color:var(--fg);background:var(--fg-soft)}
-  .btn:active{transform:translateY(1px)}
-  .btn:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
-  /* 禁用是唯一允许降低对比的状态 */
-  .btn:disabled{cursor:not-allowed;pointer-events:none;color:var(--muted);border-color:var(--line);background:var(--panel)}
-  .save-box{width:250px}
-  .save-path{font-size:11.5px;color:var(--ink2);line-height:1.5;word-break:break-all;max-height:54px;overflow:auto;padding:2px 2px 6px}
-  /* 强调预算：一屏里最多一个实底蓝，它一亮，用户就知道那是不可逆的一步 */
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
-  .btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
-  .btn.primary:disabled{background:color-mix(in oklch,var(--accent) 34%,var(--surface));border-color:transparent;color:var(--surface)}
+  .btn:hover{border-color:var(--fg-line);background:var(--plane-2);box-shadow:var(--shadow);transform:translateY(-1px)}
+  .btn:active{transform:translateY(0) scale(.985);box-shadow:0 1px 1px color-mix(in oklch,var(--fg) 3%,transparent)}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* 禁用是唯一允许降低对比的状态；同时要取消浮起，否则看起来像能点 */
+  .btn:disabled{cursor:not-allowed;pointer-events:none;color:var(--muted);border-color:var(--line);background:var(--panel);box-shadow:none;transform:none}
+  .save-box{width:270px}
+  .save-path{font-size:var(--fs-cap);color:var(--ink2);line-height:1.55;word-break:break-all;max-height:54px;overflow:auto;padding:2px 2px 6px}
+  /* 强调预算：一屏里最多一个实底蓝，它一亮，用户就知道那是不可逆的一步。
+     蓝底也走「渐变 + 内高光 + 投影」三件套，和墨色实底是一套材质。 */
+  .btn.primary{background:linear-gradient(180deg,color-mix(in oklch,var(--accent) 92%,var(--surface)),var(--accent));border-color:var(--accent);color:var(--surface);box-shadow:inset 0 1px 0 color-mix(in oklch,var(--surface) 20%,transparent),0 4px 12px -4px color-mix(in oklch,var(--accent) 40%,transparent)}
+  .btn.primary:hover{background:linear-gradient(180deg,color-mix(in oklch,var(--accent-hover) 94%,var(--surface)),var(--accent-hover));border-color:var(--accent-hover);box-shadow:inset 0 1px 0 color-mix(in oklch,var(--surface) 24%,transparent),0 8px 20px -6px color-mix(in oklch,var(--accent) 48%,transparent);transform:translateY(-1px)}
+  .btn.primary:disabled{background:color-mix(in oklch,var(--accent) 34%,var(--surface));border-color:transparent;color:var(--surface);box-shadow:none;transform:none}
   /* 编辑动作交墨色：新建、保存、复制、导入导出一律墨色或描边 */
-  .btn.ink{background:var(--fg);border-color:var(--fg);color:var(--surface);font-weight:600}
-  .btn.ink:hover{background:var(--fg-hover);border-color:var(--fg-hover)}
+  .btn.ink{background:linear-gradient(180deg,color-mix(in oklch,var(--fg) 88%,var(--surface)),var(--fg));border-color:var(--fg);color:var(--surface);font-weight:600;box-shadow:inset 0 1px 0 color-mix(in oklch,var(--surface) 18%,transparent),0 3px 10px -4px color-mix(in oklch,var(--fg) 40%,transparent)}
+  .btn.ink:hover{background:linear-gradient(180deg,color-mix(in oklch,var(--fg-hover) 90%,var(--surface)),var(--fg-hover));border-color:var(--fg-hover);transform:translateY(-1px)}
   /* .btn.ink 与 .btn:disabled 同权重，后者写在前会被盖掉——
      结果是禁用态仍渲染成实底墨色，看起来可点。所以禁用态必须单独再写一次。
      比例与 .btn.primary:disabled 一致（34%），两种实底禁用态看起来是一套。
      混色对象用 --bg 而不是 --surface：--bg 的色相 250 与墨的 255 接近，
      插值不会跑出怪色相（--surface 是无彩色，会走另一条插值路径）。 */
-  .btn.ink:disabled{background:color-mix(in oklch,var(--fg) 34%,var(--bg));border-color:transparent;color:var(--surface)}
-  .btn.ghost{border-color:transparent;background:none;color:var(--muted)}
-  .btn.ghost:hover{background:var(--fg-soft);color:var(--fg)}
+  .btn.ink:disabled{background:color-mix(in oklch,var(--fg) 34%,var(--bg));border-color:transparent;color:var(--surface);box-shadow:none;transform:none}
+  .btn.ghost{border-color:transparent;background:none;color:var(--muted);box-shadow:none}
+  .btn.ghost:hover{background:var(--fg-soft);color:var(--fg);box-shadow:none;border-color:transparent}
+  .btn.ghost:disabled{background:none}
   .grow{flex:1}
-  .topbar .lbl{font-size:12px;color:var(--muted)}
-  select,input[type=text]{border:1px solid var(--line);border-radius:var(--radius-sm);padding:7px 10px;font-size:12.5px;background:var(--panel);color:var(--fg);outline:none;transition:border-color .15s ease,box-shadow .15s ease}
-  select:hover,input[type=text]:hover{border-color:var(--fg-line)}
-  /* 原生控件的聚焦态从浏览器默认蓝改为品牌蓝 + 3px 柔和外圈 */
-  select:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  input#title{width:170px}
+  .topbar .lbl{font-size:var(--fs-body);color:var(--muted)}
+  /* 输入控件：默认是一颗「白底浮起片」，聚焦时先浮起再上焦环——
+     柔结构的焦点是「被拿起来的」，不是「被圈出来的」。 */
+  select,input[type=text]{border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 11px;font-size:var(--fs-body);background:var(--plane-2);color:var(--fg);outline:none;box-shadow:0 1px 2px color-mix(in oklch,var(--fg) 3%,transparent);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+  select:hover,input[type=text]:hover{border-color:var(--fg-line);background:var(--plane-2)}
+  select:focus,input:focus{border-color:var(--accent);background:var(--plane-2);box-shadow:0 0 0 3px var(--accent-soft)}
+  input#title{width:170px;font-weight:500}
+
+  /* ── 自绘主题选择器（.tsel）──────────────────────────────────────
+     原生 select 的弹层是系统绘的，无法定制，一直是全页最「裸」的控件。
+     这里双层：隐藏 select 存事实，自绘层只管展示与点击。
+     弹层用与其它浮层同一套规格（plane-3 + 发丝线 + lift-2 + pop 入场）。 */
+  .tsel{position:relative}
+  .tsel-btn{display:inline-flex;align-items:center;gap:8px;min-height:38px;max-width:190px;padding:7px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--plane-2);color:var(--fg);font-size:var(--fs-body);cursor:pointer;box-shadow:0 1px 1px color-mix(in oklch,var(--fg) 3%,transparent);transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease),box-shadow var(--t-base) var(--ease),transform 90ms var(--ease)}
+  .tsel-btn:hover{border-color:var(--fg-line);transform:translateY(-1px);box-shadow:var(--shadow)}
+  .tsel-btn:active{transform:translateY(0) scale(.985)}
+  .tsel-btn[aria-expanded="true"]{border-color:var(--accent-line);background:var(--plane-2);box-shadow:0 0 0 3px var(--accent-soft)}
+  .tsel-btn>span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+  .tsel-btn svg{flex:none;color:var(--muted);transition:transform var(--t-fast) var(--ease)}
+  .tsel-btn[aria-expanded="true"] svg{transform:rotate(180deg);color:var(--accent)}
+  .tsel-pop{position:absolute;left:0;top:calc(100% + 8px);z-index:50;width:240px;max-height:min(420px,70vh);overflow:auto;background:var(--plane-3);border:1px solid var(--line);border-radius:var(--radius);padding:6px;box-shadow:var(--lift-2);display:none}
+  .tsel-pop.show{display:block;animation:pop var(--t-base) var(--ease) both}
+  .tsel-group{padding:8px 8px 4px;font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+  .tsel-opt{display:flex;align-items:center;gap:8px;width:100%;min-height:34px;padding:6px 10px;border:1px solid transparent;background:none;border-radius:var(--radius-sm);color:var(--fg);font-size:var(--fs-body);text-align:left;cursor:pointer;transition:background var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+  .tsel-opt:hover{background:var(--plane-2);box-shadow:var(--shadow)}
+  .tsel-opt.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+  .tsel-opt .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tsel-opt .tick{flex:none;width:14px;height:14px;color:var(--accent)}
+  .tsel-opt:not(.on) .tick{visibility:hidden}
   details.theme-panel{position:relative}
-  details.theme-panel summary{cursor:pointer;display:flex;align-items:center;gap:6px;min-height:40px;padding:7px 12px;font-size:12.5px;border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--muted);background:var(--panel);transition:border-color .15s ease,color .15s ease,background .15s ease}
-  details.theme-panel summary:hover{border-color:var(--fg);color:var(--fg)}
-  details.theme-panel[open] summary{border-color:var(--fg);color:var(--fg);background:var(--fg-soft)}
-  /* 弹层：1px 描边 + 12px 圆角，投影全部取消 */
-  .theme-box{position:absolute;right:0;top:calc(100% + 8px);background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px;width:260px;z-index:30}
-  .theme-box h4{margin:10px 0 6px;font-family:var(--mono);font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:.09em;text-transform:uppercase}
+  details.theme-panel summary{cursor:pointer;display:flex;align-items:center;gap:7px;min-height:38px;padding:7px 12px;font-size:var(--fs-body);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--muted);background:var(--panel);box-shadow:0 1px 1px color-mix(in oklch,var(--fg) 3%,transparent);transition:border-color var(--t-fast) var(--ease),color var(--t-fast) var(--ease),background var(--t-fast) var(--ease),box-shadow var(--t-base) var(--ease),transform 90ms var(--ease)}
+  details.theme-panel summary:hover{border-color:var(--fg-line);color:var(--fg);transform:translateY(-1px);box-shadow:var(--shadow)}
+  details.theme-panel[open] summary{border-color:var(--fg-line);color:var(--fg);background:var(--plane-2);box-shadow:var(--shadow);transform:none}
+  /* 弹层规格（与 cover-box 同一套）：白面压深一档 + 发丝线 + 二级柔影 + 入场动画。
+     面板内容比视口高时整层滚动；粘底动作条（.tp-foot）跟著滚动容器定住。 */
+  .theme-box{position:absolute;right:0;top:calc(100% + 8px);background:var(--plane-3);border:1px solid var(--line);border-radius:var(--radius);padding:10px;width:328px;max-height:calc(100vh - 120px);overflow:auto;z-index:30;box-shadow:var(--lift-2);animation:pop var(--t-base) var(--ease) both}
+  .theme-box h4{margin:12px 4px 7px;font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .theme-box h4::after{content:'';flex:1;height:1px;background:var(--line2)}
   .theme-box .menu-items{display:flex;flex-direction:column;gap:2px}
-  .theme-box .menu-item{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:7px 9px;border:1px solid transparent;background:none;border-radius:var(--radius-sm);color:var(--fg);font-size:12.5px;text-align:left;cursor:pointer;transition:background .12s ease,border-color .12s ease}
-  .theme-box .menu-item:hover{background:var(--fg-soft)}
-  .theme-box .menu-item:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
-  .theme-box .menu-item svg{flex:none;color:var(--muted)}
-  .theme-box .menu-sep{height:1px;background:var(--line2);margin:8px -4px}
-  /* 排版设置：改的是主题 token，不是富文本工具——所以只有这几项全局量 */
-  .tp-row{display:flex;align-items:center;gap:8px;margin:7px 0}
-  .tp-row>label{flex:none;width:56px;font-size:11.5px;color:var(--muted)}
-  .tp-row>select,.tp-row>input[type=text]{flex:1;min-width:0;font-size:11.5px;padding:3px 6px;border:1px solid var(--line);border-radius:var(--m-r);background:var(--surface);color:var(--fg)}
-  .tp-row>input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
-  .tp-row>input[type=color]{width:30px;height:22px;padding:0;border:1px solid var(--line);border-radius:var(--m-r);background:none;cursor:pointer}
-  .tp-row>code{font-family:var(--mono);font-size:10.5px;color:var(--ink2);min-width:56px;text-align:right}
-  .tp-row .btn{flex:none;padding:2px 8px;font-size:11.5px}
-  .tp-hint{font-size:11px;line-height:1.55;color:var(--muted);margin:6px 0 2px}
+  /* 菜单项：图标住进一颗 26px 的凹槽方块里，悬停时图标从次级墨变蓝——
+     这是「按钮里的按钮」，柔结构的 double-bezel 手法。 */
+  .theme-box .menu-item{display:flex;align-items:center;gap:10px;width:100%;min-height:38px;padding:5px 8px;border:1px solid transparent;background:none;border-radius:var(--radius-sm);color:var(--fg);font-size:var(--fs-body);text-align:left;cursor:pointer;transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),transform 90ms var(--ease)}
+  .theme-box .menu-item:hover{background:var(--plane-2);border-color:var(--line);box-shadow:var(--shadow)}
+  .theme-box .menu-item:active{transform:scale(.985)}
+  .theme-box .menu-item:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .theme-box .menu-item svg{flex:none;color:var(--muted);width:15px;height:15px;transition:color var(--t-fast) var(--ease)}
+  .theme-box .menu-item:hover svg{color:var(--accent)}
+  /* 菜单项右侧的短说明：次级墨、右对齐，让「这项会做什么」不用靠 title 提示猜 */
+  .theme-box .mi-hint{margin-left:auto;font-size:var(--fs-micro);color:var(--muted);letter-spacing:.02em;white-space:nowrap}
+  .theme-box .menu-item:hover .mi-hint{color:var(--ink2)}
+  .theme-box .menu-sep{height:1px;background:var(--line2);margin:10px 2px}
+
+  /* ── 排版设置：分节卡片 ─────────────────────────────────────────
+     原来是 8 行输入控在 260px 里排成一列，每行一个控件、无分组，
+     读起来像表单垃圾场。现在按「字体 / 字阶 / 颜色」分三节，
+     每节是一张内嵌白卡（白面压深一档 + 发丝线），节内有自己的节奏。 */
+  .tp-card{background:var(--plane-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;box-shadow:0 1px 2px color-mix(in oklch,var(--fg) 3%,transparent)}
+  .tp-card+.tp-card{margin-top:8px}
+  .tp-row{display:flex;align-items:center;gap:9px;margin:7px 0;min-height:26px}
+  .tp-row:first-child{margin-top:2px}
+  .tp-row:last-child{margin-bottom:2px}
+  .tp-row>label{flex:none;width:52px;font-size:var(--fs-cap);color:var(--muted)}
+  .tp-row>select,.tp-row>input[type=text]{flex:1;min-width:0;font-size:var(--fs-cap);padding:5px 8px;border:1px solid var(--line2);border-radius:var(--m-r);background:var(--plane-2);color:var(--fg);box-shadow:var(--inset-shadow)}
+  .tp-row>select:focus,.tp-row>input[type=text]:focus{border-color:var(--accent);background:var(--plane-2);box-shadow:0 0 0 3px var(--accent-soft)}
+
+  /* 滑杆：原生 range 是全页最粗的元件。这里重画轨道和拇指——
+     轨道是一条 3px 的凹槽线，拇指是 14px 白圆片带发丝边 + 微影，
+     填充段用 accent（accent-color 会同时改 thumb 色，必须显式覆盖）。 */
+  .tp-row>input[type=range]{flex:1;min-width:0;appearance:none;-webkit-appearance:none;height:14px;background:none;accent-color:var(--accent);cursor:pointer}
+  .tp-row>input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:999px;background:linear-gradient(90deg,var(--accent) var(--fill,50%),var(--line) var(--fill,50%))}
+  .tp-row>input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;margin-top:-5px;border-radius:50%;background:var(--surface);border:1px solid var(--fg-line);box-shadow:0 1px 2px color-mix(in oklch,var(--fg) 25%,transparent);transition:transform 90ms var(--ease)}
+  .tp-row>input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.12)}
+  .tp-row>input[type=range]:active::-webkit-slider-thumb{transform:scale(1.2);border-color:var(--accent)}
+  .tp-row>input[type=range]::-moz-range-track{height:3px;border-radius:999px;background:var(--line)}
+  .tp-row>input[type=range]::-moz-range-progress{height:3px;border-radius:999px;background:var(--accent)}
+  .tp-row>input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--surface);border:1px solid var(--fg-line);box-shadow:0 1px 2px color-mix(in oklch,var(--fg) 25%,transparent)}
+
+  /* 色块行：swatch 是一颗带发丝边与内高光的圆片，hex 用等宽字体,
+     跟在设计工具里的取色器同一形态，一眼知道这是「可改的颜色」而不是装饰 */
+  .tp-row>input[type=color]{appearance:none;-webkit-appearance:none;width:34px;height:24px;padding:0;border:1px solid var(--fg-line);border-radius:var(--m-r);background:none;cursor:pointer;box-shadow:inset 0 1px 0 color-mix(in oklch,var(--surface) 40%,transparent),0 1px 2px color-mix(in oklch,var(--fg) 12%,transparent)}
+  .tp-row>input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+  .tp-row>input[type=color]::-webkit-color-swatch{border:none;border-radius:calc(var(--m-r) - 2px)}
+  .tp-row>code{font-family:var(--mono);font-size:var(--fs-micro);color:var(--ink2);min-width:58px;text-align:right;font-variant-numeric:tabular-nums}
+  .tp-row .btn{flex:none;min-height:0;padding:3px 9px;font-size:var(--fs-cap);border-radius:var(--m-r)}
+  .tp-hint{font-size:var(--fs-cap);line-height:1.6;color:var(--muted);margin:9px 4px 2px;padding:8px 10px;background:var(--plane-3);border:1px solid var(--line2);border-left:2px solid var(--warn);border-radius:var(--m-r)}
   .tp-hint b{color:var(--warn)}
+  /* 状态提示（未修改 / 已改 N 项）：不是另一条警告，而是「结果回执」，
+     所以不带左边的警示条，底色用白面浮起，文案里的关键数字用蓝 */
+  .tp-hint.tp-state{border-left:0;background:var(--plane-2);color:var(--ink2)}
   .tp-dirty{color:var(--accent)}
+  /* 面板底部动作条：粘在浮层底部，滚动时也在 —— 两颗按钮是这节的「终点」 */
+  .tp-foot{position:sticky;bottom:-10px;margin:10px -10px -10px;padding:10px 12px;background:var(--plane-3);border-top:1px solid var(--line2);border-radius:0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);display:flex;gap:8px}
+  .tp-foot .btn{flex:1;justify-content:center}
+  .tp-actions{display:flex;gap:8px;margin-top:10px}
+  .tp-actions .btn{flex:1;justify-content:center}
+  /* 已保存主题：从「• 名字」的文本列表升级成行卡片，
+     色点 + 名字 + 当前主题标记，点击即切换（不用再去顶部下拉找） */
+  .tp-themes{display:flex;flex-direction:column;gap:2px;padding:0 2px}
+  .tp-theme{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 9px;border:1px solid transparent;background:none;border-radius:var(--radius-sm);color:var(--fg);font-size:var(--fs-body);text-align:left;cursor:pointer;transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+  .tp-theme:hover{background:var(--plane-2);border-color:var(--line);box-shadow:var(--shadow)}
+  .tp-theme.on{border-color:var(--accent-line);background:var(--accent-soft)}
+  .tp-theme .sw{display:flex;gap:3px;flex:none}
+  .tp-theme .sw i{width:10px;height:10px;border-radius:50%;border:1px solid color-mix(in oklch,var(--fg) 14%,transparent);display:block}
+  .tp-theme .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tp-theme .cur{font-family:var(--mono);font-size:var(--fs-micro);color:var(--accent);letter-spacing:.06em}
+  .tp-empty{font-size:var(--fs-cap);color:var(--muted);padding:8px 10px;line-height:1.6}
 
   /* ---------- 内容区 ---------- */
   .content{flex:1;display:flex;gap:14px;min-height:0}
-  /* 三栏尺寸不动：中栏与右栏各占一半，画布恒定 390px */
-  .editor-pane{width:50%;min-width:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden}
-  .preview-pane{width:50%;min-width:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden}
-  .pane-toolbar{display:flex;align-items:center;gap:2px;padding:9px 12px;border-bottom:1px solid var(--line2);background:var(--panel);flex-wrap:wrap}
-  .tb-btn{width:32px;height:32px;border:1px solid transparent;border-radius:var(--radius-sm);background:none;color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s ease,color .12s ease,border-color .12s ease}
-  .tb-btn:hover{background:var(--fg-soft);color:var(--fg)}
-  .tb-btn:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
-  .tb-btn.on{background:var(--fg-soft);color:var(--fg);border-color:var(--border)}
-  .tb-btn b{font-weight:700}
+  /* 三栏尺寸不动：中栏与右栏各占一半，画布恒定 390px。
+     两块面板都是「白卡浮在纸底上」：发丝线定边界 + 一级柔影定纵深。 */
+  .editor-pane{width:50%;min-width:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden;box-shadow:var(--lift-1)}
+  .preview-pane{width:50%;min-width:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden;box-shadow:var(--lift-1)}
+  .pane-toolbar{display:flex;align-items:center;gap:2px;padding:8px 10px;border-bottom:1px solid var(--line2);background:var(--panel);flex-wrap:wrap}
+  .tb-btn{width:34px;height:34px;border:1px solid transparent;border-radius:var(--m-r);background:none;color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),transform 90ms var(--ease)}
+  .tb-btn:hover{background:var(--plane-2);color:var(--fg);border-color:var(--line);box-shadow:0 1px 2px color-mix(in oklch,var(--fg) 7%,transparent)}
+  .tb-btn:active{transform:scale(.94)}
+  .tb-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .tb-btn.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line)}
+  .tb-btn b,.tb-btn i,.tb-btn s,.tb-btn span{font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
   .tb-btn svg{display:block;margin:auto}
   /* 上标/下标：.tb-btn 是 flex 容器，sup/sub 会被 blockify 吃掉 vertical-align（见 AGENTS.md §4.6），
      所以标记里包了一层 span 还原行内上下文；但 sup/sub 默认还会把行盒撑高，
@@ -279,41 +491,46 @@
      line-height:0 让它们不参与行盒高度计算，两份标签的 x 基线就对齐了（实测 0px）。 */
   .tb-btn sup,.tb-btn sub{line-height:0}
   /* Typora 式表格大小选择器 */
-  .table-picker{position:fixed;z-index:70;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px 11px;display:none}
-  .table-picker .tlabel{font-size:12px;color:var(--ink2);margin-bottom:9px;text-align:center;font-weight:600}
-  .table-picker .tgrid{display:grid;grid-template-columns:repeat(10,16px);grid-auto-rows:16px;gap:3px}
-  .table-picker .tcell{background:var(--fg-soft);border-radius:3px;cursor:pointer}
+  .table-picker{position:fixed;z-index:70;background:var(--plane-3);border:1px solid var(--line);border-radius:var(--radius);padding:12px 13px;display:none;box-shadow:var(--lift-2);animation:pop var(--t-base) var(--ease) both}
+  .table-picker .tlabel{font-size:var(--fs-cap);color:var(--ink2);margin-bottom:10px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+  .table-picker .tgrid{display:grid;grid-template-columns:repeat(10,17px);grid-auto-rows:17px;gap:3px}
+  .table-picker .tcell{background:var(--plane-4);border-radius:4px;cursor:pointer;transition:background 80ms var(--ease),transform 80ms var(--ease)}
   .table-picker .tcell.on{background:var(--accent)}
-  .table-picker .tcell:hover{background:var(--accent);opacity:.75}
-  .tm-picker{position:fixed;z-index:70;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:6px;display:none;min-width:190px;max-height:62vh;overflow:auto}
-  .tm-head{padding:7px 10px 4px;font-family:var(--mono);font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:.09em;text-transform:uppercase}
-  .tm-opt .tm-sub{margin-left:6px;font-size:11px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .tm-opt .tm-del{margin-left:auto;border:0;background:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 4px;border-radius:4px}
+  .table-picker .tcell:hover{background:var(--accent);transform:scale(1.08)}
+  .tm-picker{position:fixed;z-index:70;background:var(--plane-3);border:1px solid var(--line);border-radius:var(--radius);padding:6px;display:none;min-width:200px;max-height:62vh;overflow:auto;box-shadow:var(--lift-2);animation:pop var(--t-base) var(--ease) both}
+  .tm-head{padding:8px 10px 5px;font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+  .tm-opt .tm-sub{margin-left:auto;font-size:var(--fs-cap);color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tm-opt .tm-del{margin-left:6px;border:0;background:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 5px;border-radius:5px;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
   .tm-opt:hover .tm-del{color:var(--err);background:var(--fg-soft)}
-  .tm-opt{display:flex;align-items:center;gap:7px;width:100%;min-height:36px;padding:7px 10px;border:1px solid transparent;background:none;border-radius:var(--radius-sm);color:var(--fg);font-size:12.5px;text-align:left;cursor:pointer;transition:background .12s ease}
-  .tm-opt:hover{background:var(--fg-soft)}
-  .tb-sep{width:1px;height:18px;background:var(--line);margin:0 5px}
-  /* Markdown 源：等宽 12.5px / 行高 1.85（与视觉体系一致），最小高度 340px 由 flex 撑开 */
-  .markdown{flex:1;width:100%;border:0;resize:none;padding:18px 22px;font:12.5px/1.85 var(--mono);background:var(--surface);color:var(--fg);outline:none;tab-size:2}
+  .tm-opt{display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:8px 11px;border:1px solid transparent;background:none;border-radius:var(--radius-sm);color:var(--fg);font-size:var(--fs-body);text-align:left;cursor:pointer;transition:background var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+  .tm-opt:hover{background:var(--plane-2);box-shadow:var(--shadow)}
+  .tb-sep{width:1px;height:20px;background:var(--line);margin:0 5px;align-self:center}
+  /* Markdown 源：等宽 12.5px / 行高 1.85（与视觉体系一致），最小高度 340px 由 flex 撑开。
+     纸面微压一档（--plane-3）：编辑区是「纸上写字」而不是「白屏输入」。 */
+  .markdown{flex:1;width:100%;border:0;resize:none;padding:20px 24px;font:var(--fs-body)/1.85 var(--mono);background:var(--surface);color:var(--fg);outline:none;tab-size:2}
   .markdown::placeholder{color:var(--muted)}
-  .markdown:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-  .ed-status{display:flex;gap:14px;padding:9px 16px;border-top:1px solid var(--line2);font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--panel)}
+  .markdown:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:0}
+  .ed-status{display:flex;gap:16px;padding:9px 16px;border-top:1px solid var(--line2);font-family:var(--mono);font-size:var(--fs-cap);color:var(--muted);background:var(--plane-3);font-variant-numeric:tabular-nums}
   .ed-status .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:6px;vertical-align:middle}
   .ed-status .dot.busy{background:var(--warn)}
-  .preview-head{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line2);font-size:12.5px;color:var(--ink2);background:var(--panel);flex-wrap:wrap}
-  .preview-head .tab{display:inline-flex;align-items:center;min-height:32px;padding:0 11px;border-radius:var(--radius-sm);border:1px solid transparent;cursor:pointer;transition:background .12s ease,color .12s ease,border-color .12s ease}
+  /* 预览页头：标签页做成「下划线式」分段控件——
+     选中项下压一条 2px 蓝线，比填充底更轻，也和侧栏导航的左键一致。 */
+  .preview-head{display:flex;align-items:center;gap:4px;padding:7px 10px;border-bottom:1px solid var(--line2);font-size:var(--fs-body);color:var(--ink2);background:var(--panel);flex-wrap:wrap}
+  .preview-head .tab{position:relative;display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;border-radius:var(--m-r);border:1px solid transparent;cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
   .preview-head .tab:hover{background:var(--fg-soft);color:var(--fg)}
-  .preview-head .tab.active{background:var(--fg-soft);color:var(--fg);border-color:var(--border);font-weight:600}
+  .preview-head .tab.active{background:var(--plane-2);color:var(--fg);border-color:var(--line);font-weight:600;box-shadow:0 1px 2px color-mix(in oklch,var(--fg) 5%,transparent)}
   .preview-head button.tab{border:0;background:none;font:inherit;color:inherit;line-height:1.4;cursor:pointer}
   .preview-head button.tab:hover{color:var(--fg)}
-  .preview-head button.tab[aria-pressed="true"]{background:var(--fg-soft);color:var(--fg);border:1px solid var(--border);font-weight:600}
-  .preview-head .w{font-family:var(--mono);font-size:11px;color:var(--muted)}
-  /* 画布：它是纸，不是卡片。宽度恒为 390px，不被“适配”成百分比 */
-  .preview-wrap{flex:1;overflow:auto;background:var(--bg);padding:20px;display:flex;justify-content:center}
-  iframe.preview{width:390px;min-height:100%;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);align-self:flex-start}
-  /* 校验条：三档状态胶囊。颜色只负责快速扫读，判定的词必须写在里面（色盲与黑白打印都读得出来） */
-  .val-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 14px;border-top:1px solid var(--line2);font-size:11px;color:var(--muted);background:var(--panel);max-height:132px;overflow:auto}
-  .val-bar .v{padding:3px 9px;border-radius:999px;border:1px solid var(--border);display:inline-flex;align-items:baseline;gap:6px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
+  .preview-head button.tab[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line);font-weight:600}
+  .preview-head .w{font-family:var(--mono);font-size:var(--fs-cap);color:var(--muted);font-variant-numeric:tabular-nums}
+  /* 画布：它是纸，不是卡片。宽度恒为 390px，不被“适配”成百分比。
+     纸外的底板压深一档（让 390px 白纸自己站住），纸本身带发丝边 + 微影。 */
+  .preview-wrap{flex:1;overflow:auto;background:var(--plane-3);padding:22px;display:flex;justify-content:center;box-shadow:inset 0 1px 3px color-mix(in oklch,var(--fg) 4%,transparent)}
+  iframe.preview{width:390px;min-height:100%;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);align-self:flex-start;box-shadow:var(--shadow)}
+  /* 校验条：三档状态胶囊。颜色只负责快速扫读，判定的词必须写在里面（色盲与黑白打印都读得出来）。
+     底板压深一档，让胶囊的浅色底不至于和面板同色。 */
+  .val-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 14px;border-top:1px solid var(--line2);font-size:var(--fs-cap);color:var(--muted);background:var(--plane-3);max-height:132px;overflow:auto}
+  .val-bar .v{padding:3px 10px;border-radius:999px;border:1px solid var(--border);display:inline-flex;align-items:baseline;gap:6px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-variant-numeric:tabular-nums}
   .val-bar .v b{font-weight:600;flex:none}
   /* 详情胶囊可能很长：允许内部折行而不撑破胶囊 */
   .val-bar .v.wrap{white-space:normal;max-width:100%;line-height:1.5}
@@ -326,66 +543,113 @@
   .val-bar .more{flex:none;min-height:24px;padding:2px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--muted);font:inherit;font-family:var(--mono);cursor:pointer}
   .val-bar .more:hover{border-color:var(--fg);color:var(--fg)}
   .val-bar .ok{color:var(--ok)} .val-bar .err{color:var(--err)} .val-bar .warn{color:var(--warn)}
-  /* toast 是深色材质，用同一个深色，不再有第二种黑 */
-  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--dark);color:var(--dark-fg);padding:10px 18px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s ease;pointer-events:none;z-index:60;display:flex;align-items:center;gap:8px;max-width:min(520px,92vw)}
-  .toast.show{opacity:1}
-  .toast i{width:6px;height:6px;border-radius:50%;background:var(--dark-accent);flex:none}
+  /* toast 是深色材质，用同一个深色，不再有第二种黑。
+     出场是「从底下浮上来」，比闪现多一层物理感（时间用 --t-base）。 */
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--dark);color:var(--dark-fg);padding:11px 18px;border-radius:999px;font-size:var(--fs-body);opacity:0;transition:opacity var(--t-base) var(--ease),transform var(--t-base) var(--ease);pointer-events:none;z-index:60;display:flex;align-items:center;gap:9px;max-width:min(520px,92vw);box-shadow:0 12px 32px -8px color-mix(in oklch,var(--dark) 55%,transparent)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast i{width:7px;height:7px;border-radius:50%;background:var(--dark-accent);flex:none}
   .toast.err i{background:color-mix(in oklch,var(--err) 70%,var(--dark-fg))}
-  .empty{color:var(--muted);padding:30px;text-align:center;font-size:12px}
+  /* 空态：不是一个灰句子，而是一组「图标 + 主句 + 提示」。
+     图标住在凹槽圆盘里，主句用正文色，提示用次级墨，两行不等权。 */
+  .empty{color:var(--muted);padding:36px 24px;text-align:center;font-size:var(--fs-body);display:flex;flex-direction:column;align-items:center;gap:6px}
+  .empty .e-ico{width:44px;height:44px;border-radius:50%;background:var(--plane-3);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--muted);margin-bottom:6px;box-shadow:var(--inset-shadow)}
+  .empty b{color:var(--ink2);font-weight:600;font-size:var(--fs-body)}
   /* 设置弹窗 */
-  .overlay{position:fixed;inset:0;background:color-mix(in oklch,var(--fg) 34%,transparent);display:none;align-items:center;justify-content:center;z-index:80}
+  /* 遮罩：压暗 + 一次轻模糊。模糊只用在 fixed 遮罩上（不进滚动容器），
+     这是把「弹窗浮在所有内容之上」变成物理事实的最便宜手段。 */
+  .overlay{position:fixed;inset:0;background:color-mix(in oklch,var(--fg) 30%,transparent);backdrop-filter:blur(4px) saturate(120%);-webkit-backdrop-filter:blur(4px) saturate(120%);display:none;align-items:center;justify-content:center;z-index:80}
   .overlay.show{display:flex}
-  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);width:420px;max-width:92vw;overflow:hidden}
-  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
-  .modal-head b{font-size:14px}
-  .modal-close{border:1px solid transparent;background:none;font-size:18px;color:var(--muted);cursor:pointer;border-radius:var(--radius-sm);width:32px;height:32px;display:grid;place-items:center;line-height:1}
-  .modal-close:hover{background:var(--fg-soft);color:var(--fg)}
-  .modal-close:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
-  .modal-body{padding:16px 18px;max-height:60vh;overflow:auto}
-  .set-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line2)}
+  .overlay.show .modal{animation:sheet var(--t-slow) var(--ease) both}
+  /* 弹窗外壳（Double-Bezel 的外层）：不再是一块白底描边，
+     而是「白面 + 1px 发丝线 + 三级柔影」，圆角比内容大一档。 */
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);width:440px;max-width:92vw;overflow:hidden;box-shadow:var(--lift-3)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line2);background:var(--panel)}
+  .modal-head b{font-size:var(--fs-title);font-weight:600;letter-spacing:-.01em}
+  .modal-head .sub{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:400;margin-top:3px;letter-spacing:0}
+  .modal-close{border:1px solid transparent;background:none;color:var(--muted);cursor:pointer;border-radius:50%;width:30px;height:30px;display:grid;place-items:center;line-height:1;flex:none;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),transform 90ms var(--ease)}
+  .modal-close:hover{background:var(--fg-soft);color:var(--fg);transform:rotate(90deg)}
+  .modal-close:active{transform:rotate(90deg) scale(.92)}
+  .modal-close:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .modal-body{padding:18px 20px;max-height:60vh;overflow:auto}
+  .set-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line2)}
   .set-row:last-child{border-bottom:0}
   .set-row .s-txt{flex:1}
-  .set-row .s-txt b{font-size:13px;display:block}
-  .set-row .s-txt small{color:var(--muted);font-size:12px;line-height:1.5;display:block;margin-top:2px}
-  .switch{position:relative;width:40px;height:22px;flex:none}
+  .set-row .s-txt b{font-size:var(--fs-body);display:block;letter-spacing:0}
+  .set-row .s-txt small{color:var(--muted);font-size:var(--fs-cap);line-height:1.6;display:block;margin-top:3px}
+  .set-row .s-txt code{font-family:var(--mono);font-size:var(--fs-cap);background:var(--plane-3);border:1px solid var(--line2);border-radius:4px;padding:0 4px}
+  /* 开关：轨道是一颗凹槽，拇指带发丝边 + 微影（和滑杆的拇指是同一套） */
+  .switch{position:relative;width:42px;height:24px;flex:none}
   .switch input{opacity:0;width:0;height:0}
-  .slider{position:absolute;inset:0;background:var(--border);border-radius:22px;transition:background .2s ease}
-  .slider:before{content:'';position:absolute;width:16px;height:16px;background:var(--surface);border-radius:50%;top:3px;left:3px;transition:transform .2s ease}
-  .switch input:checked + .slider{background:var(--accent)}
+  .slider{position:absolute;inset:0;background:var(--plane-4);border:1px solid var(--line2);border-radius:999px;box-shadow:var(--inset-shadow);transition:background var(--t-base) var(--ease),border-color var(--t-base) var(--ease),box-shadow var(--t-base) var(--ease)}
+  .slider:before{content:'';position:absolute;width:16px;height:16px;background:var(--surface);border-radius:50%;top:3px;left:3px;box-shadow:0 1px 2px color-mix(in oklch,var(--fg) 25%,transparent);transition:transform var(--t-base) var(--ease)}
+  .switch input:checked + .slider{background:var(--accent);border-color:var(--accent);box-shadow:inset 0 1px 2px color-mix(in oklch,var(--accent) 40%,transparent)}
   .switch input:checked + .slider:before{transform:translateX(18px)}
-  .switch input:focus-visible + .slider{outline:2px solid var(--fg);outline-offset:2px}
-  .modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
-  .ai-lbl{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+  .switch input:focus-visible + .slider{outline:2px solid var(--accent);outline-offset:2px}
+  .modal-foot{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:13px 20px;border-top:1px solid var(--line2);background:var(--plane-3)}
+  /* 弹窗内的裸输入框（视频弹窗的三连）：统一成凹槽，垂直堆叠、间距 8px */
+  .modal-body>input[type=text],.modal-body>input:not([type]),.v-fields input{width:100%;box-sizing:border-box;border:1px solid var(--line2);border-radius:var(--radius-sm);padding:9px 12px;font-size:var(--fs-body);background:var(--plane-3);color:var(--fg);outline:none;box-shadow:var(--inset-shadow);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+  .modal-body>input:hover,.v-fields input:hover{border-color:var(--fg-line)}
+  .modal-body>input:focus,.v-fields input:focus{border-color:var(--accent);background:var(--plane-2);box-shadow:0 0 0 3px var(--accent-soft)}
+  .v-fields{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  /* 「另存为」弹窗：面包屑 + 目录列表 + 新建文件夹行 */
+  .sa-crumbs{display:flex;align-items:center;gap:2px;flex-wrap:wrap;margin:6px 0 8px;font-size:var(--fs-cap);color:var(--muted)}
+  .sa-crumbs button{border:none;background:none;color:var(--accent);cursor:pointer;font:inherit;padding:2px 6px;border-radius:6px}
+  .sa-crumbs button:hover{background:var(--accent-soft);color:var(--accent)}
+  .sa-crumbs .sa-sep{color:var(--muted);opacity:.6;user-select:none}
+  .sa-crumbs .sa-here{color:var(--fg);font-weight:600;padding:2px 6px}
+  .sa-list{border:1px solid var(--line2);border-radius:var(--radius-sm);background:var(--plane-3);box-shadow:var(--inset-shadow);max-height:200px;overflow:auto;margin-bottom:10px}
+  .sa-row{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;border:none;background:none;color:var(--fg);font:inherit;font-size:var(--fs-body);text-align:left;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line2);transition:background var(--t-fast) var(--ease)}
+  .sa-row:last-child{border-bottom:0}
+  .sa-row:hover{background:var(--plane-2)}
+  .sa-row svg{flex:none;color:var(--muted)}
+  .sa-row.sa-dir svg{color:var(--accent)}
+  .sa-row .sa-file-hint{margin-left:auto;font-size:var(--fs-micro);color:var(--muted);white-space:nowrap}
+  .sa-row.sa-file{cursor:default}
+  .sa-row.sa-file:hover{background:none}
+  .sa-row.sa-file.sa-pick:hover{background:var(--plane-2);cursor:pointer}
+  .sa-row.sa-file.sa-pick svg{color:var(--accent)}
+  .sa-empty{padding:14px 12px;font-size:var(--fs-cap);color:var(--muted);text-align:center}
+  .sa-newdir{display:flex;gap:8px}
+  .sa-newdir input{flex:1;width:100%;box-sizing:border-box;border:1px solid var(--line2);border-radius:var(--radius-sm);padding:8px 12px;font-size:var(--fs-body);background:var(--plane-3);color:var(--fg);outline:none;box-shadow:var(--inset-shadow);transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+  .sa-newdir input:focus{border-color:var(--accent);background:var(--plane-2)}
+  /* 原生 file 按钮：浏览器默认的是一颗灰蓝胶囊，与全站按钮形制不符，
+     这里用 ::file-selector-button 拉齐到 .btn 的静置态 */
+  input[type=file]::file-selector-button{font:inherit;font-size:var(--fs-body);border:1px solid var(--line);background:var(--plane-2);color:var(--fg);border-radius:var(--radius-sm);padding:7px 12px;min-height:34px;cursor:pointer;margin-right:10px;transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+  input[type=file]::file-selector-button:hover{border-color:var(--fg-line);background:var(--plane-3)}
+  .ai-lbl{display:block;font-size:var(--fs-cap);color:var(--muted);margin:0 0 6px;letter-spacing:.02em}
   .ai-scope{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line2)}
   .ai-chips{display:flex;gap:8px;flex-wrap:wrap}
-  .ai-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--ink2);transition:border-color .15s ease,color .15s ease,background .15s ease}
+  .ai-chip{display:flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid var(--line);border-radius:999px;font-size:var(--fs-body);cursor:pointer;color:var(--ink2);transition:border-color var(--t-fast) var(--ease),color var(--t-fast) var(--ease),background var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
   .ai-chip input{accent-color:var(--accent);cursor:pointer}
-  .ai-chip:hover{border-color:var(--fg-line)}
-  .ai-chip:has(input:checked){border-color:var(--accent-line);color:var(--accent);background:var(--accent-soft)}
-  .ai-selinfo{font-family:var(--mono);font-size:11.5px;color:var(--accent);font-weight:600}
-  .ai-prompt{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;font-size:13px;font-family:inherit;line-height:1.6;resize:vertical;min-height:78px;background:var(--panel);color:var(--fg);outline:none;transition:border-color .15s ease,box-shadow .15s ease}
+  .ai-chip:hover{border-color:var(--fg-line);color:var(--fg);background:var(--plane-3)}
+  .ai-chip:has(input:checked){border-color:var(--accent-line);color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 1px 0 color-mix(in oklch,var(--surface) 40%,transparent)}
+  .ai-selinfo{font-family:var(--mono);font-size:var(--fs-cap);color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+  .ai-prompt{width:100%;box-sizing:border-box;border:1px solid var(--line2);border-radius:var(--radius-sm);padding:11px 13px;font-size:var(--fs-body);font-family:inherit;line-height:1.65;resize:vertical;min-height:84px;background:var(--plane-3);color:var(--fg);outline:none;box-shadow:var(--inset-shadow);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
   .ai-prompt:hover{border-color:var(--fg-line)}
-  .ai-prompt:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  .ai-hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:10px}
+  .ai-prompt:focus{border-color:var(--accent);background:var(--plane-2);box-shadow:0 0 0 3px var(--accent-soft)}
+  .ai-hint{font-size:var(--fs-cap);color:var(--muted);line-height:1.65;margin-top:10px}
   /* 快捷键设置弹窗 · 等宽键帽、发丝线分行 */
-  .key-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2);transition:background .12s ease}
+  .key-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2);transition:background var(--t-fast) var(--ease)}
   .key-row:last-of-type{border-bottom:0}
-  .key-name{flex:1;font-size:13px;color:var(--ink);display:flex;align-items:center;gap:8px}
-  .key-name small{color:var(--muted);font-size:11px}
-  .key-combo{width:150px;flex:none;padding:7px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);font:12.5px var(--mono);background:var(--panel);color:var(--fg);text-align:center;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;outline:none;box-sizing:border-box}
+  .key-row:hover{background:var(--fg-soft);border-radius:var(--m-r)}
+  .key-name{flex:1;font-size:var(--fs-body);color:var(--ink);display:flex;align-items:center;gap:8px}
+  .key-name small{color:var(--muted);font-size:var(--fs-cap)}
+  /* 键帽：真正的键帽形态——凹槽底 + 等宽字 + 底部一条更深的发丝线（键帽厚度） */
+  .key-combo{width:156px;flex:none;padding:7px 10px;border:1px solid var(--line2);border-bottom-width:2px;border-radius:var(--m-r);font:var(--fs-body) var(--mono);background:var(--plane-3);color:var(--fg);text-align:center;cursor:pointer;transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),background var(--t-fast) var(--ease);outline:none;box-sizing:border-box}
   .key-combo:hover{border-color:var(--fg-line)}
   .key-combo:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .key-combo.recording{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
   .key-combo::placeholder{color:var(--muted);font-family:var(--mono)}
-  .key-clear{flex:none;border:1px solid transparent;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;padding:4px;border-radius:var(--m-r)}
+  .key-clear{flex:none;border:1px solid transparent;background:none;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;padding:4px;border-radius:var(--m-r);width:24px;height:24px;display:grid;place-items:center;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
   .key-clear:hover{color:var(--err);background:var(--fg-soft)}
   .key-dup{color:var(--err);font-size:11px;margin-left:4px}
-  .key-hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:10px}
+  .key-hint{font-size:var(--fs-cap);color:var(--muted);line-height:1.65;margin-top:10px}
   .key-toolbar{display:flex;gap:8px;align-items:center;margin-top:2px}
   .key-toolbar .grow{flex:1}
-  .key-empty{color:var(--muted);font-size:12.5px;text-align:center;padding:18px 0}
-  .key-title{font-family:var(--mono);font-size:10.5px;color:var(--muted);font-weight:500;margin:12px 0 2px;letter-spacing:.09em;text-transform:uppercase}
-  .key-modal{width:460px;max-width:94vw}
+  .key-empty{color:var(--muted);font-size:var(--fs-body);text-align:center;padding:18px 0}
+  .key-title{font-family:var(--mono);font-size:var(--fs-micro);color:var(--muted);font-weight:500;margin:14px 0 4px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .key-title::after{content:'';flex:1;height:1px;background:var(--line2)}
+  .key-modal{width:480px;max-width:94vw}
   /* ---------- 响应式 ---------- */
   @media (max-width:1024px){
     .content{flex-direction:column}
@@ -401,7 +665,7 @@
   }
   /* 关掉动画偏好：只给状态切换的 120–150ms 过渡，动画全取消 */
   @media (prefers-reduced-motion:reduce){
-    *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important}
+    *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;animation-delay:0ms !important}
   }
 </style>
 </head>
@@ -428,7 +692,7 @@
       <button id="navComp"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><path d="M17 13v8M13 17h8"/></svg>组件库</button>
       <button id="navKeys"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M19 11h.01M7 15h4M14 15h3"/></svg>快捷键设置</button>
     </div>
-    <button class="new-btn" id="newBtn">＋ 新建文章</button>
+    <button class="new-btn" id="newBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>新建文章</button>
     <div class="side-actions">
       <button class="side-btn" id="importHtmlBtn" title="导入 HTML（含组件标记时精确还原 ::: 指令）">导入 HTML</button>
       <button class="side-btn" id="importMdBtn" title="导入本地 Markdown 文件">导入 MD</button>
@@ -441,50 +705,62 @@
       <input class="hist-search" id="search" placeholder="搜索…" />
       <div id="histList"></div>
     </div>
-    <div class="side-foot">stylewx · v{{VERSION}} · 本地优先</div>
+    <div class="side-foot"><span>stylewx · v{{VERSION}}</span><a class="gh" href="https://github.com/wjunhere/stylewx" target="_blank" rel="noopener noreferrer" title="GitHub 仓库（wjunhere/stylewx）" aria-label="GitHub 仓库"><svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a></div>
   </aside>
 
   <!-- 主区 -->
   <div class="main">
     <div class="topbar">
-      <button class="btn ghost" id="undoBtn" title="撤销" disabled>↶</button>
-      <button class="btn ghost" id="redoBtn" title="重做" disabled>↷</button>
+      <button class="btn ghost" id="undoBtn" title="撤销" aria-label="撤销"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+      <button class="btn ghost" id="redoBtn" title="重做" aria-label="重做"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
       <details class="theme-panel" id="savePanel"><summary title="保存到文件（Ctrl+S）"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><span id="saveLabel"></span></summary><div class="theme-box save-box">
         <h4>当前文件</h4>
         <div class="save-path" id="filePath" title="">（未关联文件）</div>
         <div class="menu-items">
-          <button class="menu-item" id="saveFileBtn" title="写回当前文件（Ctrl+S）">保存</button>
-          <button class="menu-item" id="saveAsBtn" title="保存为新文件">另存为…</button>
+          <button class="menu-item" id="saveFileBtn" title="写回当前文件（Ctrl+S）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>保存<span class="mi-hint">写回当前文件</span></button>
+          <button class="menu-item" id="saveAsBtn" title="保存为新文件"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>另存为…<span class="mi-hint">选一个新位置</span></button>
         </div>
       </div></details>
-      <select id="themeSel" style="max-width:132px" title="主题"></select>
-      <details class="theme-panel" id="themePanel"><summary><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>主题管理</summary><div class="theme-box">
+      <!-- 主题选择：原生 select 的下拉弹层无法定制（系统样式），所以这里「双层」——
+           隐藏的 select 仍是唯一事实来源（既有 JS 全部对它读写、change 事件照发），
+           上面叠一颗自绘按钮 + 分组弹层，展示层与数据层解耦。 -->
+      <div class="tsel" id="themePicker">
+        <button type="button" class="tsel-btn" id="themePickerBtn" aria-haspopup="listbox" aria-expanded="false" title="主题"><span id="themePickerLabel"></span><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="tsel-pop" id="themePickerPop" role="listbox" aria-label="选择主题"></div>
+      </div>
+      <select id="themeSel" aria-hidden="true" tabindex="-1" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></select>
+      <details class="theme-panel" id="themePanel"><summary><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>主题管理</summary><div class="theme-box">
         <div class="menu-items">
-          <button class="menu-item" id="genBtn" title="按当前文章用 AI 生成主题"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/><path d="M5 15l.7 1.8 1.8.7-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>生成主题</button>
-          <button class="menu-item" id="saveBtn" title="保存当前主题"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>保存主题</button>
-          <button class="menu-item" id="thPreviewBtn" title="用统一示例文章对比所有主题的排版效果"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>主题预览…</button>
+          <button class="menu-item" id="genBtn" title="按当前文章用 AI 生成主题"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/><path d="M5 15l.7 1.8 1.8.7-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>生成主题<span class="mi-hint">按本文用 AI 配一套</span></button>
+          <button class="menu-item" id="saveBtn" title="保存当前主题"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>保存主题<span class="mi-hint">写回主题库</span></button>
+          <button class="menu-item" id="thPreviewBtn" title="用统一示例文章对比所有主题的排版效果"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>主题预览…<span class="mi-hint">全部主题并排比</span></button>
         </div>
         <div class="menu-sep"></div>
-        <h4>排版设置（改当前主题）</h4>
         <div id="typePanel">
-          <div class="tp-row"><label>字体</label><select id="tpFont"></select></div>
-          <div class="tp-row"><label>自定义</label><input type="text" id="tpFontCustom" placeholder="Georgia, SimSun, serif" /></div>
-          <div class="tp-row"><label>字号</label><input type="range" id="tpSize" min="13" max="20" step="0.5" /><code id="tpSizeVal"></code></div>
-          <div class="tp-row"><label>行高</label><input type="range" id="tpLine" min="1.4" max="2.4" step="0.05" /><code id="tpLineVal"></code></div>
-          <div class="tp-row"><label>字距</label><input type="range" id="tpTrack" min="0" max="0.12" step="0.005" /><code id="tpTrackVal"></code></div>
-          <div class="tp-row"><label>正文色</label><input type="color" id="tpText" /><code id="tpTextVal"></code></div>
-          <div class="tp-row"><label>主色</label><input type="color" id="tpPrimary" /><code id="tpPrimaryVal"></code></div>
-          <div class="tp-row"><label>页面底色</label><input type="color" id="tpPageBg" /><button type="button" class="btn ghost" id="tpPageBgClear">跟随主题</button></div>
-          <div class="tp-hint">页面底色会写进根节点的 inline style，微信深色模式下文章不再透出暗底。<b>代价</b>：background-color 在白名单 GRAY 档，校验会多一条提示。</div>
-          <div class="tp-row" style="margin-top:8px">
-            <button type="button" class="btn" id="tpReset">还原主题</button>
-            <button type="button" class="btn ink" id="tpSaveAs">另存为主题…</button>
+          <h4>排版设置 · 改当前主题</h4>
+          <div class="tp-card">
+            <div class="tp-row"><label>字体</label><select id="tpFont"></select></div>
+            <div class="tp-row"><label>自定义</label><input type="text" id="tpFontCustom" placeholder="Georgia, SimSun, serif" /></div>
           </div>
-          <div class="tp-hint" id="tpState"></div>
+          <div class="tp-card">
+            <div class="tp-row"><label>字号</label><input type="range" id="tpSize" min="13" max="20" step="0.5" /><code id="tpSizeVal"></code></div>
+            <div class="tp-row"><label>行高</label><input type="range" id="tpLine" min="1.4" max="2.4" step="0.05" /><code id="tpLineVal"></code></div>
+            <div class="tp-row"><label>字距</label><input type="range" id="tpTrack" min="0" max="0.12" step="0.005" /><code id="tpTrackVal"></code></div>
+          </div>
+          <div class="tp-card">
+            <div class="tp-row"><label>正文色</label><input type="color" id="tpText" /><code id="tpTextVal"></code></div>
+            <div class="tp-row"><label>主色</label><input type="color" id="tpPrimary" /><code id="tpPrimaryVal"></code></div>
+            <div class="tp-row"><label>页面底色</label><input type="color" id="tpPageBg" /><button type="button" class="btn ghost" id="tpPageBgClear">跟随主题</button></div>
+          </div>
+          <div class="tp-hint">页面底色会写进根节点的 inline style，微信深色模式下文章不再透出暗底。<b>代价</b>：background-color 在白名单 GRAY 档，校验会多一条提示。</div>
+          <div class="tp-hint tp-state" id="tpState"></div>
         </div>
-        <div class="menu-sep"></div>
+        <div class="tp-foot">
+          <button type="button" class="btn" id="tpReset">还原主题</button>
+          <button type="button" class="btn ink" id="tpSaveAs">另存为主题…</button>
+        </div>
         <h4>已保存的自定义主题</h4>
-        <div id="themeList" style="max-height:150px;overflow:auto;font-size:12px;color:var(--ink2);line-height:1.9"></div>
+        <div id="themeList" class="tp-themes" style="max-height:190px;overflow:auto"></div>
       </div></details>
       <label class="lbl">标题</label><input type="text" id="title" placeholder="文章标题" style="flex:1 1 90px;min-width:80px;max-width:150px" />
       <div class="cover-wrap">
@@ -493,16 +769,16 @@
           封面<span id="coverDotText"></span>
         </summary>
         <div class="theme-box cover-box">
-          <div id="coverThumbWrp" style="display:none;position:relative;line-height:0;margin-bottom:9px">
-            <img id="coverThumb" alt="封面预览" style="width:100%;aspect-ratio:900/383;object-fit:cover;border-radius:var(--m-r);border:1px solid var(--line);display:block" />
-            <button class="btn ghost" id="coverClear" title="清除封面" style="position:absolute;top:-9px;right:-9px;padding:0 5px;font-size:13px;line-height:18px;border-radius:9px">×</button>
+          <div id="coverThumbWrp" style="display:none;position:relative;line-height:0">
+            <img id="coverThumb" alt="封面预览" style="width:100%;aspect-ratio:900/383;object-fit:cover;border:1px solid var(--line);display:block" />
+            <button id="coverClear" title="清除封面" aria-label="清除封面" style="position:absolute;top:-9px;right:-9px">×</button>
           </div>
           <div class="menu-items">
-            <button class="menu-item" id="coverGen" title="按当前主题色+标题生成一张封面（900×383）">生成封面（主题色+标题）</button>
-            <button class="menu-item" id="coverUpload" title="上传本地图片作封面">上传本地图片…</button>
+            <button class="menu-item" id="coverGen" title="按当前主题色+标题生成一张封面（900×383）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>生成封面<span class="mi-hint">主题色 + 标题</span></button>
+            <button class="menu-item" id="coverUpload" title="上传本地图片作封面"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>上传本地图…<span class="mi-hint">JPG / PNG / WebP</span></button>
           </div>
           <div class="menu-sep"></div>
-          <input type="text" id="cover" placeholder="或填封面图 URL（900×383）" style="width:100%;box-sizing:border-box;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:var(--m-r);background:var(--surface);color:var(--fg)" />
+          <input type="text" id="cover" placeholder="或填封面图 URL（900×383）" />
           <div class="tp-hint">900×383（2.35:1）。留空则用正文首图或自动生成。</div>
         </div>
       </details>
@@ -538,7 +814,11 @@
           <button class="tb-btn" data-a="img" title="插入图片（可上传本地图或填 URL）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button>
           <button class="tb-btn" data-a="imgupload" title="上传本地图到正文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
           <input type="file" id="bodyImgFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" />
+          <button class="tb-btn" data-a="video" title="插入视频占位块（真视频需发布后在公众号编辑器插入）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg></button>
           <button class="tb-btn" data-a="table" title="表格"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/></svg></button>
+          <!-- Mermaid 图：下拉里是十种图型的模板，选一个插入 :::mermaid 源码块。
+               渲染在服务端出图（见 AGENTS.md §20.11），读者端拿到的是图片，微信稳定可显。 -->
+          <button class="tb-btn tm-trigger" data-a="mermaid" title="插入 Mermaid 图（流程图 / 时序图 / 饼图等，发布时渲染为图片）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/><path d="m15 12 3 3 3-3"/></svg></button>
           <button class="tb-btn" data-a="hr" title="分隔线"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 12h16"/></svg></button>
           <button class="tb-btn tm-trigger" data-a="callout" title="警告框"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg></button>
           <button class="tb-btn tm-trigger" data-a="component" title="富组件"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><path d="M17 13v8M13 17h8"/></svg></button>
@@ -553,7 +833,7 @@
       <!-- 右栏：预览 -->
       <section class="preview-pane">
         <div class="preview-head"><span class="tab active" id="p1">实时预览</span><span class="tab" id="p2">手机视图</span><span class="grow"></span><button class="tab" id="darkToggle" aria-pressed="false" title="模拟微信深色模式：页底变暗，检查正文是否会看不清"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 14.2A8.5 8.5 0 0 1 9.8 3.6a7 7 0 1 0 10.6 10.6z"/></svg>深色模式</button><button class="tab" id="syncToggle" aria-pressed="true" title="左右栏同步滚动">同步滚动</button><span style="color:var(--muted)">390px</span></div>
-        <div class="preview-wrap" id="previewWrap"><div class="empty" id="pvEmpty">正在渲染…</div><iframe class="preview" id="pv" style="display:none"></iframe></div>
+        <div class="preview-wrap" id="previewWrap"><div class="empty" id="pvEmpty"><span class="e-ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><b>正在渲染</b>输入 Markdown 后这里实时出稿</div><iframe class="preview" id="pv" style="display:none"></iframe></div>
         <div class="val-bar" id="status"><span class="v plain">就绪 · 输入 Markdown 自动渲染</span></div>
       </section>
     </div>
@@ -563,10 +843,30 @@
 <div class="tm-picker" id="tmPicker"></div>
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
+<!-- 插入视频弹窗 -->
+<div class="overlay" id="videoOverlay">
+  <div class="modal">
+    <div class="modal-head"><div><b>插入视频</b><span class="sub">微信正文写不进真视频，这里放占位块</span></div><button class="modal-close" data-close-video aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="set-row">
+        <div class="s-txt"><b>真视频发布后在公众号插入：</b><small>① 光标放在占位块上 → ② 工具栏「视频」→「本地上传」选 MP4 → ③ 删掉占位块</small></div>
+      </div>
+      <div class="set-row">
+        <div class="s-txt"><b>封面图</b><small>可留空。</small></div>
+      </div>
+      <div class="v-fields">
+        <input id="vSrc" placeholder="https://example.com/cover.jpg（可留空）" />
+        <input id="vTitle" placeholder="视频标题（可选，写进占位标记，便于发布脚本定位）" />
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn ink" id="vInsert">插入占位块</button><button class="btn" data-close-video>取消</button></div>
+  </div>
+</div>
+
 <!-- 图床设置弹窗 -->
 <div class="overlay" id="imgHostOverlay">
   <div class="modal">
-    <div class="modal-head"><b>图床设置</b><button class="modal-close" data-close>&times;</button></div>
+    <div class="modal-head"><div><b>图床设置</b><span class="sub">外链图怎么在微信里显示出来</span></div><button class="modal-close" data-close aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="modal-body">
       <div class="set-row">
         <div class="s-txt"><b>发布时自动上传外链图到微信素材库</b><small>开启后会把正文里的外链图片搬运为微信 CDN（mmbiz.qpic.cn）链接，微信端才能显示；关闭则保留原外链 URL（可能无法显示）。</small></div>
@@ -582,7 +882,7 @@
 
 <div class="overlay" id="compOverlay">
   <div class="modal comp-modal">
-    <div class="modal-head"><b>组件库</b><span class="key-hint" id="compCount" style="margin-left:10px"></span><button class="modal-close" data-close-comp>&times;</button></div>
+    <div class="modal-head"><div><b>组件库</b><span class="sub" id="compCount"></span></div><button class="modal-close" data-close-comp aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="modal-body comp-body">
       <aside class="comp-side">
         <input class="comp-search" id="compSearch" placeholder="搜索组件…" />
@@ -611,7 +911,7 @@
 
 <div class="overlay" id="themeOverlay">
   <div class="modal comp-modal">
-    <div class="modal-head"><b>主题预览</b><span class="key-hint" id="thCount" style="margin-left:10px"></span><button class="modal-close" data-close-th>&times;</button></div>
+    <div class="modal-head"><div><b>主题预览</b><span class="sub" id="thCount"></span></div><button class="modal-close" data-close-th aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="modal-body comp-body">
       <aside class="comp-side">
         <input class="comp-search" id="thSearch" placeholder="搜索主题…" />
@@ -636,7 +936,7 @@
 
 <div class="overlay" id="impOverlay">
   <div class="modal">
-    <div class="modal-head"><b>导入 HTML</b><button class="modal-close" data-close-imp>&times;</button></div>
+    <div class="modal-head"><div><b>导入 HTML</b><span class="sub">带组件标记的 HTML 可精确还原成 ::: 指令</span></div><button class="modal-close" data-close-imp aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="modal-body">
       <div class="ai-hint" style="margin-top:0">支持 stylewx 渲染的 HTML（带组件标记，可精确还原 <code>:::card</code> 等指令）或普通 HTML 片段。可直接粘贴，也可选择 .html 文件。</div>
       <textarea class="imp-text" id="impText" placeholder="在此粘贴 HTML…"></textarea>
@@ -652,7 +952,7 @@
 
 <div class="overlay" id="aiOverlay">
   <div class="modal">
-    <div class="modal-head"><b>AI 优化</b><button class="modal-close" data-close-ai>&times;</button></div>
+    <div class="modal-head"><div><b>AI 优化</b><span class="sub">保留 Markdown 结构与事实，只改表达</span></div><button class="modal-close" data-close-ai aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="modal-body">
       <div class="ai-scope">
         <span class="ai-lbl" style="margin:0">作用范围</span>
@@ -671,10 +971,10 @@
 
 <div class="overlay" id="keyOverlay">
   <div class="modal key-modal">
-    <div class="modal-head"><b>快捷键设置</b><button class="modal-close" data-close-keys>&times;</button></div>
+    <div class="modal-head"><div><b>快捷键设置</b><span class="sub">点按键框后按组合键，或直接输入如 Ctrl+W</span></div><button class="modal-close" data-close-keys aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="modal-body" style="padding-bottom:8px">
       <div class="key-toolbar">
-        <span class="key-hint" style="margin:0">点按键框聚焦后按组合键，或直接输入如 <b>Ctrl+W</b> 回车保存。</span>
+        <span class="key-hint" style="margin:0">按键冲突会当场拒绝，清空后不占用其它动作。</span>
         <span class="grow"></span>
         <button class="btn" id="keyReset">恢复默认</button>
         <button class="btn" id="keyClearAll">清空全部</button>
@@ -690,6 +990,26 @@
   </div>
 </div>
 
+<!-- 另存为：文件名 + 目录浏览（位置只能在文章根目录内，服务端把关）。
+     不用 window.prompt：会被浏览器「阻止此页面创建更多对话框」静默禁掉，点了没反应。 -->
+<div class="overlay" id="saveAsOverlay">
+  <div class="modal">
+    <div class="modal-head"><div><b>另存为</b><span class="sub">选一个新位置保存这篇文章</span></div><button class="modal-close" data-close-saveas aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="modal-body">
+      <label class="ai-lbl" for="saveAsName">文件名</label>
+      <input type="text" id="saveAsName" placeholder="文章名.md" autocomplete="off" spellcheck="false" />
+      <div class="ai-lbl" style="margin-top:14px">保存位置</div>
+      <div class="sa-crumbs" id="saveAsCrumbs"></div>
+      <div class="sa-list" id="saveAsList"></div>
+      <div class="sa-newdir">
+        <input type="text" id="saveAsNewDir" placeholder="新建文件夹名" autocomplete="off" spellcheck="false" />
+        <button class="btn" id="saveAsMkdir" type="button">新建</button>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" data-close-saveas>取消</button><button class="btn ink" id="saveAsRun">保存</button></div>
+  </div>
+</div>
+
 <script>
 // ---- 状态 ----
 let lastHtml=''; let themesCache=[]; let currentTitle='';
@@ -698,7 +1018,9 @@ let activeId=null; // 当前正在编辑的历史条目 id（用于更新而非�
 let linkedFile=null; // 通过 ?file= 打开时记录的文件路径
 let coverFile=null; // 本地上传的封面 { data: base64, mime }
 const $=s=>document.querySelector(s);
-const toast=(m,ok=true)=>{const t=$('#toast');t.innerHTML='<i></i>'+String(m).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));t.className='toast show'+(ok?'':' err');setTimeout(()=>t.className='toast',2200);};
+// toast：圆点是语义位（蓝 = 成功，红 = 失败），文案负责说清楚；
+// 出场由 CSS 的 transform 过渡（从底下浮上来），这里只负责切类。
+const toast=(m,ok=true)=>{const t=$('#toast');t.innerHTML='<i></i>'+String(m).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));t.className='toast show'+(ok?'':' err');clearTimeout(toast._t);toast._t=setTimeout(()=>t.className='toast',2400);};
 
 // ---- 通用：给图标按钮补可访问名称（title 在触屏/读屏上不可靠）----
 function initAriaLabels(){
@@ -721,7 +1043,7 @@ function busy(btn, waiting){
 
 // ---- 通用：模态框打开/关闭 + 焦点记忆 + Esc 退出 + Tab 焦点圈定 ----
 let _lastFocus=null;
-const MODALS=['#imgHostOverlay','#aiOverlay','#keyOverlay','#impOverlay','#compOverlay','#themeOverlay'];
+const MODALS=['#imgHostOverlay','#aiOverlay','#keyOverlay','#impOverlay','#compOverlay','#themeOverlay','#saveAsOverlay'];
 function openModal(id, focusSel){
   const o=$(id); if(!o) return; _lastFocus=document.activeElement; o.classList.add('show');
   const el=o.querySelector(focusSel||'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])');
@@ -766,6 +1088,7 @@ const KEY_ACTIONS=[
   {id:'link',  label:'链接',      cat:'insert', run:()=>ACTIONS.link()},
   {id:'img',   label:'图片',      cat:'insert', run:()=>ACTIONS.img()},
   {id:'imgupload', label:'上传图片', cat:'insert', run:()=>$('#bodyImgFile').click()},
+  {id:'video', label:'插入视频', cat:'insert', run:()=>insertVideoPlaceholder()},
   {id:'sup',   label:'上标',      cat:'insert', run:()=>ACTIONS.sup()},
   {id:'sub',   label:'下标',      cat:'insert', run:()=>ACTIONS.sub()},
   {id:'hr',    label:'分隔线',    cat:'insert', run:()=>ACTIONS.hr()},
@@ -964,9 +1287,75 @@ async function loadThemes(){
   const pg=document.createElement('optgroup');pg.label='预置主题';presets.forEach(t=>pg.appendChild(new Option(t.name,t.name)));sel.appendChild(pg);
   if(keep)sel.value=keep; else if(themesCache[0])sel.value=themesCache[0].name;
   fillTypePanel();   // 主题列表重载后面板必须重填 —— 否则字体下拉是空的（首次打开就撞过这个）
-  $('#themeList').innerHTML=saved.length?saved.map(t=>'<div>• '+t.name+'</div>').join(''):'<div>暂无（用「生成/保存主题」加入）</div>';
+  renderThemeList(saved);
+  renderThemePicker();   // 自绘选择器的按钮文字与弹层跟著 select 走
   return sel.value;
 }
+
+// ---- 主题管理面板 · 已保存主题列表 ----
+// 原来是「• 名字」的纯文本列表，既不能点也不能看到颜色，只是个目录。
+// 现在每行是一颗行卡片：色板（正文/主色/底色） + 名字 + 当前标记，点击即切换。
+// 色板直接从主题 token 取，与顶部下拉、预览页用的是同一份事实。
+function themeSwatches(t){
+  const c=(t.tokens||{});
+  return [c.textColor,c.primaryColor,c.pageBackgroundColor].filter(Boolean).slice(0,3)
+    .map(x=>'<i style="background:'+esc(x)+'"></i>').join('');
+}
+function renderThemeList(saved){
+  const box=$('#themeList'); const cur=$('#themeSel').value;
+  box.innerHTML=saved.length
+    ? saved.map(t=>'<button type="button" class="tp-theme'+(t.name===cur?' on':'')+'" data-name="'+esc(t.name)+'" title="切换到 '+esc(t.name)+'">'
+        +'<span class="sw">'+themeSwatches(t)+'</span>'
+        +'<span class="nm">'+esc(t.name)+'</span>'
+        +(t.name===cur?'<span class="cur">当前</span>':'')
+      +'</button>').join('')
+    : '<div class="tp-empty">暂无自定义主题。在上面用「生成主题」或「另存为主题…」加入，点击即切换。</div>';
+}
+$('#themeList').addEventListener('click',e=>{
+  const b=e.target.closest('.tp-theme'); if(!b) return;
+  const sel=$('#themeSel');
+  if(![...sel.options].some(o=>o.value===b.dataset.name)) return;
+  sel.value=b.dataset.name; sel.dispatchEvent(new Event('change'));
+  toast('已切换主题：'+b.dataset.name);
+});
+
+// ---- 自绘主题选择器（顶栏）----
+// 隐藏的 #themeSel 仍是唯一事实来源；这里只从它的 optgroup 渲染弹层，
+// 选中时写回 select 并派发 change（和原来的交互路径完全一致）。
+const TICK='<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>';
+function renderThemePicker(){
+  const sel=$('#themeSel'); const cur=sel.value;
+  $('#themePickerLabel').textContent=cur||'主题';
+  const groups=[]; const seen=new Set();
+  [...sel.options].forEach(o=>{
+    const g=o.parentElement&&o.parentElement.tagName==='OPTGROUP'?(o.parentElement.label||''):'其他';
+    if(!seen.has(g)){ seen.add(g); groups.push([g,[]]); }
+    groups.find(([k])=>k===g)[1].push(o);
+  });
+  $('#themePickerPop').innerHTML=groups.map(([g,opts])=>
+    '<div class="tsel-group">'+esc(g)+'</div>'
+    +opts.map(o=>'<button type="button" role="option" aria-selected="'+(o.value===cur)+'" class="tsel-opt'+(o.value===cur?' on':'')+'" data-v="'+esc(o.value)+'">'
+      +'<span class="nm">'+esc(o.value)+'</span>'+TICK+'</button>').join('')
+  ).join('');
+}
+$('#themePickerBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  const pop=$('#themePickerPop'); const open=!pop.classList.contains('show');
+  pop.classList.toggle('show',open);
+  $('#themePickerBtn').setAttribute('aria-expanded',String(open));
+  if(open) renderThemePicker();
+});
+$('#themePickerPop').addEventListener('click',e=>{
+  const b=e.target.closest('.tsel-opt'); if(!b) return;
+  const sel=$('#themeSel');
+  if(sel.value!==b.dataset.v){ sel.value=b.dataset.v; sel.dispatchEvent(new Event('change')); }
+  $('#themePickerPop').classList.remove('show');
+  $('#themePickerBtn').setAttribute('aria-expanded','false');
+});
+// 点别处 / 按 Esc 收起；选中态变化（含其它入口切主题）时同步按钮文字
+document.addEventListener('click',e=>{ if(!e.target.closest('#themePicker')){ $('#themePickerPop').classList.remove('show'); $('#themePickerBtn').setAttribute('aria-expanded','false'); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('#themePickerPop').classList.contains('show')){ $('#themePickerPop').classList.remove('show'); $('#themePickerBtn').setAttribute('aria-expanded','false'); $('#themePickerBtn').focus(); } });
+$('#themeSel').addEventListener('change',()=>{ $('#themePickerLabel').textContent=$('#themeSel').value||'主题'; renderThemePicker(); });
 
 // ---- 渲染 (防抖) ---
 let timer;
@@ -999,7 +1388,9 @@ function paintTypeState(){
   const n=overrideCount();
   const el=$('#tpState');
   if(!el) return;
-  el.innerHTML=n?`<span class="tp-dirty">已改 ${n} 项 · 只对当前预览/发布生效，可用「另存为主题」固化</span>`:'未修改。改动只发往预览与发布，不自动写回主题库。';
+  el.innerHTML=n
+    ? '<span class="tp-dirty">已改 '+n+' 项</span>，只对预览与发布生效；点底部「另存为主题…」固化到主题库。'
+    : '未修改。改动只发往预览与发布，不自动写回主题库。';
 }
 
 // ---- 深色模式预览 ----
@@ -1155,8 +1546,10 @@ const ACTIONS={
   h1:()=>linePrefix('# '), h2:()=>linePrefix('## '), h3:()=>linePrefix('### '),
   quote:()=>linePrefix('> '), ul:()=>linePrefix('- '), ol:()=>linePrefix('1. '),
   hr:()=>{const ta=$('#md');pushUndo(ta.value);ta.value=(ta.value+'\n\n---\n');render();},
+  imgupload:()=>$('#bodyImgFile').click(),
   clear:()=>{const ta=$('#md');const s=ta.selectionStart,e=ta.selectionEnd;pushUndo(ta.value);ta.value=ta.value.slice(0,s)+ta.value.slice(e);render();},
   help:()=>toast('Markdown 支持：**加粗**、*斜体*、==高亮==、> 引用、- 列表、| 表格 |、`代码`、```代码块```；富组件见工具栏「富组件」按钮（:::card / :::gallery / :::carousel / :::reveal 等）'),
+  video:()=>insertVideoPlaceholder(),
 };
 $('#toolbar').addEventListener('click',e=>{
   const btn=e.target.closest('.tb-btn'); const a=btn?.dataset?.a; if(!a) return;
@@ -1164,6 +1557,7 @@ $('#toolbar').addEventListener('click',e=>{
   if(a==='heading'){ showTmPicker(btn, HEAD_OPTS); return; }
   if(a==='list'){ showTmPicker(btn, LIST_OPTS); return; }
   if(a==='callout'){ showTmPicker(btn, CALLOUT_OPTS); return; }
+  if(a==='mermaid'){ showTmPicker(btn, MERMAID_OPTS); return; }
   if(a==='component'){ openComponentPicker(btn); return; }
   if(ACTIONS[a]) ACTIONS[a]();
 });
@@ -1198,14 +1592,31 @@ const HEAD_OPTS=[
 const LIST_OPTS=[
   {label:'无序列表', action:()=>linePrefix('- ')},
   {label:'有序列表', action:()=>linePrefix('1. ')},
-  {label:'二级—无序', action:()=>linePrefix('  - ')},
-  {label:'二级—有序', action:()=>linePrefix('  1. ')} ];
+  {label:'二级 · 无序', action:()=>linePrefix('  - ')},
+  {label:'二级 · 有序', action:()=>linePrefix('  1. ')} ];
 const CALLOUT_OPTS=[
   {label:'提醒内容', action:()=>insertCallout('info','提醒内容')},
   {label:'建议内容', action:()=>insertCallout('tip','建议内容')},
   {label:'重要内容', action:()=>insertCallout('important','重要内容')},
   {label:'警告内容', action:()=>insertCallout('warning','警告内容')},
   {label:'注意内容', action:()=>insertCallout('note','注意内容')} ];
+
+// Mermaid 图模板：与用户在其它工具里的图型菜单一一对应。
+// 插入的是 :::mermaid 源码块（服务端渲染成图片后发布，见 docs/DESIGN.md §20.11）；
+// 光标停在第一处可编辑内容，写完源码预览处会自动出图。
+const MERMAID_BLOCK=(body, caret)=>insertBlock(':::mermaid{caption="图注（可删）"}\n'+body+'\n:::', caret);
+const MERMAID_OPTS=[
+  {label:'流程图', action:()=>MERMAID_BLOCK('graph TD\n  A[开始] --> B{判断}\n  B -->|是| C[结果一]\n  B -->|否| D[结果二]', 'B{判断}')},
+  {label:'时序图', action:()=>MERMAID_BLOCK('sequenceDiagram\n  participant A as 甲方\n  participant B as 乙方\n  A->>B: 请求\n  B-->>A: 响应', 'participant A as 甲方')},
+  {label:'类图', action:()=>MERMAID_BLOCK('classDiagram\n  class 动物 {\n    +名字\n    +叫()\n  }\n  动物 <|-- 狗', 'class 动物 {')},
+  {label:'甘特图', action:()=>MERMAID_BLOCK('gantt\n  title 项目计划\n  dateFormat YYYY-MM-DD\n  section 阶段一\n  任务 :a1, 2025-01-01, 7d', 'title 项目计划')},
+  {label:'思维导图', action:()=>MERMAID_BLOCK('mindmap\n  root((中心主题))\n    分支一\n    分支二', 'root((中心主题))')},
+  {label:'饼图', action:()=>MERMAID_BLOCK('pie title 占比\n  "第一项" : 40\n  "第二项" : 35\n  "第三项" : 25', 'pie title 占比')},
+  {label:'状态图', action:()=>MERMAID_BLOCK('stateDiagram-v2\n  [*] --> 状态一\n  状态一 --> 状态二: 触发\n  状态二 --> [*]', '状态一')},
+  {label:'ER 图', action:()=>MERMAID_BLOCK('erDiagram\n  用户 ||--o{ 订单 : 下单\n  用户 {\n    string 名字\n  }', '用户 ||--o{ 订单 : 下单')},
+  {label:'时间线', action:()=>MERMAID_BLOCK('timeline\n  title 大事记\n  2024 : 第一件事\n  2025 : 第二件事', 'title 大事记')},
+  {label:'用户旅程', action:()=>MERMAID_BLOCK('journey\n  title 使用旅程\n  section 开始\n    打开页面: 5: 用户\n    完成操作: 4: 用户', 'title 使用旅程')},
+];
 function showTmPicker(btn, options){
   hideTmPicker();
   const p=$('#tmPicker'); p._opts=options;
@@ -1274,7 +1685,7 @@ function userComponentOpt(c){
   };
 }
 
-// 打开组件面板：内置 22 个 + 本地自定义组件（实时从组件库读取）
+// 打开组件面板：内置组件 + 本地自定义组件（数量从 catalog 实时取，不写死）（实时从组件库读取）
 async function openComponentPicker(btn){
   let user=[];
   try{
@@ -1351,7 +1762,7 @@ function saveSnap(){
 }
 // 防抖：停止输入约 1.2s 才写历史
 function queueSave(){ clearTimeout(saveTimer); saveTimer=setTimeout(saveSnap,1200); }
-function renderHistory(filter){ const list=history.filter(h=>!filter||h.title.includes(filter)||h.md.includes(filter)); $('#histList').innerHTML=list.length?list.map(h=>'<div class="hist-item" data-id="'+h.id+'"><div class="h-title">'+esc(h.title)+'</div><div class="h-meta">'+new Date(h.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>').join(''):'<div class="empty">暂无历史</div>'; }
+function renderHistory(filter){ const list=history.filter(h=>!filter||h.title.includes(filter)||h.md.includes(filter)); $('#histList').innerHTML=list.length?list.map(h=>'<div class="hist-item" data-id="'+h.id+'"><div class="h-title">'+esc(h.title)+'</div><div class="h-meta">'+new Date(h.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>').join(''):'<div class="empty"><span class="e-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>'+(filter?'没有匹配「'+esc(filter)+'」的历史':'暂无历史，写下的第一篇会出现在这里')+'</div>'; }
 function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 function loadHistory(){ const raw=JSON.parse(localStorage.getItem('mp-history')||'[]'); const seen=new Set(); const out=[]; for(const h of raw){ if(!h.id) h.id='h'+(h.ts||Date.now())+Math.random().toString(36).slice(2,6); if(!seen.has(h.title)){ seen.add(h.title); out.push(h); } } history=out; }
 $('#histList').addEventListener('click',e=>{const id=e.target.closest('.hist-item')?.dataset?.id; if(id){const h=history.find(x=>x.id===id); if(h){$('#md').value=h.md;$('#title').value=h.title;activeId=h.id;undoStack.length=0;redoStack.length=0;prevMd=$('#md').value;updateUndoBtns();render();}}});
@@ -1429,6 +1840,7 @@ $('#impRun').onclick=async()=>{
 };
 
 document.querySelectorAll('[data-close-imp]').forEach(b=>b.onclick=()=>closeModal('#impOverlay'));
+document.querySelectorAll('[data-close-video]').forEach(b=>b.onclick=()=>closeModal('#videoOverlay'));
 // ---- 组件库预览页 ----
 let compPreviews=[]; let compCurrent=null;
 // 参数编辑状态：base=示例里原本的值（undefined 表示示例没写）、init=初次展示值、values=当前值。
@@ -1498,8 +1910,8 @@ function compRenderParams(c){
       ? list.map(v=>'<button type="button" class="comp-choice'+(v===cur?' on':'')+'" data-k="'+escAttr(key)+'" data-v="'+escAttr(v)+'">'+esc(v)+'</button>').join('')
       : '<input class="comp-input" data-k="'+escAttr(key)+'" value="'+escAttr(cur)+'" spellcheck="false" /> '
         +'<span class="comp-type">'+esc(p.type||'text')+'</span>';
-    const def=p.default?'<code class="comp-pdef">'+esc(p.default)+'</code>':'<span class="comp-type">—</span>';
-    return '<tr data-row="'+escAttr(key)+'"><td><code class="comp-pname">'+esc(p.name)+'</code></td><td>'+val+'</td><td>'+def+'</td><td>'+esc(p.description||'—')+'</td></tr>';
+    const def=p.default?'<code class="comp-pdef">'+esc(p.default)+'</code>':'<span class="comp-type">无默认</span>';
+    return '<tr data-row="'+escAttr(key)+'"><td><code class="comp-pname">'+esc(p.name)+'</code></td><td>'+val+'</td><td>'+def+'</td><td>'+esc(p.description||'无说明')+'</td></tr>';
   }).join('');
   box.innerHTML='<table><thead><tr><th>参数</th><th>取值（可直接改）</th><th>默认</th><th>说明</th></tr></thead><tbody>'+rows+'</tbody></table>';
   box.style.display='';
@@ -1788,12 +2200,14 @@ function updateSaveFileBtn(){
 async function saveToFile(forcePrompt, force){
   const md=$('#md').value;
   if(!md.trim()) return toast('正文为空，不写入文件',false);
-  let target=forcePrompt?'':(linkedFile||'');
-  if(!target){
-    const guess=((($('#title').value||'未命名').replace(/[\\/:*?"<>|]/g,'').trim())||'未命名')+'.md';
-    target=window.prompt('保存为（相对文章根目录，或根目录内的绝对路径）',guess)||'';
-    if(!target.trim()) return;
-  }
+  // 有关联文件且不是「另存为」→ 原地写回；否则打开弹窗选位置。
+  // 不用 window.prompt：会被浏览器「阻止此页面创建更多对话框」静默禁掉（点了没反应）。
+  if(forcePrompt || !linkedFile){ openSaveAs(); return; }
+  return writeBack(linkedFile, force);
+}
+async function writeBack(target, force){
+  const md=$('#md').value;
+  if(!md.trim()) return toast('正文为空，不写入文件',false);
   const btn=$('#saveFileBtn'); busy(btn,true);
   const payload={path:target,markdown:md,title:$('#title').value,theme:currentTheme()};
   let d;
@@ -1815,6 +2229,108 @@ async function saveToFile(forcePrompt, force){
   }catch(e){ toast('保存失败：'+e.message,false); }
   finally{ busy(btn,false); updateSaveFileBtn(); $('#savePanel').open=false; }
 }
+
+// ---- 另存为弹窗：文件名 + 选位置（像文件管理器一样，可从「此电脑」逐层进入） ----
+// 服务端把浏览/写入范围限制在 writeRoots()（文章根目录 + 用户主目录，可用
+// STYLEWX_WRITE_ROOTS 追加）内：系统位置（C:\Windows 等）天然在主目录外，不可达。
+let saveAsDir=''; // 当前浏览的目录（绝对路径；'' = 「此电脑」层，列出可用的根）
+let saveAsRoots=[]; // 服务端告知的允许根
+const SAVE_AS_DIR_ICON='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+const SAVE_AS_FILE_ICON='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+const SAVE_AS_DRIVE_ICON='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>';
+function openSaveAs(){
+  const md=$('#md').value;
+  if(!md.trim()) return toast('正文为空，不写入文件',false);
+  const guess=((($('#title').value||'未命名').replace(/[\\/:*?"<>|]/g,'').trim())||'未命名')+'.md';
+  $('#saveAsName').value = guess;
+  openModal('#saveAsOverlay','#saveAsName');
+  // 上次保存过的位置优先 —— 行为对齐文件管理器的「记忆位置」
+  browseSaveAs(linkedFile ? parentDir(linkedFile) : '');
+}
+function parentDir(p){
+  const norm=String(p).replace(/[\\/]+$/,'');
+  const cut=Math.max(norm.lastIndexOf('\\'),norm.lastIndexOf('/'));
+  if(cut<=0) return '';
+  // 盘根（如 D:\）再往上一级就是「此电脑」
+  const parent=norm.slice(0,cut);
+  return /^[A-Za-z]:$/.test(parent) ? parent+String.fromCharCode(92) : parent;
+}
+async function browseSaveAs(dir){
+  try{
+    const d=await api('/editor/api/list-dir?dir='+encodeURIComponent(dir||''));
+    saveAsDir=d.dir||''; saveAsRoots=d.roots||[];
+    renderSaveAsCrumbs();
+    const list=$('#saveAsList');
+    const rows=[];
+    if(d.drives){
+      // 「此电脑」层：列出所有允许写入的根（盘/主目录）
+      for(const root of d.dirs){
+        rows.push('<button class="sa-row sa-dir" data-dir="'+escAttr(root)+'">'+SAVE_AS_DRIVE_ICON+esc(root)+'</button>');
+      }
+    } else {
+      const parent=parentDir(d.dir);
+      rows.push('<button class="sa-row sa-dir" data-up="'+escAttr(parent)+'">'+SAVE_AS_DIR_ICON+'上一级</button>');
+      for(const dirName of d.dirs){
+        rows.push('<button class="sa-row sa-dir" data-dir="'+escAttr(joinPath(d.dir,dirName))+'">'+SAVE_AS_DIR_ICON+esc(dirName)+'</button>');
+      }
+      for(const f of d.files){
+        rows.push('<button class="sa-row sa-file sa-pick" data-file="'+escAttr(f)+'">'+SAVE_AS_FILE_ICON+esc(f)+'<span class="sa-file-hint">点击选用此名</span></button>');
+      }
+    }
+    list.innerHTML = rows.length ? rows.join('') : '<div class="sa-empty">这里还没有文章。直接在上方输入文件名即可保存。</div>';
+  }catch(e){ toast('读取目录失败：'+e.message,false); }
+}
+function joinPath(dir,name){
+  const sepChar=dir.includes('\\')||/^[A-Za-z]:/.test(dir)?String.fromCharCode(92):'/';
+  return dir.replace(/[\\/]+$/,'')+sepChar+name;
+}
+function renderSaveAsCrumbs(){
+  let h='<button data-up="">此电脑</button>';
+  if(saveAsDir){
+    // 按分隔符逐层展开面包屑；盘根单独成一个可点层
+    const norm=saveAsDir.replaceAll(String.fromCharCode(92),'/');
+    const parts=norm.split('/').filter(Boolean);
+    let acc=parts[0].endsWith(':')?parts[0]+String.fromCharCode(92):'';
+    h+='<span class="sa-sep">/</span><button data-crumb="'+escAttr(acc)+'">'+esc(parts[0])+'</button>';
+    for(let i=1;i<parts.length;i++){
+      acc=joinPath(acc.replace(/[\\/]+$/,''),parts[i]);
+      const native=i===parts.length-1?null:acc;
+      if(i===parts.length-1){ h+='<span class="sa-sep">/</span><span class="sa-here">'+esc(parts[i])+'</span>'; }
+      else { h+='<span class="sa-sep">/</span><button data-crumb="'+escAttr(native)+'">'+esc(parts[i])+'</button>'; }
+    }
+  }
+  $('#saveAsCrumbs').innerHTML=h;
+}
+document.addEventListener('click',e=>{
+  const o=$('#saveAsOverlay'); if(!o||!o.classList.contains('show')) return;
+  const t=e.target;
+  const up=t.closest && t.closest('[data-up]');   if(up){ browseSaveAs(up.dataset.up); return; }
+  const go=t.closest && t.closest('[data-dir]');  if(go){ browseSaveAs(go.dataset.dir); return; }
+  const cr=t.closest && t.closest('[data-crumb]');if(cr){ browseSaveAs(cr.dataset.crumb); return; }
+  const pick=t.closest && t.closest('[data-file]');
+  if(pick){ $('#saveAsName').value=pick.dataset.file; $('#saveAsName').focus(); return; }
+});
+$('#saveAsMkdir').onclick=async()=>{
+  const name=$('#saveAsNewDir').value.trim();
+  if(!name) return toast('先输入文件夹名',false);
+  if(!saveAsDir) return toast('先选一个具体位置（此电脑 → 某个盘）',false);
+  try{
+    const d=await api('/editor/api/make-dir',{dir:joinPath(saveAsDir,name)});
+    $('#saveAsNewDir').value='';
+    toast('已创建 '+name);
+    await browseSaveAs(d.dir);
+  }catch(e){ toast('创建失败：'+e.message,false); }
+};
+$('#saveAsRun').onclick=async()=>{
+  const name=$('#saveAsName').value.trim();
+  if(!name) return toast('请输入文件名',false);
+  const target=saveAsDir?joinPath(saveAsDir,name):name;
+  closeModal('#saveAsOverlay');
+  await writeBack(target, false);
+};
+document.querySelectorAll('[data-close-saveas]').forEach(b=>b.onclick=()=>closeModal('#saveAsOverlay'));
+$('#saveAsOverlay').addEventListener('click',e=>{ if(e.target.id==='saveAsOverlay') closeModal('#saveAsOverlay'); });
+$('#saveAsName').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#saveAsRun').click(); });
 $('#saveFileBtn').onclick=()=>saveToFile(false);
 $('#saveAsBtn').onclick=()=>saveToFile(true);
 document.addEventListener('keydown',e=>{
@@ -1873,7 +2389,7 @@ function fillTypePanel(){
   $('#tpLine').value=String(tok.lineHeight??2);
   $('#tpLineVal').textContent=String(tok.lineHeight??'');
   $('#tpTrack').value=String(parseFloat(tok.letterSpacing||'0')||0);
-  $('#tpTrackVal').textContent=tok.letterSpacing||'—';
+  $('#tpTrackVal').textContent=tok.letterSpacing||'0';
   $('#tpText').value=toHex(tok.textColor)||'#333333';
   $('#tpTextVal').textContent=tok.textColor||'';
   $('#tpPrimary').value=toHex(tok.primaryColor)||'#000000';
@@ -1881,6 +2397,7 @@ function fillTypePanel(){
   const pageBg=tok.pageBackgroundColor?toHex(tok.pageBackgroundColor):'';
   $('#tpPageBg').value=pageBg||'#ffffff';
   $('#tpPageBgClear').style.display=pageBg?'':'none';
+  paintRanges();   // 滑杆填充段跟随新值（否则切主题后轨道还是上一次的蓝段）
   paintTypeState();
 }
 // 主题色可以是 oklch() 等 CSS 颜色，而 <input type=color> 只吃 #rrggbb：
@@ -1901,9 +2418,14 @@ function setOverride(token,val){
 }
 $('#tpFont').onchange=()=>{ const v=$('#tpFont').value; if(v){ themeOverrides.fontFamily=v; delete themeOverrides._fontCustom; } $('#tpFontCustom').value=''; paintTypeState(); render(); };
 $('#tpFontCustom').onchange=()=>{ const v=$('#tpFontCustom').value.trim(); if(v) themeOverrides.fontFamily=v; else delete themeOverrides.fontFamily; paintTypeState(); render(); };
-$('#tpSize').oninput=()=>{ setOverride('fontSize', Number($('#tpSize').value).toFixed(1).replace(/\.0$/,'')+'px'); $('#tpSizeVal').textContent=$('#tpSize').value+'px'; };
-$('#tpLine').oninput=()=>{ setOverride('lineHeight', Number($('#tpLine').value)); $('#tpLineVal').textContent=Number($('#tpLine').value).toFixed(2); };
-$('#tpTrack').oninput=()=>{ const v=Number($('#tpTrack').value); setOverride('letterSpacing', v?v.toFixed(3)+'em':''); $('#tpTrackVal').textContent=v?v.toFixed(3)+'em':'—'; };
+/* 滑杆的已填充段：CSS 画不了「到拇指为止」的那段，所以把百分比写在元素上，
+   轨道背景用它分段（--fill 是运行时变量，见 check-editor 的 RUNTIME 白名单）。 */
+function paintRange(el){ const v=el; const min=+v.min||0, max=+v.max||100; v.style.setProperty('--fill',(((+v.value-min)/(max-min))*100).toFixed(1)+'%'); }
+function paintRanges(){ ['#tpSize','#tpLine','#tpTrack'].forEach(s=>paintRange($(s))); }
+
+$('#tpSize').oninput=()=>{ setOverride('fontSize', Number($('#tpSize').value).toFixed(1).replace(/\.0$/,'')+'px'); $('#tpSizeVal').textContent=$('#tpSize').value+'px'; paintRange($('#tpSize')); };
+$('#tpLine').oninput=()=>{ setOverride('lineHeight', Number($('#tpLine').value)); $('#tpLineVal').textContent=Number($('#tpLine').value).toFixed(2); paintRange($('#tpLine')); };
+$('#tpTrack').oninput=()=>{ const v=Number($('#tpTrack').value); setOverride('letterSpacing', v?v.toFixed(3)+'em':''); $('#tpTrackVal').textContent=v?v.toFixed(3)+'em':'0'; paintRange($('#tpTrack')); };
 $('#tpText').oninput=()=>{ setOverride('textColor', $('#tpText').value); $('#tpTextVal').textContent=$('#tpText').value; };
 $('#tpPrimary').oninput=()=>{ setOverride('primaryColor', $('#tpPrimary').value); $('#tpPrimaryVal').textContent=$('#tpPrimary').value; };
 $('#tpPageBg').oninput=()=>{ setOverride('pageBackgroundColor', $('#tpPageBg').value); $('#tpPageBgClear').style.display=''; if(darkOn) reportDarkRisk(); };
@@ -1919,6 +2441,34 @@ $('#tpSaveAs').onclick=async()=>{
 };
 
 // ---- 正文图片上传（本地图片终于有通路了）----
+// ---- 插入视频占位块 ----
+// 为什么是占位而不是真播放器：微信正文无法用 API 写入可播放的视频（见 docs/DESIGN.md §20.10）。
+// 这里插 :::video 指令，渲染后带 data-swx-video 标记，发布后据它在公众号编辑器里找插入点。
+function insertVideoPlaceholder(){
+  openModal('#videoOverlay','#vSrc');
+}
+function videoDirective(){
+  const src=$('#vSrc').value.trim(), title=$('#vTitle').value.trim();
+  const parts=[];
+  if(src) parts.push('src="'+src.replace(/"/g,'')+'"');
+  if(title) parts.push('title="'+title.replace(/"/g,'')+'"');
+  return ':::video'+(parts.length?'{'+parts.join(' ')+'}':'')+'\n:::';
+}
+$('#vInsert').onclick=()=>{
+  const ta=$('#md');
+  pushUndo(ta.value);
+  const ins=videoDirective();
+  const s=ta.selectionStart, e=ta.selectionEnd, v=ta.value;
+  const before=(s>0&&v[s-1]!=='\n')?'\n\n':'';
+  const after=(e<v.length&&v[e]!=='\n')?'\n\n':'';
+  ta.value=v.slice(0,s)+before+ins+after+v.slice(e);
+  ta.selectionStart=ta.selectionEnd=s+before.length+ins.length;
+  closeModal('#videoOverlay');
+  $('#vSrc').value=''; $('#vTitle').value='';
+  ta.focus(); render(); saveSnap();
+  toast('已插入视频占位块。真视频发布后到公众号「视频 → 本地上传」放，再删掉占位块');
+};
+
 $('#bodyImgFile').addEventListener('change',async e=>{
   const f=e.target.files&&e.target.files[0]; e.target.value='';
   if(!f) return;
@@ -2087,7 +2637,7 @@ $('#coverClear').onclick=()=>{ coverFile=null; $('#coverThumbWrp').style.display
 // 填 URL 也算设了封面（发布时走 coverImage），即时反映在入口上
 $('#cover').addEventListener('input',paintCoverState);
 
-$('#themeSel').addEventListener('change',()=>{ markFileDirty(); themeOverrides={}; fillTypePanel(); render(); });
+$('#themeSel').addEventListener('change',()=>{ markFileDirty(); themeOverrides={}; fillTypePanel(); render(); renderThemeList(themesCache.filter(t=>t.origin==='saved')); });
 // ---- 撤销/重做栈（自定义快照，覆盖工具栏程序化改动与键盘输入）----
 let undoStack=[], redoStack=[];
 let prevMd='', lastInputTs=0;

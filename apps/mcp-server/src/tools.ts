@@ -33,6 +33,7 @@ import {
   brandDelete,
   readBrandDoc,
   reviewArticle,
+  uploadVideo,
 } from '@stylewx/service'
 import type { ServiceError } from '@stylewx/service'
 import type { LlmClient } from '@stylewx/service'
@@ -508,6 +509,44 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
           needOpenComment: args.needOpenComment,
         })
         return textResult(result)
+      } catch (error) {
+        return errorResultFrom(error)
+      }
+    },
+  )
+
+  // ---- upload_video ----
+  server.registerTool(
+    'upload_video',
+    {
+      title: '上传视频（限菜单/自动回复）',
+      description:
+        '把本地 MP4 上传到微信永久素材库，返回 `vid`。\n\n' +
+        '⚠️ **关键限制（实测，见 docs/DESIGN.md §20.10）：API 上传的视频不能用于图文正文。** ' +
+        '微信在素材库里对它自己的说明是「API上传完成，可用于自定义菜单、自动回复等场景」——' +
+        '在编辑器的「视频」选择弹窗里，这类视频永远是禁用态（`more-video__item_disabled`，勾选框 `disabled`），' +
+        '**等多久都一样，不是审核问题**。所以：不要用它做「正文嵌视频」。\n\n' +
+        '要往正文里放视频，只能：① 在公众号编辑器点「视频」→「本地上传」传本地 MP4（原生文件选择器；' +
+        '扩展驱动不了，cua-driver 也只能自动填路径、「打开」那一下必须人按）；' +
+        '或 ② 用已发布且公开的视频号视频。\n\n' +
+        '本工具的真实用途：自定义菜单、自动回复等需要 `vid` 的场景。\n' +
+        '限制：MP4、≤10MB（后台 UI 更宽松，但接口就是这条线）。本工具会同步取 vid，取不到就明确报错。',
+      inputSchema: {
+        path: z.string().describe('本地视频文件绝对路径（MP4）。'),
+        title: z.string().describe('视频标题（素材库列表显示）。必填——微信要求 description，缺了报 40007。'),
+        description: z.string().optional().describe('视频简介（可选）。'),
+      },
+    },
+    async (args) => {
+      try {
+        if (!deps.wechat) {
+          return errorResult(
+            'missing_wechat_credential',
+            'upload_video 需要微信公众号凭据，但当前未配置微信客户端。',
+            '请配置环境变量 WECHAT_APP_ID 与 WECHAT_APP_SECRET 后重启服务。',
+          )
+        }
+        return textResult(await uploadVideo(deps.wechat, args))
       } catch (error) {
         return errorResultFrom(error)
       }

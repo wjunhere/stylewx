@@ -24,6 +24,10 @@ description: 用 stylewx MCP 把 Markdown 排成一篇可发布的微信公众�
 
 缺配置时工具会返回 `missing_*` 错误，**不要重试**，直接告诉用户去配。
 
+**发布通道**：给人看的稿子必须走浏览器登录态（`apps/mcp-server/scripts/publish-via-browser.mjs`），
+**不要用 `publish_draft`** —— 它走 `cgi-bin/draft/add`，写进去的稿子后台编辑器不认领，**人改不了**。
+判据：`draft/get` 里 `leaf=0` 就说明改不了。详见 `docs/DESIGN.md` §20.7。
+
 ## 工作流
 
 ### 0. 认品牌（每轮排版开始时先做）

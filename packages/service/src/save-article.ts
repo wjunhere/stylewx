@@ -2,8 +2,8 @@
  * 把最终 Markdown 落盘，并返回可直接打开的本地编辑器地址。
  * 这是「agent 生成 → 人在编辑器里微调」的交接点。
  */
-import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { serviceError } from './errors.js'
 import { parseFrontMatter, stringifyFrontMatter } from './front-matter.js'
 
@@ -55,6 +55,36 @@ export function editorBaseUrl(): string {
 export function isInside(root: string, target: string): boolean {
   const rel = relative(root, target)
   return rel === '' || (!rel.startsWith('..' + sep) && rel !== '..' && !isAbsolute(rel))
+}
+
+/**
+ * 允许写入的根目录列表（「另存为」可选的顶层范围）。
+ *
+ * 默认是文章根目录 + 用户主目录：文章可以放任意常见位置，但 C:\Windows、
+ * Program Files 等系统位置天然在主目录之外，不会被浏览/写入。
+ * 用 STYLEWX_WRITE_ROOTS 追加更多根（分号分隔），主要用于把文章库放在其他盘。
+ */
+export function writeRoots(): string[] {
+  const roots = [articlesRoot()]
+  const home = process.env['USERPROFILE'] || process.env['HOME']
+  if (home) roots.push(resolve(home))
+  const extra = process.env['STYLEWX_WRITE_ROOTS']
+  if (extra) for (const r of extra.split(';')) if (r.trim()) roots.push(resolve(r.trim()))
+  return [...new Set(roots.map((r) => (process.platform === 'win32' ? r.toLowerCase() : r)))].map(
+    (r) => r,
+  )
+}
+
+/** 目标是否落在任一允许写入的根目录内。 */
+export function isInsideAnyRoot(target: string): boolean {
+  const t = process.platform === 'win32' ? resolve(target).toLowerCase() : resolve(target)
+  return writeRoots().some((root) => isInside(root, t))
+}
+
+/** 目标命中哪个允许根（用于 UI 提示）；不命中返回 undefined。 */
+export function matchedRoot(target: string): string | undefined {
+  const t = process.platform === 'win32' ? resolve(target).toLowerCase() : resolve(target)
+  return writeRoots().find((root) => isInside(root, t))
 }
 
 /** 由标题 / 正文首行标题生成安全文件名。 */
@@ -124,11 +154,11 @@ export function saveArticle(params: SaveArticleParams): SaveArticleResult {
     target += '.md'
   }
 
-  if (!isInside(root, target)) {
+  if (!isInsideAnyRoot(target)) {
     throw serviceError(
       'path_not_allowed',
       `目标路径超出允许范围：${target}`,
-      `只能写入文章根目录（${root}）内。可用环境变量 STYLEWX_ARTICLES_DIR 调整根目录。`,
+      `允许写入的位置：${writeRoots().join(' ; ')}。可用环境变量 STYLEWX_WRITE_ROOTS 追加。`,
     )
   }
 
@@ -161,4 +191,90 @@ export function saveArticle(params: SaveArticleParams): SaveArticleResult {
     root,
     theme,
   }
+}
+
+// ---------------------------------------------------------------------------
+// 「另存为」目录浏览：列出文章根目录下某一层可放文件的位置。
+
+/** 某层目录的内容：子目录 + 已存在的 .md 文件。 */
+export interface ListDirResult {
+  /** 本次浏览的目录（绝对路径）。 */
+  dir: string
+  /** 允许写入的根目录列表（前端用来画「可保存的盘/根」）。 */
+  roots: string[]
+  /** 子目录名（已排序，不含隐藏目录）。 */
+  dirs: string[]
+  /** 已有的 Markdown 文件名（已排序）。 */
+  files: string[]
+  /** true 表示本次列的是盘/根级入口（Windows 的「此电脑」层）。 */
+  drives: boolean
+}
+
+/** 统一处理「另存为」路径输入：反斜杠当分隔符、去首尾斜杠。 */
+function normalizeRel(input: string): string {
+  return input.trim().split('\\').join('/').replace(/^\/+|\/+$/g, '')
+}
+
+/**
+ * 浏览一层目录（用于「另存为」选位置）。
+ *
+ * dir 支持两种形式：
+ * - 省略/空 → 列出允许写入的根目录入口（Windows 上就像「此电脑」，多盘都可达）
+ * - 绝对路径 → 必须落在某个允许根内，否则拒绝；列出该层的子目录与 .md 文件
+ *
+ * 浏览是只读的，但入口层就限制在允许根内 —— 不给任何越出白名单的路径探测器。
+ */
+export function listDir(dirPath?: string): ListDirResult {
+  const roots = writeRoots()
+  const requested = normalizeRel(dirPath ?? '')
+  if (!requested) {
+    return { dir: '', roots, dirs: roots, files: [], drives: true }
+  }
+  const dir = resolve(requested)
+  if (!isInsideAnyRoot(dir)) {
+    throw serviceError(
+      'path_not_allowed',
+      `只能浏览允许写入的位置：${roots.join(' ; ')}`,
+      '可用环境变量 STYLEWX_WRITE_ROOTS 追加允许的根目录。',
+    )
+  }
+  if (!existsSync(dir)) {
+    return { dir, roots, dirs: [], files: [], drives: false }
+  }
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch (error) {
+    throw serviceError('list_failed', `读取目录失败：${error instanceof Error ? error.message : String(error)}`, '请检查目录权限。')
+  }
+  const dirs: string[] = []
+  const files: string[] = []
+  for (const name of entries) {
+    if (name.startsWith('.')) continue
+    const full = join(dir, name)
+    try {
+      if (statSync(full).isDirectory()) dirs.push(name)
+      else if (/\.(md|markdown)$/i.test(name)) files.push(name)
+    } catch {
+      // 不可访问的条目直接跳过，不阻断浏览。
+    }
+  }
+  const collar = (a: string, b: string) => a.localeCompare(b, 'zh-Hans-CN')
+  return { dir, roots, dirs: dirs.sort(collar), files: files.sort(collar), drives: false }
+}
+
+/** 在允许范围内新建一层目录（用于「另存为」里「新建文件夹」）。 */
+export function makeDir(dirPath: string): { dir: string } {
+  const rel = normalizeRel(dirPath)
+  if (!rel) throw serviceError('invalid_path', '目录名不能为空。', '请输入一个目录名。')
+  const dir = resolve(rel)
+  if (!isInsideAnyRoot(dir)) {
+    throw serviceError('path_not_allowed', `只能创建在允许写入的位置：${writeRoots().join(' ; ')}`, '可用环境变量 STYLEWX_WRITE_ROOTS 追加允许的根目录。')
+  }
+  try {
+    mkdirSync(dir, { recursive: true })
+  } catch (error) {
+    throw serviceError('save_failed', `创建目录失败：${error instanceof Error ? error.message : String(error)}`, '请检查路径是否合法、是否有写权限。')
+  }
+  return { dir }
 }

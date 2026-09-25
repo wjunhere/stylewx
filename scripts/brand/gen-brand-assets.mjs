@@ -129,7 +129,7 @@ const banner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" w
 
   <text x="52" y="204" font-family="Iowan Old Style,Charter,Georgia,Songti SC,serif" font-size="58" font-weight="600" letter-spacing="-1.62" fill="${T.fg}">排版内核，<tspan fill="${T.accent}">可校验</tspan></text>
 
-  <text x="52" y="254" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="19" fill="${T.muted}">22 个 MCP 工具 + REST API，一步成稿或拆成原语分步迭代。</text>
+  <text x="52" y="254" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="19" fill="${T.muted}">23 个 MCP 工具 + REST API，一步成稿或拆成原语分步迭代。</text>
 
   <text x="52" y="356" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.43" fill="${T.muted}">内核 · MCP · REST · 编辑器</text>
 

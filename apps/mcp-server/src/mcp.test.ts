@@ -45,10 +45,12 @@ describe('stylewx MCP Server (in-memory)', () => {
     expect(data.themes.length).toBeGreaterThanOrEqual(6)
   })
 
-  it('list 出全部 22 个 tools', async () => {
+  it('list 出全部工具（清单即契约：少一个都要有人解释）', async () => {
     const { client } = await startClient()
     const { tools } = await client.listTools()
     const names = tools.map((t) => t.name).sort()
+    // 断言完整清单，而不是仅断言数量：数量对不上时这里会直接报出「多了/少了哪个」。
+    // 新增工具时同步改本数组（别只改标题里的数字）。
     expect(names).toEqual([
       'analyze_article',
       'brand_apply',
@@ -71,6 +73,7 @@ describe('stylewx MCP Server (in-memory)', () => {
       'save_component',
       'save_theme',
       'tweak_theme',
+      'upload_video',
       'validate_article',
     ])
   })
@@ -80,6 +83,11 @@ describe('stylewx MCP Server (in-memory)', () => {
     const brandDir = join(mkdtempSync(join(tmpdir(), 'stylewx-brands-')))
     const prevBrandsPath = process.env.STYLEWX_BRANDS_PATH
     process.env.STYLEWX_BRANDS_PATH = brandDir
+    // 同步隔离主题库：brand_save 现在会把品牌主题写进 themes.json，
+    // 不隔离就会把测试主题 tide-notes 写进用户真实的主题库。
+    const themesFile = join(mkdtempSync(join(tmpdir(), 'stylewx-themes-')), 'themes.json')
+    const prevThemesPath = process.env.STYLEWX_THEMES_PATH
+    process.env.STYLEWX_THEMES_PATH = themesFile
     const { client } = await startClient()
     // interview 返回问卷结构
     const iv = parseText((await client.callTool({ name: 'brand_interview', arguments: {} }) as never))
@@ -116,6 +124,10 @@ describe('stylewx MCP Server (in-memory)', () => {
       }) as never))
     expect(saved.profile.name).toBe('tide-notes')
     expect(saved.doc).toContain('潮汐手记')
+    // 品牌主题同步进了主题库 —— 这是「人也能在编辑器里选到它」的前提。
+    // 曾经只写 profile.json，结果编辑器主题下拉里根本没有这个品牌主题。
+    const listedThemes = parseText((await client.callTool({ name: 'list_saved_themes', arguments: {} }) as never))
+    expect(listedThemes.themes.map((t: { name: string }) => t.name)).toContain('tide-notes')
     // list 能看到
     const list = parseText((await client.callTool({ name: 'brand_list', arguments: {} }) as never))
     expect(list.brands.map((b: { name: string }) => b.name)).toContain('tide-notes')
@@ -137,6 +149,8 @@ describe('stylewx MCP Server (in-memory)', () => {
     expect(del.deleted).toBe('tide-notes')
     if (prevBrandsPath === undefined) delete process.env.STYLEWX_BRANDS_PATH
     else process.env.STYLEWX_BRANDS_PATH = prevBrandsPath
+    if (prevThemesPath === undefined) delete process.env.STYLEWX_THEMES_PATH
+    else process.env.STYLEWX_THEMES_PATH = prevThemesPath
     rmSync(brandDir, { recursive: true, force: true })
   })
 
@@ -315,14 +329,16 @@ describe('stylewx MCP Server (in-memory)', () => {
     }
   })
 
-  it('save_article 拒绝写到根目录之外', async () => {
+  it('save_article 拒绝写到允许根之外（writeRoots = 文章根 + 主目录）', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'swx-'))
     process.env.STYLEWX_ARTICLES_DIR = dir
     try {
       const { client } = await startClient()
+      // C:\Program Files 在任何允许根之外（Windows）；POSIX 上用 /usr/local
+      const outside = process.platform === 'win32' ? 'C:\\Program Files\\escape.md' : '/usr/local/escape.md'
       const res = await client.callTool({
         name: 'save_article',
-        arguments: { markdown: '内容', path: '../escape.md' },
+        arguments: { markdown: '内容', path: outside },
       })
       const data = parseText(res as never)
       expect(data.error.code).toBe('path_not_allowed')
