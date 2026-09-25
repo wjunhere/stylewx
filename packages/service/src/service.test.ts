@@ -124,17 +124,35 @@ describe('front-matter（让 .md 自带 title / theme）', () => {
     rmSync(r.path, { force: true })
   })
 
-  it('目录穿越被拒绝', () => {
+  it('目录穿越被拒绝（绝对路径指向所有允许根之外）', () => {
     // 注意：serviceError 抛的是普通对象（{ error: { code, message, hint } }）而非 Error，
     // 所以不能用 toThrow(/正则/) 匹配——得自己接住再断言 code。
+    //
+    // 为什么不用 '../outside.md'（曾经的写法）：writeRoots() 现在是「文章根 + 用户主目录」，
+    // 而 `..` 到底算不算越界取决于 cwd 与 HOME 的相对位置 —— 本机 cwd 在 HOME 外，
+    // CI 上 cwd（/home/runner/work/...）却在 HOME（/home/runner）内，于是同一个相对路径
+    // 在两边结论相反，测试就变得依赖环境。改用**绝对路径**锁住语义：它一定在所有根之外。
+    const outside =
+      process.platform === 'win32' ? 'C:\\Windows\\Temp\\stylewx-should-not-write.md' : '/tmp/stylewx-should-not-write.md'
     let caught: unknown
     try {
-      saveArticle({ markdown: 'x', path: '../outside.md' })
+      saveArticle({ markdown: 'x', path: outside })
     } catch (e) {
       caught = e
     }
     expect((caught as { error?: { code?: string; message?: string } })?.error?.code).toBe('path_not_allowed')
     expect((caught as { error?: { message?: string } })?.error?.message).toContain('超出允许范围')
+  })
+
+  it('相对路径的 `..` 穿越也被拒绝（构造一个必定越界的 cwd 无关场景）', () => {
+    // 用足够多的 `..` 保证脱离任何允许根（HOME 再深也脱得出去）。
+    let caught: unknown
+    try {
+      saveArticle({ markdown: 'x', path: '../'.repeat(40) + 'outside.md' })
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as { error?: { code?: string } })?.error?.code).toBe('path_not_allowed')
   })
 })
 
