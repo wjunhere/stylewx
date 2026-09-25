@@ -13,7 +13,7 @@
   <a href="https://www.npmjs.com/package/@stylewx/mcp-server"><img alt="npm" src="https://img.shields.io/npm/v/@stylewx/mcp-server"></a>
   <img alt="Node" src="https://img.shields.io/badge/Node-%E2%89%A520-3C873A">
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-%E2%89%A510-F69220">
-  <img alt="MCP tools" src="https://img.shields.io/badge/MCP_%E5%B7%A5%E5%85%B7-22-114cbf">
+  <img alt="MCP tools" src="https://img.shields.io/badge/MCP_%E5%B7%A5%E5%85%B7-23-114cbf">
   <img alt="themes" src="https://img.shields.io/badge/%E4%B8%BB%E9%A2%98-26-114cbf">
 </p>
 
@@ -33,7 +33,7 @@
 - **23 个 MCP 工具**：品牌、主题、组件、排版、发布五组原语（见 [MCP 工具](#mcp-工具)），
   既能一步成稿，也能拆开逐步迭代。
 - **品牌记忆系统**：品牌档案固化为可复用的排版资产，每次迭代都沉淀，越用越准（见 [品牌记忆系统](#品牌记忆系统)）。
-- **23 个富组件 + 自定义组件**：图片图注 / 多图网格 / 图文卡片 / 自动轮播 / 时间线 / 步骤条 / 对比 /
+- **24 个富组件 + 自定义组件**：图片图注 / 多图网格 / 图文卡片 / 自动轮播 / 时间线 / 步骤条 / 对比 /
   引用卡 / 目录 / 提示框 / 进度条 / 封面 / 结尾卡片等，用 `:::名字{参数}` 书写、可嵌套，正文继续用 Markdown；
   也能用 HTML 模板定义新组件存进本地组件库。
 - **26 套预置主题**（6 套原创 + 20 套 WeMD 移植），支持保存自定义主题与 LLM 生成主题；
@@ -49,7 +49,7 @@
 
 ```
 ┌─── Agent（Kimi Code / Claude Code / Cursor / Pi / Codex）───────────┐
-│  23 个 MCP 工具：品牌 · 主题 · 组件 · 排版 · 发布                     │
+│  23 个 MCP 工具：品牌 · 主题 · 组件 · 排版 · 发布                   │
 └──────────────┬──────────────────────────┬───────────────────────────┘
          MCP (stdio / Streamable HTTP)         REST API (/themes … /drafts)
                │                                │
