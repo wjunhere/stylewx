@@ -318,21 +318,14 @@ const B = {
   footer: svg(
     '0 0 340 140',
     `<rect width="340" height="140" fill="${C.card}"/>` +
-      ridgeLine({ peaks: [[64, 130], [170, 118], [262, 94]], baseY: 130, begin: '0.3s', op: 0.34, w: 1.6 }) +
-      ridgeLine({ peaks: [[92, 136], [204, 128], [300, 118]], baseY: 136, begin: '0.55s', op: 0.52, w: 1.9 }) +
-      `<path d="M30 124 H310" stroke="${C.rule}" stroke-width="1.3" stroke-dasharray="280" stroke-dashoffset="280">${drawIn(280, '0.8s', '0s')}</path>` +
-      lampLine({ x: 274, groundY: 124, topY: 48, bend: -26, begin: '0.4s', s: 0.74 }) +
-      litArc(252, 132, 58, '1.1s') +
+      // 与 A 尾图同构：纯文字 + 一条强调线，图形全部去掉。
+      // 三套尾图的差异由底色（A 纸白 / B 暖灰纸 / C 夜蓝）承担，不再靠图形堆叠。
       txt({
-        x: 30, y: 56, size: 16, weight: 700, fill: C.night, text: '前已无通路', opacity: 0,
-        anim: fade('0.7s', '1.05s') + rise(5, '0.7s', '1.05s'),
+        x: 170, y: 64, size: 15, fill: C.night, anchor: 'middle', text: '前已无通路，后不见归途。', opacity: 0,
+        anim: fade('0.9s', '0.1s') + rise(5, '0.9s', '0.1s'),
       }) +
-      txt({
-        x: 30, y: 82, size: 16, weight: 700, fill: C.lamp, text: '后不见归途', opacity: 0,
-        anim: fade('0.7s', '1.35s') + rise(5, '0.7s', '1.35s'),
-      }) +
-      `<rect x="30" y="96" width="0" height="1.2" fill="${C.lamp}" opacity="0.8">${grow('width', 0, 74, '0.7s', '1.7s')}</rect>` +
-      txt({ x: 30, y: 118, size: 9, ls: 2.2, fill: C.muted, text: 'HIPPIE 青年', opacity: 0, anim: fade('0.6s', '1.9s') }),
+      `<rect x="142" y="82" width="0" height="1.2" fill="${C.lamp}">${grow('width', 0, 56, '0.7s', '0.75s')}</rect>` +
+      txt({ x: 170, y: 106, size: 9, ls: 2.6, fill: C.muted, anchor: 'middle', text: 'HIPPIE 青年', opacity: 0, anim: fade('0.7s', '1s') }),
   ),
   logo: svg(
     '0 0 120 120',
@@ -397,21 +390,15 @@ const C_PLAN = {
   footer: svg(
     '0 0 340 140',
     `<rect width="340" height="140" fill="${C.night}"/>` +
-      moon(280, 42, 12) +
-      mountainLayers({ shelfX: 244, shelfY: 132, textBottom: 112, baseY: 140 }) +
-      lampPost({ x: 280, groundY: 132, topY: 58, bend: -26, stroke: C.paper, dash: 130, begin: '0.4s', dur: '1s' }) +
-      lampHead({ x: 254, y: 58, s: 0.68, begin: '0.8s', halo: false }) +
-      litArc(254, 136, 56, '1.1s') +
+      // 与 A 尾图同构：纯文字 + 一条强调线。唯一保留的图形是弦月 ——
+      // 夜蓝底上没有月亮就不成立，且它远离文字区、一枚即可。
+      moon(304, 34, 9) +
       txt({
-        x: 30, y: 50, size: 16, weight: 700, fill: C.paper, text: '前已无通路', opacity: 0,
-        anim: fade('0.7s', '1.05s') + rise(5, '0.7s', '1.05s'),
+        x: 170, y: 64, size: 15, fill: C.paper, anchor: 'middle', text: '前已无通路，后不见归途。', opacity: 0,
+        anim: fade('0.9s', '0.1s') + rise(5, '0.9s', '0.1s'),
       }) +
-      txt({
-        x: 30, y: 76, size: 16, weight: 700, fill: C.lamp, text: '后不见归途', opacity: 0,
-        anim: fade('0.7s', '1.35s') + rise(5, '0.7s', '1.35s'),
-      }) +
-      `<rect x="30" y="90" width="0" height="1.2" fill="${C.lamp}" opacity="0.7">${grow('width', 0, 74, '0.7s', '1.7s')}</rect>` +
-      txt({ x: 30, y: 106, size: 9, ls: 2.2, fill: C.paper, text: 'HIPPIE 青年', opacity: 0, anim: fade('0.6s', '1.9s') }),
+      `<rect x="142" y="82" width="0" height="1.2" fill="${C.lamp}">${grow('width', 0, 56, '0.7s', '0.75s')}</rect>` +
+      txt({ x: 170, y: 106, size: 9, ls: 2.6, fill: C.paper, anchor: 'middle', text: 'HIPPIE 青年', opacity: 0, anim: fade('0.7s', '1s') }),
   ),
   logo: svg(
     '0 0 120 120',
