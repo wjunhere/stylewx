@@ -48,7 +48,13 @@ in-memory 传输，用户装的是 tarball 里的 `dist/`。发布前按 §3.2 �
 **⑦ 写一行 import 就补一行 declare。** 靠传递依赖在 monorepo 里能跑通、在产物里必断
 （§22.6）。拿不准看 `check:artifact` —— 它就是为这类「装上产物才暴露」的问题存在的。
 
-**⑧ 解析渲染产物的 HTML 时，永远假设属性值里有 `>`。** `escapeAttr` 刻意不转义
+**⑧ 草稿箱里「不是我创建的」条目，一律不删。** 一次排版会在草稿箱留下同名多份（人的初版 +
+每次重排各一份），**这是正常的**，由人来决定去留。删任何草稿前先问人 —— 尤其「不是我创建的」那份
+= 人的原文底稿，往往是唯一副本。曾按一条旧规矩把三篇初版当重复项清掉，只能靠删除前抓的快照回灌
+（真因与防线见 §27）。防线：**动稿前先把原稿 HTML 落盘**（`articles/hippie/originals/`），
+回灌脚本 `assets-src/restore-originals.mjs`（只新建、不删除）。
+
+**⑨ 解析渲染产物的 HTML 时，永远假设属性值里有 `>`。** `escapeAttr` 刻意不转义
 `>`（带引号的属性值里它合法），所以 `data-swx-src` 等属性里会出现裸 `-->`。
 用 `new RegExp` 字符串拼正则去匹配这类标签，`[^>]*>` 会被提前截断 —— 要么用正则字面量、
 要么用 `(?:"[^"]*"|[^>"])*` 风格整段吞带引号属性（§24，真实微信报错才暴露）。
@@ -85,6 +91,8 @@ pnpm check:artifact   # 装产物真跑：握手版本、工具清单、编辑�
 | Mermaid 图 | §24；组件 `packages/components/src/components/mermaid.ts`、出图 `packages/preview/src/mermaid.ts`；探针 `probe-mermaid-wechat.mjs` |
 | 编辑器另存为 / 写入白名单 | §25；闸门 `writeRoots()`（save-article.ts），环境变量 `STYLEWX_WRITE_ROOTS` |
 | 踩过的坑（全量） | §22 |
+| 音乐组件（自动插入） | §26；组件 `packages/components/src/components/music.ts`，实测见 docs/DESIGN.md §26 |
+| 草稿箱里人的初版 | §27（**不许删**）；快照回灌 `assets-src/restore-originals.mjs` |
 | 发布流程细节 | §3 + `.github/workflows/release.yml` |
 
 ## 5. 常用命令
@@ -125,3 +133,34 @@ node scripts/ci/verify-release.mjs --check-registry   # 发布后回查，仅 CI
 本地资产库 → `<img>`）→ 发布时 relocate 搬素材库。**为什么是图片不是 SVG**：
 微信剥 id，SVG 的 url(#) 引用到读者端必裂。实测细节与三个踩坑见 docs/DESIGN.md §24；
 验证：`node apps/mcp-server/scripts/probe-mermaid-wechat.mjs`（真实 draft/add，写 [probe] 草稿）。
+
+## 26. 音乐组件（:::music）
+
+与 `video` **相反**：音乐能全自动插入，没有 `--music` flag——脚本见到 `data-swx-music`
+占位块就处理。两条路径：`source`（从旧草稿抄来的 `<mp-common-clmusic>` 标签，**首选**）
+→ 直接复刻；只有 `clue`（歌手+歌名）→ 走「音频 → 音乐」弹窗搜索点选。
+组件在 `packages/components/src/components/music.ts`，实测与三个踩坑见 docs/DESIGN.md §26；
+探针 `apps/mcp-server/scripts/probe-wechat-music.mjs`（`--stage picker|inject|survive|search`）。
+
+给旧稿补音乐：从 `draft/get` 原样复制那个标签写进 `source` 即可，属性在、播放器就在。
+
+## 27. 草稿箱纪律（人的初版不能删）
+
+**一次排版会在草稿箱留下同名多份**，这是正常的，不是要清理的垃圾：
+
+| 条目 | 谁创建的 | 处置 |
+| --- | --- | --- |
+| 人的最初版本 | 人 | **绝不能删**（往往是唯一副本） |
+| 每次重排各一份 | agent | 由人决定去留，agent 不主动删 |
+
+2026-10-12 的教训：按 brand.md 里一条旧规矩「同名草稿只留最新一份」，
+把三篇的初版当重复项删了。只能靠**删除前抓的快照**回灌恢复
+（`articles/hippie/originals/` + `assets-src/restore-originals.mjs`，该脚本只新建、不删除）。
+
+两条防线：
+
+1. **动稿前先把原稿 HTML 落盘**（`draft/get` 的 `content` 原样存，跟封面图一起）。
+   有快照，任何误删都可回灌；没快照，人的字就没了。
+2. **回灌必须走浏览器通道**，不用 `cgi-bin/draft/add`（后者 `leaf=0`，人改不了，见 §2 铁律⑥）。
+
+brand.md 里那条旧规矩已删除，不要重建。

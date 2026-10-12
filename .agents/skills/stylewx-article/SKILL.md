@@ -28,6 +28,22 @@ description: 用 stylewx MCP 把 Markdown 排成一篇可发布的微信公众�
 **不要用 `publish_draft`** —— 它走 `cgi-bin/draft/add`，写进去的稿子后台编辑器不认领，**人改不了**。
 判据：`draft/get` 里 `leaf=0` 就说明改不了。详见 `docs/DESIGN.md` §20.7。
 
+**草稿箱纪律（不许删）**：
+
+- **动稿前先把原稿落盘**：`draft/get` 拿到 `content` 原样存进文章目录（连同封面图的 URL），
+  再用同一份 `thumb_url` 当发布封面 —— **不要自己另画封面**，用户有实拍图就用实拍图。
+- **一次排版留下同名多份是正常的**，不是要清理的垃圾。
+- **人的最初版本绝不能被删**，它往往是唯一副本。`media_id` 是 agent 创建的才能删，
+  且删之前先问用户。
+- 真删错了：用落盘的快照回灌（`assets-src/restore-originals.mjs`，只新建、不删除）。
+
+踩过的坑：2026-10-12 按一条已推翻的旧规矩把三篇初版当重复项清掉，只能靠删除前的快照恢复。
+详见 `AGENTS.md` §27 与 `docs/DESIGN.md` §26。
+
+**音乐可以全自动插**（与视频不同，不需要 flag）：脚本见到 `data-swx-music` 占位块就处理。
+给旧稿补音乐：从 `draft/get` 原样复制 `<mp-common-clmusic …>` 标签写进 `source` 即可。
+组件 `packages/components/src/components/music.ts`，详见 `docs/DESIGN.md` §26。
+
 ## 工作流
 
 ### 0. 认品牌（每轮排版开始时先做）

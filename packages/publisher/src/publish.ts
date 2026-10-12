@@ -74,10 +74,39 @@ function guessThumbFilename(url: string): string {
   return last && /\.[a-z0-9]{2,5}$/i.test(last) ? last : 'cover.jpg'
 }
 
+/**
+ * 剥离标签取纯文本。
+ *
+ * 不用 `/<[^>]+>/g`：属性值里可能出现裸 `>`（`escapeAttr` 刻意不转义它，
+ * 例如 `data-swx-music-source` 存的就是一整段 `<mp-common-clmusic …>` 标签），
+ * 那种正则会被属性里的 `>` 骗到，把一段标签文本当作正文留在摘要里。
+ * 这里是启发式流程（不是解析器），用引号感知的扫描就够：找到开标签后跳过带引号的属性值。
+ */
+export function stripHtmlTags(html: string): string {
+  let out = ''
+  for (let i = 0; i < html.length; i += 1) {
+    if (html[i] !== '<') { out += html[i]; continue }
+    let quote = ''
+    let j = i + 1
+    for (; j < html.length; j += 1) {
+      const ch = html[j]
+      if (quote) {
+        if (ch === quote) quote = ''
+      } else if (ch === '"' || ch === "'") {
+        quote = ch
+      } else if (ch === '>') {
+        break
+      }
+    }
+    i = j
+    out += ' '
+  }
+  return out
+}
+
 function computeDigest(content: string, title: string, explicit?: string): string | undefined {
   if (explicit) return explicit
-  const text = content
-    .replace(/<[^>]+>/g, ' ')
+  const text = stripHtmlTags(content)
     .replace(/\s+/g, ' ')
     .trim()
   if (!text) return title || undefined

@@ -382,6 +382,46 @@ describe('video 占位组件', () => {
   })
 })
 
+describe('music 占位组件', () => {
+  // 与 video 相反：音乐**能全自动插入**（标签即数据，保存后 draft/get 读回仍完整）。
+  // 实测见 docs/DESIGN.md §26。这些断言守住三件事：
+  // ① 标记必须写出去（发布脚本靠它定位插入点）；② source 标签可原样携带；
+  // ③ **属性值里含 `>` 时不能把开标签切断**（铁律⑨ —— 这是它的第一个真实受害者）。
+  it('写出 data-swx-music 标记与歌名/歌手/关键词', () => {
+    const html = render(':::music{song="焦虑抑制剂" singer="惘闻" clue="惘闻 焦虑抑制剂"}\n:::')
+    expect(html).toContain('data-swx-music="1"')
+    expect(html).toContain('data-swx-music-song="焦虑抑制剂"')
+    expect(html).toContain('data-swx-music-singer="惘闻"')
+    expect(html).toContain('data-swx-music-clue="惘闻 焦虑抑制剂"')
+  })
+
+  it('渲染成虚线占位框，不假装是能播的播放器', () => {
+    const html = render(':::music{song="焦虑抑制剂" singer="惘闻"}\n:::')
+    expect(html).toContain('dashed')
+    expect(html).toContain('音乐将在发布时由编辑器插入')
+    expect(html).not.toContain('<audio')
+    expect(html).not.toContain('mp-common-clmusic')
+  })
+
+  it('source（整段 clmusic 标签）能原样携带，且不切断开标签', () => {
+    // 这段标签里的 `>` 是真实的坑：escapeAttr 不转义 `>`，早期 injectMarker 用
+    // indexOf('>') 找开标签结尾，会在属性值中间截断，把后续属性写进那个属性的值里，
+    // 渲染产物于是多出一段可见的垃圾文本。
+    const tag = '<mp-common-clmusic data-pluginname="insertaudio" singer="惘闻" music_name="焦虑抑制剂"></mp-common-clmusic>'
+    const html = render(`:::music{song="焦虑抑制剂" source='${tag}'}\n:::`)
+    expect(html).toContain('data-swx-music-source=')
+    // 开标签必须干净闭合：source 属性值之后紧跟 style，中间不能多出裸 `>`
+    expect(html).toMatch(/data-swx-music-source="[^"]*"\s+style=/)
+    // 不能把片段泄漏成正文
+    expect(html).not.toMatch(/<\/mp-common-clmusic>"\s*style/)
+  })
+
+  it('能往返回导为 :::music', () => {
+    const html = render(':::music{song="焦虑抑制剂" singer="惘闻"}\n:::')
+    expect(htmlToMarkdown(html).markdown).toContain(':::music')
+  })
+})
+
 describe('组件样式覆盖（root / * / 语义槽位）', () => {
   // 每个组件一份「把所有部位都写出来」的样本，确保登记表里的槽位都真的可达
   const SLOT_SAMPLES: Record<string, string> = {

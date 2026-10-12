@@ -39,6 +39,17 @@
  * 前置硬条件：**该视频必须已过审**。未过审的条目在弹窗里是 disabled
  * （class 带 `more-video__item_disabled`、底部「确定」也是 disabled），此时脚本会明确报错并跳过，
  * 不会硬点。文本匹配只用**精确相等**（`===`），不做包含匹配，避免误选同名视频。
+ *
+ * ── 音乐（自动，无 flag）──
+ * 与视频相反，**音乐能全自动插入**，所以没有 `--music`：脚本见到 `data-swx-music` 占位块就处理。
+ * 两条路径，按占位块带的是哪个标记二选一：
+ *   ① 有 `data-swx-music-source`（从旧草稿 `draft/get` 抄来的 `<mp-common-clmusic>` 标签）
+ *      → 直接 `insertHTML` 复刻。零交互、最稳，**优先用这条**。
+ *   ② 只有 `data-swx-music-clue`（歌手 + 歌名）→ 开「音频 → 音乐」弹窗，
+ *      填搜索框后**必须显式点放大镜按钮**（只 input 不触发查询，实测等 9s 也不发请求），
+ *      再按歌名精确选中 → 「插入」。新曲目用这条。
+ * 实测依据与存活验证：`apps/mcp-server/scripts/probe-wechat-music*.mjs`
+ * （标签经保存后 `draft/get` 读回仍完整，编辑器另补 `mp-style-type data-value=3`）。
  */
 import { spawn } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
@@ -304,6 +315,31 @@ const injected = await evalJson(`(() => {
 if (!injected?.ok) fail(`正文注入失败：${injected?.err ?? JSON.stringify(injected)}`)
 log('write', `标题${injected.titleSet ? '已填' : '未找到'} · ${injected.sections} section / ${injected.styled} 带样式节点 / ${injected.imgs} 图片`)
 
+// 2.3.1 稳定等待：注入后立刻保存会被编辑器清洗掉 SVG（实测 2026-09，正式稿 svg=0 而探针稿存活）。
+// 等 ProseMirror 稳定，并【保存前读回 DOM 核对】SVG 数量，不对就重试等一轮。
+const expectSvg = (html.match(/<svg/g) || []).length
+if (expectSvg > 0) {
+  log('stable', `注入内容含 ${expectSvg} 个 SVG，等待编辑器内部处理稳定…`)
+  await sleep(30000)
+  let svgOk = false
+  for (let attempt = 1; attempt <= 3 && !svgOk; attempt++) {
+    const dom = await evalJson(`(() => {
+      const ed = document.querySelector('.rich_media_content .ProseMirror');
+      if (!ed) return JSON.stringify({ err: 'no editor' });
+      return JSON.stringify({ svg: ed.querySelectorAll('svg').length, animate: ed.querySelectorAll('animate').length });
+    })()`) ?? {}
+    if (dom.err) fail('保存前校验失败：' + dom.err)
+    if (dom.svg >= expectSvg) {
+      svgOk = true
+      log('stable', `✅ DOM 稳定：svg=${dom.svg} animate=${dom.animate}`)
+    } else {
+      log('stable', `⚠️ 第 ${attempt} 次校验 svg=${dom.svg}/${expectSvg}，等 10s 再查…`)
+      await sleep(10000)
+    }
+  }
+  if (!svgOk) fail(`SVG 注入后丢失（DOM 中不足 ${expectSvg} 个）。不保存，避免产出缺动画的草稿。`)
+}
+
 // 2.4 封面：走「从图片库选择 → 上传文件 → 下一步 → 确认」
 async function setCover(coverPath) {
   const abs = resolve(coverPath)
@@ -518,6 +554,205 @@ if (opts.video) {
 } else if (html.includes('data-swx-video')) {
   log('video', '正文含 :::video 占位块但未传 --video，跳过插入（发布后可在编辑器手动插入）')
 }
+
+// 2.5b 插入音乐（可选，但**不需要传参**——占位块自带歌名/关键词，见到就插）
+//
+// 与视频相反，音乐是**能全自动**的，两条路径按占位块上的标记二选一：
+//   ① data-swx-music-source 有值（从旧草稿 draft/get 抄来的 <mp-common-clmusic> 标签）→ 直接复刻，零交互
+//   ② 只有 data-swx-music-clue → 走「音频→音乐」弹窗搜索并精确点选（需显式点搜索按钮）
+// 实测依据：apps/mcp-server/scripts/probe-wechat-music*.mjs（标签保存后 draft/get 读回仍完整）。
+async function insertMusic() {
+  const targets = await evalJson(`(() => {
+    const ed = document.querySelector('.rich_media_content .ProseMirror');
+    if (!ed) return JSON.stringify({ err: '找不到正文编辑器' });
+    return JSON.stringify({ count: ed.querySelectorAll('[data-swx-music]').length });
+  })()`)
+  if (!targets || targets.err) {
+    log('music', `⚠️ ${targets?.err ?? '定位失败'}，跳过音乐插入`)
+    return
+  }
+  if (!targets.count) return
+  log('music', `发现 ${targets.count} 个音乐占位块`)
+
+  const inserted = []
+  for (let i = 0; i < targets.count; i++) {
+    // 每次重新取第一个占位块。
+    // ⚠️ 不能「先 setAttribute 打标记、下一次调用再查」——ProseMirror 会按自己的文档模型重渲染 DOM，
+    // 手加的属性会被抹掉（实测：标记设上了，下一次调用就再也查不到）。所以下面的
+    // 「定位 → 插入 → 删占位块」必须在**同一次 evaluate 里原子完成**。
+    const info = await evalJson(`(() => {
+      const ed = document.querySelector('.rich_media_content .ProseMirror');
+      const hit = ed ? ed.querySelector('[data-swx-music]') : null;
+      if (!hit) return JSON.stringify({ done: true });
+      return JSON.stringify({
+        song: hit.getAttribute('data-swx-music-song') || '',
+        singer: hit.getAttribute('data-swx-music-singer') || '',
+        clue: hit.getAttribute('data-swx-music-clue') || '',
+        hasSource: !!hit.getAttribute('data-swx-music-source'),
+      });
+    })()`)
+    if (info?.done) break
+    if (!info) { log('music', '⚠️ 读取占位块失败，跳过'); break }
+
+    const clue = (info.clue || [info.singer, info.song].filter(Boolean).join(' ')).trim()
+    const label = [info.singer, info.song].filter(Boolean).join(' · ') || clue || '(未命名)'
+
+    // ── 路径 ①：有原样标签 → 直接复刻（原子：同一次 evaluate 里取标签 + 插入 + 删占位块）──
+    if (info.hasSource) {
+      const ok = await evalJson(`(() => {
+        const ed = document.querySelector('.rich_media_content .ProseMirror');
+        const hit = ed ? ed.querySelector('[data-swx-music]') : null;
+        if (!hit) return JSON.stringify({ err: '占位块不见了' });
+        const tag = hit.getAttribute('data-swx-music-source') || '';
+        if (!tag) return JSON.stringify({ err: 'source 属性为空' });
+        const r = document.createRange();
+        r.setStartAfter(hit); r.collapse(true);
+        const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        document.execCommand('insertHTML', false, '<section>' + tag + '</section>');
+        hit.remove();
+        return JSON.stringify({ ok: true });
+      })()`)
+      if (ok?.ok) {
+        inserted.push(label)
+        log('music', `✅ 已复刻「${label}」（原样标签）`)
+      } else {
+        log('music', `⚠️ 复刻「${label}」失败：${ok?.err ?? '未知'}`)
+      }
+      await sleep(1500)
+      continue
+    }
+
+    // ── 路径 ②：只有关键词 → 走弹窗搜索 ──
+    if (!clue) {
+      log('music', `⚠️ 占位块既无 source 也无 clue，跳过（${label}）`)
+      continue
+    }
+    // 光标放到占位块之后（音乐插在光标处）。这里也留不住标记，后面靠「第一个未处理的占位块」定位。
+    const placed = await evalJson(`(() => {
+      const ed = document.querySelector('.rich_media_content .ProseMirror');
+      const hit = ed ? ed.querySelector('[data-swx-music]') : null;
+      if (!hit) return JSON.stringify({ err: 'no placeholder' });
+      const r = document.createRange();
+      r.setStartAfter(hit); r.collapse(true);
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      return JSON.stringify({ ok: true });
+    })()`)
+    if (!placed?.ok) { log('music', `⚠️ 定位占位块失败，跳过（${label}）`); continue }
+
+    // 展开「音频」下拉 → 点「音乐」（精确选择器，不用文本模糊匹配）
+    const opened = await evalJson(`(() => {
+      const btn = document.querySelector('#audio_music_plugin_btn');
+      if (!btn) return JSON.stringify({ err: '找不到「音频」入口' });
+      btn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      btn.click();
+      return JSON.stringify({ ok: true });
+    })()`)
+    if (!opened?.ok) { log('music', `⚠️ ${opened?.err}，跳过（${label}）`); continue }
+    await sleep(1800)
+    const openedMusic = await evalJson(`(() => {
+      const it = [...document.querySelectorAll('.js_insertmusic')].find((e) => e.getBoundingClientRect().width > 0);
+      if (!it) return JSON.stringify({ err: '下拉里没有「音乐」项' });
+      it.click();
+      return JSON.stringify({ ok: true });
+    })()`)
+    if (!openedMusic?.ok) { log('music', `⚠️ ${openedMusic?.err}，跳过（${label}）`); continue }
+    await sleep(4500)
+
+    // 搜索：填输入框 + **必须显式点搜索按钮**（只 input 不触发查询，实测等 9s 也不发请求）
+    const searched = await evalJson(`(() => {
+      const dlg = [...document.querySelectorAll('.weui-desktop-dialog')].filter((d) => d.getBoundingClientRect().width > 200).pop();
+      if (!dlg) return JSON.stringify({ err: '音乐弹窗没出现' });
+      const input = dlg.querySelector('input.weui-desktop-form__input');
+      if (!input) return JSON.stringify({ err: '找不到搜索框' });
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(input, ${JSON.stringify(clue)});
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+      const btn = dlg.querySelector('.weui-desktop-search__btn');
+      if (!btn) return JSON.stringify({ err: '找不到搜索按钮' });
+      btn.click();
+      return JSON.stringify({ ok: true });
+    })()`)
+    if (!searched?.ok) { log('music', `⚠️ 搜索失败：${searched?.err}（${label}）`); continue }
+    await sleep(6000)
+
+    // 从结果里按歌名精确选中
+    const picked = await evalJson(`(() => {
+      const dlg = [...document.querySelectorAll('.weui-desktop-dialog')].filter((d) => d.getBoundingClientRect().width > 200).pop();
+      if (!dlg) return JSON.stringify({ err: '弹窗已关闭' });
+      const bd = dlg.querySelector('.weui-desktop-dialog__bd') || dlg;
+      const song = ${JSON.stringify(info.song)};
+      const singer = ${JSON.stringify(info.singer)};
+      // 结果项是最内层、宽度足够、文本恰好含「歌名」的可点块；用「没有同类兄弟」挑最内层
+      const cands = [...bd.querySelectorAll('div,li,a')].filter((e) => {
+        const r = e.getBoundingClientRect();
+        if (r.width < 150 || r.height < 20) return false;
+        const t = (e.innerText || '').trim();
+        return song ? t.includes(song) : t.includes(${JSON.stringify(clue)});
+      });
+      if (!cands.length) return JSON.stringify({ err: '搜索结果里没有「' + (song || ${JSON.stringify(clue)}) + '」', sample: (bd.innerText || '').replace(/\\n+/g, ' | ').slice(0, 200) });
+      // 优先同时含歌名与歌手的；再取最内层（子元素最少）的
+      const withSinger = singer ? cands.filter((e) => (e.innerText || '').includes(singer)) : cands;
+      const pool = withSinger.length ? withSinger : cands;
+      const pick = pool.reduce((a, b) => (a.querySelectorAll('*').length <= b.querySelectorAll('*').length ? a : b));
+      pick.click();
+      return JSON.stringify({ ok: true, text: (pick.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 60) });
+    })()`)
+    if (!picked?.ok) {
+      log('music', `⚠️ ${picked?.err}`)
+      if (picked?.sample) log('music', `  结果样例：${picked.sample}`)
+      // 回滚：关掉弹窗，避免半开状态影响保存
+      await evalJson(`(() => {
+        const dlg = [...document.querySelectorAll('.weui-desktop-dialog')].filter((d) => d.getBoundingClientRect().width > 200).pop();
+        if (!dlg) return JSON.stringify({ ok: true });
+        const c = [...dlg.querySelectorAll('button')].find((b) => (b.innerText || '').trim() === '取消');
+        if (c) c.click();
+        return JSON.stringify({ closed: !!c });
+      })()`)
+      continue
+    }
+    await sleep(1500)
+
+    // 点「插入」（禁用态说明还没真正选中）
+    const confirmed = await evalJson(`(() => {
+      const dlg = [...document.querySelectorAll('.weui-desktop-dialog')].filter((d) => d.getBoundingClientRect().width > 200).pop();
+      if (!dlg) return JSON.stringify({ err: '弹窗已消失' });
+      const ft = dlg.querySelector('.weui-desktop-dialog__ft') || dlg;
+      const btn = [...ft.querySelectorAll('button')].find((b) => (b.innerText || '').trim() === '插入');
+      if (!btn) return JSON.stringify({ err: '找不到「插入」' });
+      if (btn.disabled === true || btn.className.indexOf('disabled') >= 0) return JSON.stringify({ err: '「插入」是禁用态（未选中曲目）' });
+      btn.click();
+      return JSON.stringify({ ok: true });
+    })()`)
+    if (!confirmed?.ok) { log('music', `⚠️ ${confirmed?.err}（${label}）`); continue }
+    await sleep(3000)
+
+    // 删掉占位块本身（音乐已插进去，占位块留着会露出假提示）
+    const cleaned = await evalJson(`(() => {
+      const ed = document.querySelector('.rich_media_content .ProseMirror');
+      const hit = ed ? ed.querySelector('[data-swx-music]') : null;
+      if (!hit) return JSON.stringify({ removed: false });
+      hit.remove();
+      return JSON.stringify({ removed: true });
+    })()`)
+    inserted.push(label)
+    log('music', `✅ 已插入「${label}」${cleaned?.removed ? '，并移除占位块' : '（占位块未找到，请手动删）'}`)
+  }
+
+  if (inserted.length) {
+    // 插入后必须核对真的落进 DOM 了（铁律：验证发生在保存之前）
+    const verify = await evalJson(`(() => {
+      const ed = document.querySelector('.rich_media_content .ProseMirror');
+      return JSON.stringify({ clmusic: ed ? ed.querySelectorAll('mp-common-clmusic').length : -1 });
+    })()`)
+    log('music', `插入后核对：DOM 中 mp-common-clmusic = ${verify?.clmusic}`)
+    if (verify?.clmusic !== inserted.length) {
+      log('music', `⚠️ 期望 ${inserted.length} 个，实际 ${verify?.clmusic} 个——请保存后在后台核对`)
+    }
+  }
+}
+
+await insertMusic()
 
 // 2.6 保存草稿
 if (opts.dryRun) {

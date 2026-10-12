@@ -380,7 +380,7 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 **一次请求渲染全部**：新增 `POST /editor/api/component-previews { theme }`，
 服务端用当前主题把每个组件的示例 Markdown 渲染一遍，一次性返回
 `{ name, origin, summary, slots, sample, html, diagnostics }[]`。
-客户端不再逐个请求（24 个组件逐个渲染会很慢）。
+客户端不再逐个请求（25 个组件逐个渲染会很慢）。
 
 示例 Markdown 的来源：
 - 内置组件用 `COMPONENT_CATALOG[].example`（组件目录里的权威示例，已有测试保证每个示例
@@ -395,7 +395,7 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 
 ### 验证
 
-`test-editor-component-library.mjs`（Playwright）：入口可见、共 24 个组件、分组正确、
+`test-editor-component-library.mjs`（Playwright）：入口可见、共 25 个组件、分组正确、
 默认渲染非空且带内联样式、切到 gallery 有 flex 布局、搜索命中 2 条、插入后正文含该组件、0 控制台报错。
 
 ### 18.1 踩过的坑：CSS 优先级被基础样式覆盖
@@ -1229,6 +1229,7 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 | `packages/preview/scripts/test-editor-*.mjs` | 编辑器 E2E（导入 / 同步滚动 / 交接 / 组件面板，需 Playwright + 3777 运行） |
 | `packages/preview/scripts/capture-hero.mjs` | 重截 README 配图 `docs/assets/editor-preview.png` |
 | `apps/mcp-server/scripts/probe-mermaid-wechat.mjs` | mermaid 图真实微信链路（draft/add → get 回读，会写一条 [probe] 草稿） |
+| `apps/mcp-server/scripts/probe-wechat-music.mjs` | 音乐组件链路探针（`--stage picker` 入口结构 / `inject` 标签注入存活 / `survive` 保存后读回 / `search` 搜索点选）。`survive` 会写一条 [探针] 草稿并在读回后自动删除，其余阶段只探查不保存 |
 | `packages/preview/scripts/ui-shots.mjs` | 编辑器 19 个面（主界面 / 浮层 / 7 弹窗 / 空态 / 窄屏 / toast）各拍一张，改前后逐面对比 |
 
 ## 24. Mermaid 图（:::mermaid）
@@ -1288,3 +1289,57 @@ draft/get 回读，断言 `<img src="mmbiz…">` 存活且无 `url(#` 引用（�
 
 **教训**：加「目录浏览」这类能力时，浏览是只读的可以放宽，但**写入口子必须白名单**；
 且白名单的默认值要覆盖 90% 的真实需求（主目录），否则用户会反过来要求全盘开放。
+
+## 26. 音乐组件（:::music）
+
+**结论先说：音乐**能**全自动插入，视频不能。** 这对曾经的判断是个反转——早先只看 API 侧，
+以为音频和视频同属「微信不让写、只能人工点」的一类。
+
+### 实测（2026-10-12，探针 `apps/mcp-server/scripts/probe-wechat-music.mjs --stage <picker|inject|survive|search>`）
+
+| 步骤 | 结果 |
+| --- | --- |
+| 把旧草稿 `draft/get` 里的 `<mp-common-clmusic …>` 直接 `insertHTML` | **完整存活**，属性一字不差；编辑器只加了 `contenteditable="false"` |
+| 保存为草稿 → 再 `draft/get` 读回 | **仍完整存活**；编辑器另补 `<mp-style-type data-value="3">`（音频块标记） |
+
+对比视频：`<mpvideo>` 虽存活但读者端渲染成 0×0，`<iframe class="video_iframe">` 直接被删，
+所以视频只能人工点（§20.10）。**音乐没有这个问题。**
+
+### 为什么音乐能自动：标签即数据
+
+微信原生音乐播放器就是一个自定义元素，所有信息都在属性上，不需要额外接口：
+
+```html
+<mp-common-clmusic data-pluginname="insertaudio" singer="惘闻" music_name="焦虑抑制剂"
+  duration="530000" listenid="78221540362775072" albumurl="…" …></mp-common-clmusic>
+```
+
+属性在，播放器就在。所以「从旧草稿里抄一个标签、原样复刻」是零风险路径。
+
+### 两条插入路径
+
+`:::music` 渲染成一个占位块，并写入 `data-swx-music-*` 标记；发布脚本
+（`publish-via-browser.mjs`，**自动执行，无需 flag**）见到占位块就按标记二选一：
+
+1. **`source` 有值**（从旧草稿 `draft/get` 抄来的 `<mp-common-clmusic>` 标签）→ 直接复刻。
+   零交互、最稳，**首选**。这些三篇文章走的都是这条。
+2. **只有 `clue`**（歌手 + 歌名）→ 开「音频 → 音乐」弹窗，搜索后按歌名精确选中 → 插入。
+   新曲目用这条。
+
+### 三个踩坑
+
+- **搜索必须显式点放大镜按钮。** 只往输入框里填值不会触发查询——实测等 9 秒也不发请求
+  （不是防抖太慢，是压根没绑 input 事件）。必须找到 `.weui-desktop-search__btn` 点一下。
+- **「音频」入口是 dropdown，不是直接弹窗。** 它下面还有「音频 / 音乐」两项，
+  要展开后点 `.js_insertmusic`。直接点 `#audio_music_plugin_btn` 什么都不会发生。
+- **占位块上不能跨调用打临时标记。** 第一版实现用 `setAttribute('data-swx-music-picked','1')`
+  标记「处理中」，下一次 evaluate 再查——**查不到**：ProseMirror 会按自己的文档模型重渲染 DOM，
+  手加的属性被抹掉。所以「定位 → 插入 → 删占位块」必须在**同一次 evaluate 里原子完成**，
+  标签也从 DOM 属性里现取，不要跨调用传递。
+
+### 边界
+
+- 组件**不写** `position` / `filter`（白名单 BANNED 档），图标用内联 SVG 而非 emoji 字体。
+- 属性值含大量双引号，写进 Markdown 时 `source='…'` 用单引号 —— 参数解析器
+  （`packages/components/src/parse.ts` 的 `parseProps`）本来就支持单引号值。
+- 只支持微信曲库里的曲目（弹窗搜得到才行），不能给一个任意音频 URL。

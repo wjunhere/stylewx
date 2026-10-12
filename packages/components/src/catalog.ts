@@ -135,6 +135,29 @@ export const COMPONENT_CATALOG: ComponentSpec[] = [
       'cua-driver 能自动填路径，但「打开」那一下必须人按）。' +
       '注意 API（add_material?type=video）传的视频微信标为「限菜单/自动回复」，在正文里永远是禁用态。详见 docs/DESIGN.md §20.10。',
   },
+  {
+    name: 'music',
+    category: 'image',
+    summary: '音乐占位块：标出「此处该有音乐」，发布时由脚本自动插入微信原生播放器（无需人工）。',
+    example: `:::music{song="焦虑抑制剂" singer="惘闻" clue="惘闻 焦虑抑制剂"}
+:::`,
+    props: [
+      { name: 'song', type: 'text', description: '歌名（占位块上显示，也写进标记供发布脚本核对）' },
+      { name: 'singer', type: 'text', description: '歌手' },
+      { name: 'clue', type: 'text', description: '搜索关键词（歌手 + 歌名）；脚本用它去音乐弹窗搜索并点选' },
+      { name: 'source', type: 'text', description: '从旧草稿 draft/get 原样拿到的 <mp-common-clmusic> 标签（首选，零交互复刻）' },
+      { name: 'caption', type: 'text', description: '图注' },
+      { name: 'hint', type: 'text', description: '占位块上的提示语', default: '音乐将在发布时由编辑器插入' },
+      { name: 'show-hint', type: 'boolean', description: '是否显示提示语', default: 'true' },
+    ],
+    notes:
+      '与 `video` 相反：音乐**可以全自动插入**。实测（2026-10-12）：把旧草稿里的 <mp-common-clmusic> 标签直接 insertHTML → 编辑器完整保留；保存后 draft/get 读回仍完整，并补上 mp-style-type data-value=3（音频块标记）。' +
+      '两条插入路径，由发布脚本按占位块的标记二选一：' +
+      '① source 有值（从旧稿抄标签）→ 直接复刻，零交互、最稳；' +
+      '② 只有 clue → 脚本走「音频 → 音乐」弹窗，在搜索框输入 clue → 点搜索 → 按歌名精确选中 → 插入。' +
+      '注意：音乐弹窗的搜索**必须显式点一下放大镜按钮**，只填输入框不会触发查询（防抖实测 4s 也不发请求）。' +
+      '两种路径的落地效果相同：读者端是可播放的微信原生音乐卡片。',
+  },
 
   // ---------------- 结构 ----------------
   {

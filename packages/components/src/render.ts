@@ -3,6 +3,7 @@
  */
 import { mediaComponents } from './components/media.js'
 import { videoComponents } from './components/video.js'
+import { musicComponents } from './components/music.js'
 import { structureComponents } from './components/structure.js'
 import { decorComponents } from './components/decor.js'
 import { interactiveComponents } from './components/interactive.js'
@@ -18,6 +19,7 @@ import type { ComponentNode, ComponentRenderer, HeadingInfo, RenderContext, Rend
 export const COMPONENT_RENDERERS: Record<string, ComponentRenderer> = {
   ...mediaComponents,
   ...videoComponents,
+  ...musicComponents,
   ...structureComponents,
   ...decorComponents,
   ...interactiveComponents,
@@ -29,6 +31,7 @@ export const COMPONENT_RENDERERS: Record<string, ComponentRenderer> = {
 export const COMPONENT_NAMES: string[] = [
   ...Object.keys(mediaComponents),
   ...Object.keys(videoComponents),
+  ...Object.keys(musicComponents),
   ...Object.keys(structureComponents),
   ...Object.keys(decorComponents).filter(
     (n) => !['info', 'tip', 'important', 'warning', 'danger', 'success', 'note'].includes(n),
@@ -41,7 +44,7 @@ export const COMPONENT_NAMES: string[] = [
 /** 正文按原始文本保存的组件：结构化正文（`- 时间 | 内容`、表格、图片行）从 DOM 还原会失真。 */
 const RAW_BODY = new Set(['image', 'gallery', 'image-card', 'carousel', 'timeline', 'steps', 'compare', 'reveal', 'mermaid'])
 /** 不使用正文、仅靠 props 的组件。 */
-const PROPS_ONLY = new Set(['divider', 'section-title', 'toc', 'progress', 'pulse', 'cover', 'badge', 'video'])
+const PROPS_ONLY = new Set(['divider', 'section-title', 'toc', 'progress', 'pulse', 'cover', 'badge', 'video', 'music'])
 
 /** props → URL 编码串（写进 data-swx-props，导入时精确还原）。 */
 function encodeProps(props: Record<string, string>): string {
@@ -64,12 +67,37 @@ function markerAttrs(node: ComponentNode, isUserComponent = false): string {
   return attrs
 }
 
+/**
+ * 找到开标签的结尾 `>` 的下标（**跳过引号内的 `>`**）。
+ *
+ * 为什么不能直接 `indexOf('>')`：`escapeAttr` 刻意不转义 `>`（带引号的属性值里它合法），
+ * 所以属性值里会出现裸 `>`（例如 `data-swx-music-source` 存的就是一整段
+ * `<mp-common-clmusic …></mp-common-clmusic>` 标签）。用 `indexOf('>')` 会在属性值中间
+ * 就截断，把后续属性全写进那个属性的值里 —— 渲染产物出现一段泄漏的可见文本。
+ * 这是 AGENTS.md 铁律⑨ 的第一个真实受害者（普通属性值里出现 `>` 的概率很低，
+ * 音乐组件第一次把整段 HTML 当属性值存才踩到）。
+ */
+function findOpenTagEnd(body: string): number {
+  let quote = ''
+  for (let i = 0; i < body.length; i += 1) {
+    const ch = body[i]
+    if (quote) {
+      if (ch === quote) quote = ''
+    } else if (ch === '"' || ch === "'") {
+      quote = ch
+    } else if (ch === '>') {
+      return i
+    }
+  }
+  return -1
+}
+
 /** 把标记注入到渲染结果的第一个元素开标签里。 */
 function injectMarker(html: string, node: ComponentNode, isUserComponent = false): string {
   const leading = html.length - html.trimStart().length
   const body = html.slice(leading)
   if (!body.startsWith("<") || body.startsWith("<!")) return html
-  const end = body.indexOf(">")
+  const end = findOpenTagEnd(body)
   if (end === -1) return html
   const open = body.slice(0, end)
   const rest = body.slice(end)
