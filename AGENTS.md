@@ -92,6 +92,7 @@ pnpm check:artifact   # 装产物真跑：握手版本、工具清单、编辑�
 | 编辑器另存为 / 写入白名单 | §25；闸门 `writeRoots()`（save-article.ts），环境变量 `STYLEWX_WRITE_ROOTS` |
 | 踩过的坑（全量） | §22 |
 | 音乐组件（自动插入） | §26；组件 `packages/components/src/components/music.ts`，实测见 docs/DESIGN.md §26 |
+| 平台内建组件该不该做 | §28（判据：数据在不在自己身上）；探针 `probe-wechat-toolbar.mjs` / `probe-wechat-widget-survival.mjs` |
 | 草稿箱里人的初版 | §27（**不许删**）；快照回灌 `assets-src/restore-originals.mjs` |
 | 发布流程细节 | §3 + `.github/workflows/release.yml` |
 
@@ -164,3 +165,20 @@ node scripts/ci/verify-release.mjs --check-registry   # 发布后回查，仅 CI
 2. **回灌必须走浏览器通道**，不用 `cgi-bin/draft/add`（后者 `leaf=0`，人改不了，见 §2 铁律⑥）。
 
 brand.md 里那条旧规矩已删除，不要重建。
+
+## 28. 平台内建组件（哪些该做、哪些不该做）
+
+微信编辑器自带 17 个插入项。**能否自动化只看一件事：数据在不在自己身上**——落地的是不是
+自包含的 `<mp-common-*>`（属性里带全数据）→ 能；要先按名称查平台实体 → 不能。详见 docs/DESIGN.md §27。
+
+- ✅ 已纳入：`:::music`（自包含，自动插入）、封面/正文图（走素材库搬运）
+- ⚠️ 技术上可做但按需：`:::search` 推荐搜索（`<mp-common-search>` 已验证存活，
+  但 `data-headimg` 会过期、`data-nickname` 与真实号名有差异 → 发布时现场取并校验）
+- ❌ 不做：账号名片 / 超链接 / 小程序 / 投票 / 问答 / 礼物 / 地理位置 / 视频号 / 收入变现
+
+**核心判据不是「能不能做到」，是「谁该拥有这个组件的配置」**：标签是渲染指令 → 属于 Markdown
+源，能给 agent；要求平台对象引用（id / appid / POI / 商品）→ 属于平台运行时，塞进 Markdown
+只会让 agent 生成幻觉引用。
+
+**别把平台组件当功能列表抄过来** —— 抄过来的是耦合，不是能力。新增前先跑
+`node apps/mcp-server/scripts/probe-wechat-toolbar.mjs` 拿事实清单，再对判据表。

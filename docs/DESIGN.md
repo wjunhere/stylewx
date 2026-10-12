@@ -1230,6 +1230,10 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 | `packages/preview/scripts/capture-hero.mjs` | 重截 README 配图 `docs/assets/editor-preview.png` |
 | `apps/mcp-server/scripts/probe-mermaid-wechat.mjs` | mermaid 图真实微信链路（draft/add → get 回读，会写一条 [probe] 草稿） |
 | `apps/mcp-server/scripts/probe-wechat-music.mjs` | 音乐组件链路探针（`--stage picker` 入口结构 / `inject` 标签注入存活 / `survive` 保存后读回 / `search` 搜索点选）。`survive` 会写一条 [探针] 草稿并在读回后自动删除，其余阶段只探查不保存 |
+| `apps/mcp-server/scripts/probe-wechat-toolbar.mjs` | 枚举编辑器**全部插入项**（一级项 id + 各 dropdown 子项），拿「平台有什么」的事实清单。只探查不保存 |
+| `apps/mcp-server/scripts/probe-wechat-landed.mjs` | 逐个打开插入项弹窗，dump 它**要什么参数**。`node … "id1,id2"` 指定目标。只探查不保存 |
+| `apps/mcp-server/scripts/probe-wechat-search-widget.mjs` | 「推荐搜索」专项：走完「点占位文本 → 输入 → 确定」并 dump 落地标签（`<mp-common-search>`）。只探查不保存 |
+| `apps/mcp-server/scripts/probe-wechat-widget-survival.mjs` | **存活验证**：把平台组件标签直接 insertHTML → 保存 → 读回，判定能否自动化（音乐/推荐搜索都是这样验的）。会写 [探针] 草稿并自动删除 |
 | `packages/preview/scripts/ui-shots.mjs` | 编辑器 19 个面（主界面 / 浮层 / 7 弹窗 / 空态 / 窄屏 / toast）各拍一张，改前后逐面对比 |
 
 ## 24. Mermaid 图（:::mermaid）
@@ -1343,3 +1347,78 @@ draft/get 回读，断言 `<img src="mmbiz…">` 存活且无 `url(#` 引用（�
 - 属性值含大量双引号，写进 Markdown 时 `source='…'` 用单引号 —— 参数解析器
   （`packages/components/src/parse.ts` 的 `parseProps`）本来就支持单引号值。
 - 只支持微信曲库里的曲目（弹窗搜得到才行），不能给一个任意音频 URL。
+
+## 27. 平台内建组件盘点（哪些该纳入、哪些不该）
+
+**目的**：拿一份「平台有什么」的事实清单，跟 stylewx 现有组件做差集，避免凭印象猜。
+实测清单（`probe-wechat-toolbar.mjs`，2026-10-12，17 个一级项）：
+
+```
+图片(下拉:本地上传/图片库/扫码/AI配图)  视频          音频(下拉:音频/音乐)  超链接
+小程序        模板          投票          搜索          地理位置
+视频号        账号名片       问答          礼物
+收入变现(广告/带货/小店)     更多          自定义工具栏
+```
+
+### 判据：决定能否自动化的不是「功能」，是「数据在不在自己身上」
+
+音乐组件那次踩出来的判据（§26），推广到全部平台组件后非常好用 ——
+**插入后落地的是不是自包含的自定义元素（数据在属性上）**：
+
+| 类别 | 特征 | 能否自动化 |
+| --- | --- | --- |
+| **A. 自包含型** | 落地 `<mp-common-*>`，数据以属性形式带在自己身上 | ✅ 标签可离线合成，零交互插入 |
+| **B. 查库型** | 要先按名称**往返搜索平台实体**再选一个（对象 id / appid 在白名单里） | ❌ 只能浏览器驱动 + 人工确认 |
+| **C. 平台状态型** | 指向一个平台侧在变的状态（视频、直播、带货库存） | ❌ 快照必然漂移，且多需资质/过审 |
+| **D. 本地图片型** | 本质是图片，微信只收自己的 `mmbiz` 链接 | ❌ 得先传素材库（我们已用「外链自动搬运」解决） |
+
+### 已实测的结论
+
+| 平台组件 | 落地标记 | 数据位置 | 判据 | 纳入？ |
+| --- | --- | --- | --- | --- |
+| 音乐 | `<mp-common-clmusic>` | 属性（歌名/歌手/listenid） | **保存后存活**（已验证） | ✅ 已做 `:::music`（自动） |
+| 推荐搜索 | `<mp-common-search>` | `data-nickname`/`data-headimg`/`data-keywords`(URL 编码 JSON) | **保存后存活**（已验证） | ⚠️ 可选，见下 |
+| 账号名片 | 搜索账号 → 选人 | 平台实体 | B 型 | ❌ 只做 CTA（`:::end-card`） |
+| 超链接 | 搜索账号/文章 → 选一个 | 平台实体 | B 型 | ❌ Markdown 链接已够 |
+| 问答 | 搜索账号或问题 | 平台实体 | B 型 | ❌ |
+| 投票 | 需配置表单 + 服务端记录 | 平台实体 | B/C 型 | ❌ 且正文互动一律不碰 |
+| 地理位置 | 需 POI 库搜索 | 平台实体 | B 型 | ❌ 对文艺随笔零收益 |
+| 视频号 | 需已发布且公开的视频 | 平台状态 | C 型 | ❌ 且需授权 |
+| 礼物 | 需商品/资质 | 平台状态 | C 型 | ❌ |
+| 小程序 | 需 appid 白名单 | 平台实体 | B 型 | ❌ |
+| 模板 / 收入变现 | 平台业务非排版 | — | — | ❌ |
+| 图片（AI 配图等） | 本质字节 | 微信素材库 | D 型 | ✅ 封面已做；正文图已有 `image`/`gallery` |
+
+**关键区分：谁该拥有这个组件的「配置」？**
+
+- 标签是**渲染指令**（样式、数据内联、离线可算）→ 属于 Markdown 源，能给 agent 用。音乐、推荐搜索属这类。
+- 要求**平台对象引用**（id / appid / POI / 商品）→ 属于平台运行时，**塞进 Markdown 会让 agent 生成幻觉引用**。
+  这是「不该纳入」的核心原因，不是技术做不到。
+
+### 推荐搜索：技术上可做，但只在特定场景值得
+
+`<mp-common-search>` 已验证存活（`probe-wechat-widget-survival.mjs`），数据自包含：
+
+```html
+<mp-common-search data-pluginname="insertsearch" data-nickname="Hippie 青年"
+  data-headimg="https://wx.qlogo.cn/…" data-keywords="%5B%7B%22label%22%3A%22…%22%7D%5D"></mp-common-search>
+```
+
+**没急着做成组件**，三个原因：
+
+1. **`data-headimg` 是公众号头像的 `qlogo.cn` 直链，会过期** —— 除非发布时现场取（用 `data-nickname` 走我们自己的代理），
+   直接塞链接迟早变裂图。而它必须与账号名**匹配**（不匹配就是错号），发布前必须校验。
+2. **`data-nickname` 实测与真实号名不完全一致**（快照里带 `&nbsp;`），照抄有风险。
+3. **价值场景窄** —— 推荐搜索对「矩阵式内容」有用（#1 焦虑 / #2 求学 / #3 人际），
+   对随笔号收益有限；且 `:::end-card` 已覆盖「关注引导」。
+
+放置位置也要挑：推荐搜索是**读者端唯一带点击交互**的（`custom_select_card`，点击弹搜一搜；
+`:::reveal` 是 SMIL 不是链接），必须放**文末**，不能放头图/封面之后。
+真要做，形态是 `:::search` + 可选 `avoid-block`：把该块插到 `hip-end-a` 之前。
+
+### 不该做的结论（避免后来者重复劳动）
+
+- 别为 `视频` / `视频号` / `直播` 写自动化：§20.10 已证明没有可用数据源。
+- 别把 `投票` / `问答` / `礼物` / `地理位置` 做成组件：散在 Markdown 里既杂乱，又与
+  「微信端只假设有内联 SVG + SMIL」这条基本约束冲突（它们都要运行时对象）。
+- 别把平台组件当「功能列表」抄过来 —— 抄过来的是**耦合**，不是能力。
