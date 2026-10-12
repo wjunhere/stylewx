@@ -63,11 +63,16 @@ const lampPost = ({ x, groundY, topY, bend, stroke, dash, begin, dur }) =>
   `</path>`
 
 /**
- * 灯罩 + 灯泡 + 光晕（光晕呼吸）。
+ * 灯罩 + 灯泡（可选光晕）。
+ *
  * ⚠️ 缩放必须用 transform 把原点搬到灯心再 scale。
  * 早先写成 `g(v) = v * s` 直接乘绝对坐标，灯头被搬到 (x*s, y*s)，和灯柱弧头脱开，越放大偏得越厉害。
+ *
+ * ⚠️ `halo` **默认 false**（历史上是 true，结果在深色底上默认踩坑）。
+ * 光晕是「大面积 + 低透明度的暖色填充」，在深色底上必变灰褐（§22.8 ⑧ / 铁律⑩）。
+ * 只有**浅色底**（A 的纸白、B 的暖灰纸）才应该显式传 `halo: true`。
  */
-const lampHead = ({ x, y, s = 1, begin, halo = true }) =>
+const lampHead = ({ x, y, s = 1, begin, halo = false }) =>
   `<g transform="translate(${x} ${y}) scale(${s})" opacity="0">` +
   fade('0.5s', begin) +
   `<path d="M-26 0 Q0 -30 26 0 Z" fill="${C.lampSoft}" opacity="0.9"/>` +
@@ -78,45 +83,6 @@ const lampHead = ({ x, y, s = 1, begin, halo = true }) =>
       `<ellipse cx="0" cy="12" rx="18" ry="14" fill="${C.lampSoft}" opacity="0.2">${loop('opacity', '0.14;0.28;0.14', '3.2s', '0.4s')}</ellipse>`
     : '') +
   `</g>`
-
-/**
- * 同心光池：多层低透明度实心椭圆，伪造「柔光衰减」。
- * 为什么不用 <radialGradient>：微信会剥掉 <defs> 与 id，`fill="url(#…)"` 到读者端必裂。
- * 多层低透明度叠加是唯一能在微信里成立的柔边做法。
- */
-const pool = (rings, begin) =>
-  rings
-    .map(([cx, cy, rx, ry, op], i) => {
-      const b = `${(parseFloat(begin) + i * 0.32).toFixed(2)}s`
-      return (
-        `<ellipse cx="${cx}" cy="${cy}" rx="0" ry="0" fill="${i % 2 ? C.lampSoft : C.lamp}" opacity="0">` +
-        grow('rx', 0, rx, '1.6s', b) +
-        grow('ry', 0, ry, '1.6s', b) +
-        `<animate attributeName="opacity" from="0" to="${op}" dur="0.9s" begin="${b}" fill="freeze"/></ellipse>`
-      )
-    })
-    .join('')
-
-/**
- * 路面受光：地平线上一道被灯照亮的小弧。
- *
- * 为什么不用椭圆光斑 / 灯罩光晕（C 两种都用过，实测都被退回）：
- * 品牌 learning 明载「深色底上大面积 + 低透明度的暖色会调出脏灰」。C 是**深色底**，
- * 把暖橘以 opacity 0.13~0.35 铺在夜蓝上，无论椭圆多大、叠几层，都会变成灰褐/土棕，
- * 读成一块「煎饼」或「陨石坑」。7 种方案实拍对照见 assets-src/try-pool.mjs。
- *
- * 深色底上成立的做法只有两类：
- *   ① 小面积 + 高不透明度（实心灯头、灯泡）；
- *   ② **纯色描边**（就是这道弧）—— 描边不参与底色混色，所以不会脏。
- */
-const litArc = ({ x, y, w, stroke, begin = '0s', dur = '0.9s', opacity = 0.7 }) => {
-  const len = Math.round(w * 1.06)
-  return (
-    `<path d="M${x - w / 2} ${y} Q${x} ${y - w * 0.18} ${x + w / 2} ${y}" fill="none" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round" opacity="${opacity}" stroke-dasharray="${len}" stroke-dashoffset="${len}">` +
-    drawIn(len, dur, begin) +
-    `</path>`
-  )
-}
 
 // ══════════════════════════════════════════════════════════════════════
 // 方案 A ·「归途」 — 夜景线描
@@ -138,7 +104,7 @@ const A = {
     `<rect width="340" height="132" fill="${C.paper}"/>` +
       `<path d="M0 108 H340" stroke="${C.rule}" stroke-width="1.5" stroke-dasharray="340" stroke-dashoffset="340">${drawIn(340, '1s', '0s')}</path>` +
       lampPost({ x: 268, groundY: 108, topY: 40, bend: 32, stroke: C.nightSoft, dash: 130, begin: '0.35s', dur: '1.1s' }) +
-      lampHead({ x: 300, y: 40, begin: '1.1s' }) +
+      lampHead({ x: 300, y: 40, begin: '1.1s', halo: true }) +
       txt({
         x: 28, y: 62, size: 27, weight: 700, fill: C.night, text: 'HIPPIE', ls: 1.5, opacity: 0,
         anim: fade('0.6s', '1.3s') + rise(6, '0.62s', '1.3s'),
@@ -189,69 +155,184 @@ const A = {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// 方案 B ·「灯下」 — 光从灯里长出来
-// 语法：不是画线，是「点亮」。光圈层层推开，被照到的文字才显影
+// 共用：山形 / 树 / 鸟 / 月 / 亮窗
+//
+// 山的画法要点（早先是「等距锯齿」，读起来像心电图不像山）：
+//   - 峰数少（3 个）、峰高差明显；峰间要有**鞍部**（回落但不回到底）；
+//   - 用 Q 二次贝塞尔在峰点**圆化**，避免硬尖；
+//   - 远山亮、近山暗（大气雾感），只有近山脊描白边收形。
+// ══════════════════════════════════════════════════════════════════════
+/**
+ * 折线山脊（Q 圆化峰顶）。
+ *
+ * ⚠️ 本项目的硬约束：**文字占据左侧 x 26~140（C 的副标题到 139）**，
+ * 所以山脊在 x<165 的区间必须整体压在 `y ≥ 100`（低于文字块下沿）——
+ * 峰只能出现在**右半**。曾经把峰写在 x=86 处，白色山脊线直接横穿副标题，
+ * 缩略图完全看不出来（漏了 4 次），现在由 `check-collisions.mjs` 机器把关。
+ *
+ * peaks 按 x 升序，两端自动落到 baseY。
+ */
+const ridgeD = (peaks, baseY) => {
+  let d = `M0 ${baseY}`
+  let px = 0
+  for (const [x, y] of peaks) {
+    d += ` Q${(px + (x - px) * 0.55).toFixed(1)} ${y} ${x} ${y}`
+    px = x
+  }
+  return d + ` Q${(px + (340 - px) * 0.5).toFixed(1)} ${baseY} 340 ${baseY}`
+}
+
+/**
+ * 三层实心山（方案 C 用）。右端带一个平台，供灯脚站立。
+ *
+ * 左右不对称是**有意**的：左低（让开文字）、右高（主峰 + 平台），
+ * 顺带也比对称的等距锯齿更像真山。
+ */
+const mountainLayers = ({ baseY = 132, shelfX = 232, shelfY = 114, textBottom = 98 }) => {
+  // 左半一律 ≥ textBottom + 8（让开文字），峰全部落在 x ≥ 210；
+  // 三层明度差要拉开：远山 twilight 0.5 / 中山 nightSoft 0.8 / 近山实心 ——
+  // 早先远山只有 0.28，在夜蓝底上几乎隐形，「三层山」读成一层。
+  const far = [[64, 112], [150, 104], [238, 52], [322, 84]]
+  const mid = [[42, 120], [148, 110], [246, 74], [326, 98]]
+  const near = [[100, 126], [214, Math.max(112, textBottom + 14)], [shelfX, shelfY]]
+  const fill = (p, c, o) => `<path d="${ridgeD(p, baseY)} L340 ${baseY} L0 ${baseY} Z" fill="${c}" opacity="${o}"/>`
+  // 近山脊描边：只描到平台起点；平台段不描，避免多出一条线与受光弧相交
+  const seg = (p) => {
+    let d = `M0 ${baseY}`
+    let px = 0
+    for (const [x, y] of p) {
+      d += ` Q${(px + (x - px) * 0.55).toFixed(1)} ${y} ${x} ${y}`
+      px = x
+    }
+    return d
+  }
+  return (
+    fill(far, C.twilight, 0.5) +
+    fill(mid, C.nightSoft, 0.8) +
+    // 近山：从平台右缘垂直落到画布底，形成一块「坡地」
+    `<path d="${ridgeD(near, baseY)} L340 ${shelfY} L340 ${baseY} Z" fill="${C.night}"/>` +
+    `<path d="${seg(near)} L340 ${shelfY}" fill="none" stroke="${C.paper}" stroke-width="1.8" stroke-linejoin="round" opacity="0.85" stroke-dasharray="700" stroke-dashoffset="700">${drawIn(700, '1.6s', '0.5s')}</path>`
+  )
+}
+
+/**
+ * 纯线描山脊（方案 B 用，不填充 —— 与 C 的实心剪影形成语法对比）。
+ * 同样受「左低右高」约束；另外 `baseY` 必须低于文字块，否则线会横穿文字。
+ */
+const ridgeLine = ({ peaks, baseY, stroke = C.night, begin = '0.5s', op = 0.6, w = 1.8 }) =>
+  `<path d="${ridgeD(peaks, baseY)}" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linejoin="round" opacity="${op}" stroke-dasharray="700" stroke-dashoffset="700">${drawIn(700, '1.5s', begin)}</path>`
+
+/** 实心针叶树（C 用）。 */
+const pine = (x, base, h, w, color = C.paper, op = 0.9) => {
+  const o = []
+  for (let i = 0; i < 3; i += 1) {
+    o.push(`<path d="M${x} ${base - h + h * 0.46 * i} L${x + (w * (0.5 + i * 0.25)) / 2} ${base - h * (0.62 - i * 0.24)} L${x - (w * (0.5 + i * 0.25)) / 2} ${base - h * (0.62 - i * 0.24)} Z" fill="${color}" opacity="${op}"/>`)
+  }
+  o.push(`<rect x="${(x - 1.3).toFixed(1)}" y="${base - 5}" width="2.6" height="7" fill="${color}" opacity="${op}"/>`)
+  return o.join('')
+}
+
+/** 线描松（B 用，只描轮廓不填充）。 */
+const pineLine = (x, base, h, w, op = 0.5) =>
+  `<path d="M${x} ${base - h} L${x + w / 2} ${base - h * 0.34} L${x - w / 2} ${base - h * 0.34} Z" fill="none" stroke="${C.night}" stroke-width="1.5" stroke-linejoin="round" opacity="${op}"/>` +
+  `<path d="M${x} ${base - h * 0.62} L${x + w * 0.36} ${base - h * 0.04} L${x - w * 0.36} ${base - h * 0.04} Z" fill="none" stroke="${C.night}" stroke-width="1.5" stroke-linejoin="round" opacity="${op}"/>` +
+  `<path d="M${x} ${base} V${base - h * 0.04}" stroke="${C.night}" stroke-width="1.6" opacity="${op}"/>` +
+  `<path d="M${(x - w * 0.2).toFixed(1)} ${base} H${(x + w * 0.2).toFixed(1)}" stroke="${C.night}" stroke-width="1.6" opacity="${op}"/>`
+
+/** 飞鸟剪影。 */
+const bird = (x, y, s = 1, color = C.paper, op = 0.85) =>
+  `<g transform="translate(${x} ${y}) scale(${s})" fill="${color}" opacity="${op}">` +
+  `<ellipse cx="0" cy="0" rx="5" ry="3.6"/><circle cx="4.6" cy="-3.4" r="2.4"/>` +
+  `<path d="M6.6 -4.2 L11 -3.4 L6.6 -2.4 Z"/><path d="M-5 -1 L-11 -3.4 L-5.4 1.6 Z"/></g>`
+
+/** 弦月。微信剥 mask，所以不能用「两圆相减」，要用两段弧拼。 */
+const moon = (x, y, r, color = C.paper, op = 0.9) =>
+  `<path d="M${x} ${y - r} A${r} ${r} 0 1 0 ${x} ${y + r} A${(r * 1.28).toFixed(1)} ${(r * 1.28).toFixed(1)} 0 0 1 ${x} ${y - r} Z" fill="${color}" opacity="${op}">${fade('0.9s', '0.4s')}</path>`
+
+/** 亮窗：小面积 + 高不透明 —— 深色底上唯一不脏的暖色填充（见 try-pool.mjs）。 */
+const litWin = (x, y, w, h, op = 0.92, begin = '0.9s') =>
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${C.lamp}" opacity="0">${fade('0.4s', begin)}</rect>` +
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${C.lamp}" opacity="${op}"/>`
+
+/** B 的线描灯（夜蓝细线 + 一小块暖色灯罩）。 */
+const lampLine = ({ x, groundY, topY, bend, begin = '0.5s', s = 0.78 }) =>
+  `<path d="M${x} ${groundY} L${x} ${topY + 22} Q${x} ${topY} ${x + bend} ${topY}" fill="none" stroke="${C.nightSoft}" stroke-width="2.1" stroke-linecap="round" stroke-dasharray="130" stroke-dashoffset="130">${drawIn(130, '1s', begin)}</path>` +
+  `<g transform="translate(${x + bend} ${topY}) scale(${s})" opacity="0">${fade('0.5s', '0.85s')}` +
+  `<path d="M-26 0 Q0 -30 26 0 Z" fill="${C.lampSoft}" opacity="0.9"/>` +
+  `<path d="M-26 0 Q0 -30 26 0 Z" fill="none" stroke="${C.lamp}" stroke-width="1.5"/>` +
+  `<ellipse cx="0" cy="5" rx="4.6" ry="3.8" fill="${C.lamp}"/></g>`
+
+/**
+ * 地面受光：一道纯色描边弧。
+ * 深色底上「暖色填充」必脏（fill 参与混色），只有 stroke 干净 —— 见 §22.8 ⑧ 与 try-pool.mjs。
+ * 弧高压到 w*0.13，且画在平台**之下**，避免与山脊线相交成 X。
+ */
+const litArc = (x, y, w, begin, stroke = C.lamp, op = 0.72) =>
+  `<path d="M${x - w / 2} ${y} Q${x} ${(y - w * 0.13).toFixed(1)} ${x + w / 2} ${y}" fill="none" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round" opacity="${op}" stroke-dasharray="${Math.round(w * 1.06)}" stroke-dashoffset="${Math.round(w * 1.06)}">${drawIn(Math.round(w * 1.06), '0.9s', begin)}</path>`
+
+// 方案 B ·「灯下」 — 暖灰纸底 · 纯线描
+//
+// 与 C 的区分**不只在底色，更在语法**：
+//   C = 实心剪影（纸白块压在夜蓝上，强对比，夜景感）
+//   B = 纯线描（夜蓝细线画在暖灰纸上，轻，纸本感）—— 这才是「灯下读书」该有的样子
+// 两者同一组颜色、同一母题（灯 + 地平面 + 山），所以仍是一套系统。
+//
+// 布局硬约束（踩过：线穿过文字，缩略图看不出来）：
+//   三条水平线各占一个 y —— 地面 112 / 受光弧 120 / 山脊 ≤104，**互不相交**；
+//   山脊在文字块所在区间（x < 150）必须压到 y ≥ 108，只在右侧才隆起。
+//   机器校验：`node assets-src/check-collisions.mjs`
 // ══════════════════════════════════════════════════════════════════════
 const B = {
   key: 'b-lamplight',
   label: '方案 B ·「灯下」',
   idea: '光从灯里一层层推开，字是被照亮的 —— 最适合「做题 / 读书 / 思考」这类内容',
-  typography: '标题被光线扫过后才显影；暖黄是唯一亮点，其余全冷',
-  /**
-   * 与 A / C 的区分靠「画面主导色」：三套用的是**同一组颜色**
-   * （夜蓝 / 纸白 / 暖橘），只是各让其中一个占主导：
-   *   A 纸白主导（亮）→ B 暖灰纸主导（暖）→ C 夜蓝主导（暗）。
-   * 所以 B 的底用 cardBg 而不是 canvasBg，整体读成「被灯烤暖的纸」。
-   */
+  typography: '细线为主、暖橘只点在灯与窗上；暖灰纸底，纸本感',
   timeline: [
-    '0.00s 地面与桌线描出（0.8s）',
-    '0.35s 灯柱描出、灯罩落下（0.9s）',
-    '0.85s 灯泡亮起（0.5s 渐亮，灯罩先落定再发光）',
-    '0.95s 三层光池依次推开（各错 0.32s，长尾缓动）',
-    '1.45s 尘埃颗粒在光里浮起（错峰，营造「灯下有空气」）',
-    '1.20s 标题上浮显影 → 1.29s「青年」→ 2.00s 题注',
-    '2.40s 内层光池转入 6s 呼吸循环',
+    '0.00s 地面基线自左描出（0.8s）',
+    '0.35s 远山轮廓淡线 → 0.60s 近山轮廓（各 1.5s）',
+    '0.50s 灯柱自下描出、灯罩落下（1.0s）',
+    '0.85s 灯泡亮起（0.5s 渐亮）',
+    '1.10s 地面受光弧自中点向两侧展开（0.9s）',
+    '1.50s「HIPPIE」上浮归位 → 1.75s「青年」→ 2.00s 题注',
   ],
   header: svg(
     '0 0 340 132',
     `<rect width="340" height="132" fill="${C.card}"/>` +
-      // 光池：三层叠出柔光衰减（微信剥 id，不能用 radialGradient）
-      pool([[126, 78, 124, 54, 0.1], [126, 78, 86, 38, 0.16], [126, 78, 48, 23, 0.24]], '0.95s') +
-      // 地面：一道冷色基线把光池「坐」住，否则光池像飘在空中
-      `<path d="M18 118 H322" stroke="${C.rule}" stroke-width="1.4" stroke-dasharray="304" stroke-dashoffset="304">${drawIn(304, '0.8s', '0s')}</path>` +
-      lampPost({ x: 96, groundY: 118, topY: 54, bend: 30, stroke: C.nightSoft, dash: 120, begin: '0.35s', dur: '0.9s' }) +
-      lampHead({ x: 126, y: 54, begin: '0.85s', halo: false }) +
-      // 尘埃：光里的小颗粒。很小、很淡，但它是「灯下有空气」的关键，没有就显得空
-      [
-        [104, 74, 1.5], [118, 96, 1.1], [140, 84, 1.8], [152, 106, 1.2],
-        [112, 62, 1.0], [134, 112, 1.4], [96, 92, 1.2], [146, 68, 1.0],
-      ]
-        .map(
-          ([cx, cy, r], i) =>
-            `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${C.lamp}" opacity="0">` +
-            `<animate attributeName="opacity" from="0" to="${0.25 + (i % 3) * 0.12}" dur="0.7s" begin="${(1.45 + i * 0.09).toFixed(2)}s" fill="freeze"/>` +
-            `<animate attributeName="cy" values="${cy};${cy - 7};${cy}" dur="${(4.5 + (i % 4)).toFixed(1)}s" begin="${(2.2 + i * 0.2).toFixed(2)}s" repeatCount="indefinite"/></circle>`,
-        )
-        .join('') +
+      // 远山：淡线，左低右高（左半避开文字区）
+      ridgeLine({ peaks: [[70, 124], [168, 112], [258, 78]], baseY: 124, begin: '0.35s', op: 0.34, w: 1.6 }) +
+      // 近山：稍深，同样左低。baseY=124 与地面线(112)**不同 y**，所以不重叠；
+      // 且整条线在 y≥112 之下，不会碰文字（文字下沿 98）
+      ridgeLine({ peaks: [[46, 130], [156, 122], [266, 106]], baseY: 130, begin: '0.6s', op: 0.52, w: 1.9 }) +
+      // 地面基线：纸本的「桌面」
+      `<path d="M28 112 H312" stroke="${C.rule}" stroke-width="1.3" stroke-dasharray="284" stroke-dashoffset="284">${drawIn(284, '0.8s', '0s')}</path>` +
+      bird(196, 40, 0.72, C.night, 0.4) + bird(224, 44, 0.62, C.night, 0.32) +
+      lampLine({ x: 268, groundY: 112, topY: 44, bend: -26, begin: '0.5s' }) +
+      litArc(246, 120, 62, '1.1s') +
       txt({
-        x: 206, y: 62, size: 24, weight: 700, fill: C.night, text: 'HIPPIE', ls: 1.2, opacity: 0,
-        anim: fade('0.5s', '1.2s') + rise(0, '0.55s', '1.2s'),
+        x: 26, y: 44, size: 24, weight: 700, fill: C.night, text: 'HIPPIE', ls: 1.4, opacity: 0,
+        anim: fade('0.6s', '1.5s') + rise(6, '0.6s', '1.5s'),
       }) +
-      txt({ x: 208, y: 86, size: 14, fill: C.muted, text: '青年', ls: 5.5, opacity: 0, anim: fade('0.5s', '1.29s') }) +
-      txt({ x: 206, y: 110, size: 9, ls: 1.4, fill: C.muted, text: '前已无通路 · 后不见归途', opacity: 0, anim: fade('0.6s', '2s') }),
+      txt({ x: 28, y: 67, size: 13.5, fill: C.lamp, text: '青年', ls: 5, opacity: 0, anim: fade('0.6s', '1.75s') }) +
+      txt({ x: 26, y: 94, size: 8.5, ls: 1.3, fill: C.muted, text: '前已无通路 · 后不见归途', opacity: 0, anim: fade('0.7s', '2s') }),
   ),
   footer: svg(
     '0 0 340 140',
     `<rect width="340" height="140" fill="${C.card}"/>` +
-      // 尾图的灯不再画灯柱：只剩一枚灯罩悬浮在光池里，像熄灯前最后一眼
-      pool([[170, 92, 152, 44, 0.09], [170, 92, 104, 30, 0.15], [170, 92, 58, 17, 0.22]], '0.3s') +
-      lampHead({ x: 170, y: 34, begin: '0s', halo: false }) +
+      ridgeLine({ peaks: [[64, 130], [170, 118], [262, 94]], baseY: 130, begin: '0.3s', op: 0.34, w: 1.6 }) +
+      ridgeLine({ peaks: [[92, 136], [204, 128], [300, 118]], baseY: 136, begin: '0.55s', op: 0.52, w: 1.9 }) +
+      `<path d="M30 124 H310" stroke="${C.rule}" stroke-width="1.3" stroke-dasharray="280" stroke-dashoffset="280">${drawIn(280, '0.8s', '0s')}</path>` +
+      lampLine({ x: 274, groundY: 124, topY: 48, bend: -26, begin: '0.4s', s: 0.74 }) +
+      litArc(252, 132, 58, '1.1s') +
       txt({
-        x: 170, y: 78, size: 14, fill: C.night, anchor: 'middle', text: '前已无通路，后不见归途。', opacity: 0,
-        anim: fade('0.9s', '0.85s') + rise(5, '0.9s', '0.85s'),
+        x: 30, y: 56, size: 16, weight: 700, fill: C.night, text: '前已无通路', opacity: 0,
+        anim: fade('0.7s', '1.05s') + rise(5, '0.7s', '1.05s'),
       }) +
-      `<rect x="140" y="92" width="0" height="1" fill="${C.lamp}">${grow('width', 0, 60, '0.6s', '1.5s')}</rect>` +
-      txt({ x: 170, y: 114, size: 9, ls: 2.4, fill: C.muted, anchor: 'middle', text: 'HIPPIE 青年', opacity: 0, anim: fade('0.6s', '1.7s') }),
+      txt({
+        x: 30, y: 82, size: 16, weight: 700, fill: C.lamp, text: '后不见归途', opacity: 0,
+        anim: fade('0.7s', '1.35s') + rise(5, '0.7s', '1.35s'),
+      }) +
+      `<rect x="30" y="96" width="0" height="1.2" fill="${C.lamp}" opacity="0.8">${grow('width', 0, 74, '0.7s', '1.7s')}</rect>` +
+      txt({ x: 30, y: 118, size: 9, ls: 2.2, fill: C.muted, text: 'HIPPIE 青年', opacity: 0, anim: fade('0.6s', '1.9s') }),
   ),
   logo: svg(
     '0 0 120 120',
@@ -259,145 +340,78 @@ const B = {
     // 低透明暖色叠在深底上会调出脏灰；同心弧半径一大就出画布被圆角切掉。
     // 实心光锥是纯色，缩小后依然是一块干净的暖色。
     `<rect width="120" height="120" rx="24" fill="${C.night}"/>` +
-      // 光锥：从灯罩口投到地面
       `<g opacity="0">${fade('0.6s', '0.5s')}<path d="M45 40 L75 40 L98 86 L22 86 Z" fill="${C.lamp}" opacity="0.9"/></g>` +
-      // 灯罩
       `<g opacity="0">${fade('0.45s', '0.2s')}<path d="M38 40 A22 22 0 0 1 82 40 Z" fill="${C.paper}"/></g>` +
-      // 灯泡：灯罩口上那一点
       `<circle cx="60" cy="43" r="0" fill="${C.lamp}">${grow('r', 0, 5, '0.35s', '0.85s')}</circle>` +
-      // 地平线
       `<path d="M20 86 H100" stroke="${C.paper}" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="80" stroke-dashoffset="80">${drawIn(80, '0.8s', '1.05s')}</path>`,
-  )
-}
-
-/**
- * 行囊青年剪影。
- * ⚠️ 坐标在这里全部烘成绝对值，*不*用 transform="translate() scale()"。
- * 原因（实测）：父级 <g> 挂了 <animateTransform transform> 时，子树里任何静态 transform
- * 都会让整棵子树消失 —— 不是动画失效，是整个图形不见。
- * 建过 case1..4 对照组：唯独「外层 animateTransform + 内层静态 transform」这一组合什么都画不出来。
- */
-/**
- * 行囊青年剪影（侧身行走，朝右）。
- *
- * 画法要点（上一版被批「太简陋」，这里是重做版）：
- *   - 头、躯干、行囊、手臂、双腿是**五个独立部件**，不是一个圆加两条线；
- *   - 躯干肩宽腰收、整体前倾，走路姿态才有「动」的感觉；
- *   - 行囊与躯干之间**留一道透光的缝**，否则两块并成一个方块，两个都读不出来；
- *   - 腿画成膝盖两段式（髋→膝→脚），大腿小腿都够粗，缩小后不糊；
- *   - 后腿蹬地、前腿迈出，与「走进画面」的位移动画方向一致。
- *
- * ⚠️ 坐标全部烘成绝对值，*不*用 transform="translate() scale()"。
- * 原因（实测，见文件头坑二）：父级 <g> 挂了 <animateTransform> 时，
- * 子树里任何静态 transform 都会让整棵子树消失 —— 不是动画失效，是图形整个不见。
- */
-const traveler = ({ x, y, s, color }) => {
-  const px = (lx) => +(x + lx * s).toFixed(2)
-  const py = (ly) => +(y + ly * s).toFixed(2)
-  const w = (v) => +(v * s).toFixed(2)
-  return (
-    `<g opacity="0">` +
-    fade('0.7s', '1.2s') +
-    // 自左缘走入（负偏移 → 移到落点），朝向右侧那盏已经亮起的灯
-    `<animateTransform attributeName="transform" type="translate" from="-56 0" to="0 0" values="-56 0;0 0" keyTimes="0;1" calcMode="spline" keySplines="${SLOW}" dur="1.8s" begin="1.2s" fill="freeze"/>` +
-    // 头：略前倾
-    `<circle cx="${px(1.5)}" cy="${py(-41)}" r="${w(7)}" fill="${color}"/>` +
-    // 颈
-    `<path d="M${px(-0.5)} ${py(-35.5)} h${w(4.5)}" stroke="${color}" stroke-width="${w(4.5)}" stroke-linecap="round"/>` +
-    // 躯干：肩宽、腰收、微前倾
-    `<path d="M${px(-5.5)} ${py(-33)} L${px(5.5)} ${py(-33)} L${px(4)} ${py(-14)} L${px(-4)} ${py(-14)} Z" fill="${color}"/>` +
-    // 行囊：贴在身后，与躯干留一道缝（缝是让它读成「包」而不是「背」的关键）
-    `<path d="M${px(-13)} ${py(-32)} h${w(6)} a${w(2.4)} ${w(2.4)} 0 0 1 ${w(2.4)} ${w(2.4)} v${w(15)} h-${w(8.4)} z" fill="${color}" opacity="0.92"/>` +
-    // 手臂：走路时向后摆
-    `<path d="M${px(4)} ${py(-31)} L${px(8.5)} ${py(-19)}" stroke="${color}" stroke-width="${w(3.4)}" stroke-linecap="round" fill="none"/>` +
-    // 双腿：膝盖两段式，前腿迈出、后腿蹬地
-    `<path d="M${px(1)} ${py(-14)} L${px(9)} ${py(-6)} L${px(9.5)} ${py(0.5)}" stroke="${color}" stroke-width="${w(3.8)}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` +
-    `<path d="M${px(-2)} ${py(-14)} L${px(-6.5)} ${py(-6)} L${px(-8)} ${py(0.5)}" stroke="${color}" stroke-width="${w(3.8)}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` +
-    `</g>`
-  )
+  ),
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// 方案 C ·「行囊」 — 渐层暮色 + 一个剪影走进去
+// 方案 C ·「远山」 — 夜蓝底 · 山为主体（无人影）
+//
+// 按需求**去掉人影**，改以「三层山 + 路灯」为主体：山是叙事里那个「回不去的地方」，
+// 比一个剪影小人更含蓄，也不会因为人形画得糙而显廉价。
+//
+// 几何要点（修过两处真实错误，都是放大 4 倍才看见的）：
+//   ① 灯脚落在**平台**（shelfY）上，不悬空；
+//   ② 受光弧画在平台**之下**，与山脊线不相交（早先两条线交叉成 X）。
+//   机器校验：`node assets-src/check-collisions.mjs hip-head-c`
 // ══════════════════════════════════════════════════════════════════════
+const C_SKY = {}
+const C_SHELF_X = 232
+const C_SHELF_Y = 114
+const C_TEXT_BOTTOM = 98
+
+/** C 的头图公共骨架：山 + 平台 + 灯 + 受光弧 + 品牌文字，天空内容由参数注入。 */
+const cHead = (sky) =>
+  svg(
+    '0 0 340 132',
+    `<rect width="340" height="132" fill="${C.night}"/>` +
+      sky +
+      mountainLayers({ shelfX: C_SHELF_X, shelfY: C_SHELF_Y, textBottom: C_TEXT_BOTTOM }) +
+      lampPost({ x: 272, groundY: C_SHELF_Y, topY: 40, bend: -26, stroke: C.paper, dash: 130, begin: '0.5s', dur: '1s' }) +
+      lampHead({ x: 246, y: 40, s: 0.72, begin: '0.9s', halo: false }) +
+      litArc(246, C_SHELF_Y + 4, 62, '1.2s') +
+      txt({
+        x: 26, y: 44, size: 24, weight: 700, fill: C.paper, text: 'HIPPIE', ls: 1.4, opacity: 0,
+        anim: fade('0.6s', '1.5s') + rise(6, '0.6s', '1.5s'),
+      }) +
+      txt({ x: 28, y: 67, size: 13.5, fill: C.lamp, text: '青年', ls: 5, opacity: 0, anim: fade('0.6s', '1.75s') }) +
+      txt({ x: 26, y: 94, size: 8.5, ls: 1.3, fill: C.paper, text: '前已无通路 · 后不见归途', opacity: 0, anim: fade('0.7s', '2s') }),
+  )
+
 const C_PLAN = {
   key: 'c-traveler',
-  label: '方案 C ·「行囊」',
-  idea: '暮色分三层压下来，一个人背着行囊走进画面，路灯已经先亮了 —— 叙事性最强的一套',
-  typography: '标题压在地平线上，靠天空的明度差读字；暖灯与冷夜强对比',
+  label: '方案 C ·「远山」',
+  idea: '三层山叠进夜里，一盏灯已经先亮了 —— 山是那个「回不去的地方」，比人影含蓄得多',
+  typography: '标题压在山脊之上的天空带，靠明度差读字；暖橘只在灯与地面一小弧',
   timeline: [
     '0.00s 暮色三层自上而下压下来（每层错 0.25s）',
-    '0.40s 地平线描出 → 0.55s 灯柱、0.95s 灯罩点亮',
-    '0.70s 道路自灯下向观众方向展开（近宽远窄，建立纵深）',
-    '1.00s 基座石三块错峰落定（提供尺度参照）',
-    '1.20s 剪影自左缘走入画面并停在灯下（1.8s，长尾缓动）',
-    '1.60s「HIPPIE」自下浮出 → 1.85s「青年」→ 2.10s 签名',
+    '0.40s 远山 → 0.50s 中景山 → 0.70s 近山脊描白边（1.6s）',
+    '0.50s 灯柱自平台升起、0.90s 灯罩点亮',
+    '1.20s 平台下方那一道受光弧自中点展开（0.9s）',
+    '1.50s「HIPPIE」自下浮出 → 1.75s「青年」→ 2.00s 签名',
   ],
-  header: svg(
-    '0 0 340 132',
-    `<rect width="340" height="132" fill="${C.paper}"/>` +
-      // 暮色三层：叠三层比单层渐变更接近纸本印刷的层次；明度差收紧避免硬色带
-      `<rect x="0" y="0" width="340" height="0" fill="${C.night}" opacity="0.9">${grow('height', 0, 132, '1.4s', '0s')}<animate attributeName="opacity" from="0" to="0.9" dur="0.9s" begin="0s" fill="freeze"/></rect>` +
-      `<rect x="0" y="0" width="340" height="0" fill="${C.twilight}" opacity="0">${grow('height', 0, 92, '1.4s', '0.25s')}<animate attributeName="opacity" from="0" to="0.3" dur="0.9s" begin="0.25s" fill="freeze"/></rect>` +
-      `<rect x="0" y="0" width="340" height="0" fill="${C.nightSoft}" opacity="0">${grow('height', 0, 54, '1.4s', '0.5s')}<animate attributeName="opacity" from="0" to="0.22" dur="0.9s" begin="0.5s" fill="freeze"/></rect>` +
-      // 远处山脊：一道低对比的起伏。只放这一个剪影，画面就从「空底色」变成「有纵深的夜」
-      `<path d="M0 92 L46 78 L88 88 L132 70 L178 86 L226 74 L276 88 L340 80 L340 96 L0 96 Z" fill="${C.night}" opacity="0">` +
-      `<animate attributeName="opacity" from="0" to="0.55" dur="1s" begin="0.35s" fill="freeze"/></path>` +
-      // 灯下路面的受光。
-      // ⚠️ C 是深色底：不能用 fill 类光斑（pool() 与实心椭圆都会变灰/土棕），只能用纯色描边。
-      // 实测对照：assets-src/try-pool.mjs。灯头 x = lampPost.x + bend = 300 + (−32) = 268。
-      litArc({ x: 268, y: 104, w: 78, stroke: C.lamp, begin: '1.05s', opacity: 0.72 }) +
-      // 道路：自灯下向观众方向展开。近宽远窄 + 两侧斜边是唯一能在这尺寸读出纵深的办法
-      `<path d="M262 96 L326 96 L340 132 L216 132 Z" fill="${C.night}" opacity="0">` +
-      `<animate attributeName="opacity" from="0" to="0.42" dur="0.9s" begin="0.7s" fill="freeze"/></path>` +
-      // 路中轴：一条虚线，把视线引向灯
-      `<path d="M294 98 L278 130" stroke="${C.paper}" stroke-width="1.2" stroke-dasharray="4 5" opacity="0">` +
-      `<animate attributeName="opacity" from="0" to="0.38" dur="0.7s" begin="1.05s" fill="freeze"/></path>` +
-      `<path d="M0 96 H340" stroke="${C.paper}" stroke-width="1.4" opacity="0.6" stroke-dasharray="340" stroke-dashoffset="340">${drawIn(340, '1s', '0.4s')}</path>` +
-      lampPost({ x: 300, groundY: 96, topY: 28, bend: -32, stroke: C.paper, dash: 122, begin: '0.55s', dur: '1s' }) +
-      lampHead({ x: 268, y: 28, s: 0.82, begin: '0.95s', halo: false }) +
-      // 基座石三块：尺寸参照物。没人就不知道灯多大，有了石头画面才有尺度
-      [
-        [58, 92, 26, 5], [96, 94, 15, 3.5], [130, 93, 19, 4],
-      ]
-        .map(
-          ([cx, cy, w2, h2], i) =>
-            `<rect x="${cx}" y="${cy - h2}" width="${w2}" height="${h2}" rx="1" fill="${C.paper}" opacity="0">` +
-            `<animate attributeName="opacity" from="0" to="${0.22 - i * 0.04}" dur="0.6s" begin="${(1.0 + i * 0.14).toFixed(2)}s" fill="freeze"/></rect>`,
-        )
-        .join('') +
-      traveler({ x: 176, y: 96, s: 0.82, color: C.paper }) +
-      txt({
-        x: 28, y: 54, size: 25, weight: 700, fill: C.paper, text: 'HIPPIE', ls: 1.4, opacity: 0,
-        anim: fade('0.7s', '1.6s') + rise(7, '0.7s', '1.6s'),
-      }) +
-      txt({ x: 30, y: 78, size: 13.5, fill: C.lamp, text: '青年', ls: 5, opacity: 0, anim: fade('0.7s', '1.85s') }) +
-      txt({ x: 28, y: 118, size: 8.5, ls: 1.3, fill: C.paper, text: '前已无通路 · 后不见归途', opacity: 0, anim: fade('0.8s', '2.1s') }),
-  ),
+  header: cHead(moon(186, 34, 11)),
   footer: svg(
     '0 0 340 140',
-    `<rect width="340" height="140" fill="${C.paper}"/>` +
-      `<rect x="0" y="0" width="340" height="0" fill="${C.night}" opacity="0.92">${grow('height', 0, 140, '1.5s', '0s')}<animate attributeName="opacity" from="0" to="0.92" dur="0.9s" begin="0s" fill="freeze"/></rect>` +
-      `<rect x="0" y="0" width="340" height="0" fill="${C.nightSoft}" opacity="0">${grow('height', 0, 74, '1.4s', '0.3s')}<animate attributeName="opacity" from="0" to="0.24" dur="0.9s" begin="0.3s" fill="freeze"/></rect>` +
-      // 与头图共用同一座山脊，形成首尾呼应
-      `<path d="M0 104 L52 92 L104 100 L156 86 L208 98 L262 90 L316 100 L340 96 L340 112 L0 112 Z" fill="${C.night}" opacity="0">` +
-      `<animate attributeName="opacity" from="0" to="0.5" dur="1s" begin="0.35s" fill="freeze"/></path>` +
-      // 地平线：与头图同一道。没有它，地面那道暖弧会显得悬在半空（上一版就是如此）
-      `<path d="M0 112 H340" stroke="${C.paper}" stroke-width="1.4" opacity="0.55" stroke-dasharray="340" stroke-dashoffset="340">${drawIn(340, '0.9s', '0.35s')}</path>` +
-      // 尾图路面的受光：同头图，深色底只能用描边弧。灯头 x = 274 + (−30) = 244。
-      litArc({ x: 244, y: 116, w: 70, stroke: C.lamp, begin: '0.6s', opacity: 0.7 }) +
-      lampPost({ x: 274, groundY: 112, topY: 34, bend: -30, stroke: C.paper, dash: 122, begin: '0.35s', dur: '1s' }) +
-      lampHead({ x: 244, y: 34, s: 0.8, begin: '0.8s', halo: false }) +
+    `<rect width="340" height="140" fill="${C.night}"/>` +
+      moon(280, 42, 12) +
+      mountainLayers({ shelfX: 244, shelfY: 132, textBottom: 112, baseY: 140 }) +
+      lampPost({ x: 280, groundY: 132, topY: 58, bend: -26, stroke: C.paper, dash: 130, begin: '0.4s', dur: '1s' }) +
+      lampHead({ x: 254, y: 58, s: 0.68, begin: '0.8s', halo: false }) +
+      litArc(254, 136, 56, '1.1s') +
       txt({
-        x: 32, y: 62, size: 16, weight: 700, fill: C.paper, text: '前已无通路', opacity: 0,
+        x: 30, y: 50, size: 16, weight: 700, fill: C.paper, text: '前已无通路', opacity: 0,
         anim: fade('0.7s', '1.05s') + rise(5, '0.7s', '1.05s'),
       }) +
       txt({
-        x: 32, y: 88, size: 16, weight: 700, fill: C.lamp, text: '后不见归途', opacity: 0,
+        x: 30, y: 76, size: 16, weight: 700, fill: C.lamp, text: '后不见归途', opacity: 0,
         anim: fade('0.7s', '1.35s') + rise(5, '0.7s', '1.35s'),
       }) +
-      `<rect x="32" y="102" width="0" height="1.2" fill="${C.lamp}" opacity="0.7">${grow('width', 0, 74, '0.7s', '1.7s')}</rect>` +
-      txt({ x: 32, y: 122, size: 9, ls: 2.2, fill: C.paper, text: 'HIPPIE 青年', opacity: 0, anim: fade('0.6s', '1.9s') }),
+      `<rect x="30" y="90" width="0" height="1.2" fill="${C.lamp}" opacity="0.7">${grow('width', 0, 74, '0.7s', '1.7s')}</rect>` +
+      txt({ x: 30, y: 106, size: 9, ls: 2.2, fill: C.paper, text: 'HIPPIE 青年', opacity: 0, anim: fade('0.6s', '1.9s') }),
   ),
   logo: svg(
     '0 0 120 120',
@@ -405,15 +419,12 @@ const C_PLAN = {
     // 抱在身前会读成相机。不做光晕——夜与昼的分界本身就是这张图的光。
     `<rect width="120" height="120" rx="24" fill="${C.night}"/>` +
       `<rect x="0" y="78" width="120" height="42" fill="${C.paper}"/>` +
-      // 远处那盏灯：一个亮点 + 一圈细环
       `<circle cx="92" cy="32" r="0" fill="${C.lamp}">${grow('r', 0, 5, '0.4s', '0.2s')}</circle>` +
       `<circle cx="92" cy="32" r="11" fill="none" stroke="${C.lamp}" stroke-width="1.6" opacity="0">` +
       `<animate attributeName="opacity" values="0;0.5" dur="0.5s" begin="0.5s" fill="freeze"/>` +
-      `<animate attributeName="r" values="11;15" dur="4.5s" begin="1.2s" repeatCount="indefinite"/>` +
-      `</circle>` +
+      `<animate attributeName="r" values="11;15" dur="4.5s" begin="1.2s" repeatCount="indefinite"/></circle>` +
       `<path d="M0 78 H120" stroke="${C.lamp}" stroke-width="2" stroke-dasharray="120" stroke-dashoffset="120">${drawIn(120, '0.9s', '0.85s')}</path>` +
-      // 背行囊的青年（实心剪影，侧身行走）。与头图同一套部件拆法，只是尺寸压到 48px 仍可辨。
-      // 要点：行囊与躯干之间留缝；腿画两段式并加粗，细三角缩小后直接消失。
+      // 背行囊的青年（实心剪影，侧身行走）。与头图同一套部件拆法，只是压到 48px 仍可辨。
       `<g fill="${C.paper}" opacity="0">` +
       fade('0.6s', '1.05s') +
       rise(8, '0.7s', '1.05s') +
@@ -425,7 +436,7 @@ const C_PLAN = {
       `<path d="M54 66 l7.5 8.5 v9.5" stroke="${C.paper}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` +
       `<path d="M51 66 l-4.5 9 v8.5" stroke="${C.paper}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` +
       `</g>`,
-  )
+  ),
 }
 
 const PLANS = [A, B, C_PLAN]
@@ -539,7 +550,7 @@ const cover = svg(
   `<rect width="940" height="400" fill="${C.paper}"/>` +
     `<rect x="0" y="0" width="0" height="7" fill="${C.night}">${grow('width', 0, 940, '1.2s', '0s')}</rect>` +
     lampPost({ x: 812, groundY: 320, topY: 118, bend: 56, stroke: C.nightSoft, dash: 290, begin: '0.4s', dur: '1.2s' }) +
-    lampHead({ x: 868, y: 118, s: 1.5, begin: '1.2s' }) +
+    lampHead({ x: 868, y: 118, s: 1.5, begin: '1.2s', halo: true }) +
     txt({ x: 64, y: 96, size: 15, fill: C.muted, text: 'HIPPIE 青年', ls: 5, opacity: 0, anim: fade('0.7s', '0.5s') }) +
     `<rect x="64" y="118" width="0" height="1" fill="${C.rule}">${grow('width', 0, 812, '1s', '0.7s')}</rect>` +
     `<g opacity="0">${fade('0.8s', '1.0s')}<text x="64" y="188" font-size="62" font-weight="700" fill="${C.night}" font-family="${SERIF}" letter-spacing="2">HIPPIE</text></g>` +
