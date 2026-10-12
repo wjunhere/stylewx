@@ -59,6 +59,11 @@ in-memory 传输，用户装的是 tarball 里的 `dist/`。发布前按 §3.2 �
 用 `new RegExp` 字符串拼正则去匹配这类标签，`[^>]*>` 会被提前截断 —— 要么用正则字面量、
 要么用 `(?:"[^"]*"|[^>"])*` 风格整段吞带引号属性（§24，真实微信报错才暴露）。
 
+**⑩ 深色底上的「发光」不能用暖色填充，只能描边。** 夜蓝底上叠低透明暖橘必定变成
+灰褐/土棕（「煎饼」「陨石坑」），换面积、换层数、提高不透明度都不行 —— `fill` 会和底色混色。
+唯一干净的是 `stroke` 纯色描边（不参与混色）。同理该底上所有 `lampHead` 类光晕都要 `halo:false`。
+实测对照 `assets-src/try-pool.mjs`（7 种方案实拍），详见 §22.8 ⑧。
+
 ## 3. 发布
 
 常规通道是 Changesets：开发时 `pnpm changeset` 记录变更并提交进 PR，合到 main 后
@@ -85,7 +90,9 @@ pnpm check:artifact   # 装产物真跑：握手版本、工具清单、编辑�
 | 富组件 | `docs/COMPONENTS.md`；目录单一来源 `packages/components/src/catalog.ts` |
 | MCP 工具 | `README.md`「MCP 工具」+ `apps/mcp-server/src/tools.ts` |
 | 文章主题 | `packages/theme/src/presets.ts`（原创 6 套）、`wemd-presets.ts`（移植 20 套） |
-| 品牌动效资产（头图/尾图/logo） | `assets-src/gen-motion.mjs` + §22.8；产物在 `docs/assets/brand-motion/` |
+| 品牌动效资产（头图/尾图/logo） | `assets-src/gen-motion.mjs` + §22.8（①~⑩）；产物在 `docs/assets/brand-motion/` |
+| 三套头尾图怎么选 | §22.8 ⑨（A 亮 / B 暖 / C 暗，同色不同搭配）；选哪套看文章气质，报名 `brand.md` |
+| 标题图太大 / 头尾图发灰 | §22.8 ①/⑧（深色底暖色填充必脏，只能描边）+ `assets-src/cmp-cover.mjs` |
 | 发布通道 / 浏览器自动化 | §20（含可编辑性判据、cua-driver vs kimi-webbridge、安全纪律） |
 | 正文嵌入视频 | §20.10（存活≠能播；上传走 API、插入走浏览器，脚本 `--video`） |
 | Mermaid 图 | §24；组件 `packages/components/src/components/mermaid.ts`、出图 `packages/preview/src/mermaid.ts`；探针 `probe-mermaid-wechat.mjs` |

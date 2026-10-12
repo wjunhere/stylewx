@@ -1210,9 +1210,46 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 腿直接消失。不同结构用同一颜色时必须降对比分层（地平线用 `opacity:0.45`）。
 同理：底色 `#0A2A6B` 上做暖色光晕会被调成芥末灰，要么缩小面积提高不透明度，要么改实心块。
 
+**⑧ 深色底上「暖色填充」这条路整体不通，只有描边能走。**
+这一条是找 ③ 的完整答案，而且是被逼出来的：重做方案 C 时，灯下的地面受光先后试过
+**椭圆光斑 → 双层光池 → 小面积高不透明实心椭圆**，每种都在夜蓝底上变成**灰褐/土棕** ——
+读者眼里是一块「煎饼」或「陨石坑」，不是光。
+
+**7 种方案实拍对照**（`assets-src/try-pool.mjs`）后结论：
+
+| 做法 | 夜蓝底上的结果 |
+| --- | --- |
+| 大面积低透明暖色椭圆 | ✗ 灰 |
+| 白椭圆 + 橘心 | ✗ 灰底 + 土棕心 |
+| 小面积 + 高不透明度 | ✗ 仍然是土棕「煎饼」 |
+| **纯色描边弧线** | ✓ **干净** |
+
+原因：`fill` 会与底色做视觉混色，暖橘配夜蓝的混色必然往灰棕走；
+而 `stroke` 是纯色线条，不参与底色混色，所以属性上就不会脏。
+
+**判据：深色底上的「发光」只能用 ① 小面积高不透明实心，② 纯色描边。**
+所以 C 的地面受光是一道 `litArc()` 描边弧，不是任何形式的椭圆。
+同一原因，C 里的 `lampHead` 必须传 `halo: false` —— 它的光晕就是低透明暖色填充。
+
+**⑨ 三套方案的区分靠「画面主导色」，不靠不同颜色。**
+只允许用同一组色（夜蓝 / 纸白 / 暖橘），让各套各让一个占主导：
+**A 纸白主导（亮）→ B 暖灰纸主导（暖）→ C 夜蓝主导（暗）**。
+所以 B 的底是 `cardBg` 而不是 `canvasBg`。这样三篇并读一眼可分，
+又不会出现「同一账号却像三个品牌」的问题。
+
+**⑩ 剪影的「简陋」来自部件太少，不是画得不够细。**
+旧版剪影是「一个圆 + 一条竖线 + 一个方框 + 两条斜线」，50px 下就只剩一竖一横。
+重做时改成**五个独立部件**（头 / 颈 / 躯干 / 行囊 / 手臂 / 两段式双腿），
+并且：躯干**肩宽腰收**、行囊与躯干**留缝**（不留缝两块并成一个方块，两个都读不出来）、
+腿画**髖→膝→脚两段式**（细三角缩小后直接消失）。
+另外还加了山脊、道路、基座石三样**环境物**——没有它们，人在空白底色上仍然显得单薄。
+
 > 动效资产的可复用产物在 `docs/assets/brand-motion/`（SVG 源 + 组件模板 + 静帧），
 > 生成器是 `assets-src/gen-motion.mjs`，品牌档案 `~/.stylewx/brands/hippie-youth/`。
-> 本项目已定稿 **方案 A「归途」**（`hip-head-a` + `hip-end-a` + 抽象画青年 logo）。
+> 三套方案 **A「归途」/ B「灯下」/ C「行囊」全部可用**（不是只有 A 定稿），
+> 区分靠画面主导色，选哪套看文章气质（报名 `brand.md`）。
+> 重生成链路：`gen-motion.mjs` → `build-brand.py`（写品牌档案与组件库）→ `rasterize.mjs`（logo/封面位图）。
+> 视觉验证：`shot-abc.mjs`（三套并排）/ `cmp-cover.mjs`（标题图高度对照）/ `final-shots.mjs`（三篇整页）。
 
 ## 23. 手动验证脚本（不参与 CI）
 
@@ -1229,6 +1266,9 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 | `packages/preview/scripts/test-editor-*.mjs` | 编辑器 E2E（导入 / 同步滚动 / 交接 / 组件面板，需 Playwright + 3777 运行） |
 | `packages/preview/scripts/capture-hero.mjs` | 重截 README 配图 `docs/assets/editor-preview.png` |
 | `apps/mcp-server/scripts/probe-mermaid-wechat.mjs` | mermaid 图真实微信链路（draft/add → get 回读，会写一条 [probe] 草稿） |
+| `assets-src/shot-abc.mjs` | 三套头/尾图并排截图（`.ui-shots/abc/`），改头图/尾图必跑 |
+| `assets-src/cmp-cover.mjs` | 标题图 `:::cover` 高度对照（150/165/180/220），拍出来选而不是拍脑袋定 |
+| `assets-src/final-shots.mjs` | 三篇整页终态截图 + 输出各块高度占比（头/标题/尾图） |
 | `apps/mcp-server/scripts/probe-wechat-music.mjs` | 音乐组件链路探针（`--stage picker` 入口结构 / `inject` 标签注入存活 / `survive` 保存后读回 / `search` 搜索点选）。`survive` 会写一条 [探针] 草稿并在读回后自动删除，其余阶段只探查不保存 |
 | `apps/mcp-server/scripts/probe-wechat-toolbar.mjs` | 枚举编辑器**全部插入项**（一级项 id + 各 dropdown 子项），拿「平台有什么」的事实清单。只探查不保存 |
 | `apps/mcp-server/scripts/probe-wechat-landed.mjs` | 逐个打开插入项弹窗，dump 它**要什么参数**。`node … "id1,id2"` 指定目标。只探查不保存 |
