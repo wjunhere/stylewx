@@ -4,6 +4,7 @@
 import { mediaComponents } from './components/media.js'
 import { videoComponents } from './components/video.js'
 import { musicComponents } from './components/music.js'
+import { searchComponents } from './components/search.js'
 import { structureComponents } from './components/structure.js'
 import { decorComponents } from './components/decor.js'
 import { interactiveComponents } from './components/interactive.js'
@@ -20,6 +21,7 @@ export const COMPONENT_RENDERERS: Record<string, ComponentRenderer> = {
   ...mediaComponents,
   ...videoComponents,
   ...musicComponents,
+  ...searchComponents,
   ...structureComponents,
   ...decorComponents,
   ...interactiveComponents,
@@ -32,6 +34,7 @@ export const COMPONENT_NAMES: string[] = [
   ...Object.keys(mediaComponents),
   ...Object.keys(videoComponents),
   ...Object.keys(musicComponents),
+  ...Object.keys(searchComponents),
   ...Object.keys(structureComponents),
   ...Object.keys(decorComponents).filter(
     (n) => !['info', 'tip', 'important', 'warning', 'danger', 'success', 'note'].includes(n),
@@ -44,7 +47,7 @@ export const COMPONENT_NAMES: string[] = [
 /** 正文按原始文本保存的组件：结构化正文（`- 时间 | 内容`、表格、图片行）从 DOM 还原会失真。 */
 const RAW_BODY = new Set(['image', 'gallery', 'image-card', 'carousel', 'timeline', 'steps', 'compare', 'reveal', 'mermaid'])
 /** 不使用正文、仅靠 props 的组件。 */
-const PROPS_ONLY = new Set(['divider', 'section-title', 'toc', 'progress', 'pulse', 'cover', 'badge', 'video', 'music'])
+const PROPS_ONLY = new Set(['divider', 'section-title', 'toc', 'progress', 'pulse', 'cover', 'badge', 'video', 'music', 'search'])
 
 /** props → URL 编码串（写进 data-swx-props，导入时精确还原）。 */
 function encodeProps(props: Record<string, string>): string {

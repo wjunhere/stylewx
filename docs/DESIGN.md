@@ -380,7 +380,7 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 **一次请求渲染全部**：新增 `POST /editor/api/component-previews { theme }`，
 服务端用当前主题把每个组件的示例 Markdown 渲染一遍，一次性返回
 `{ name, origin, summary, slots, sample, html, diagnostics }[]`。
-客户端不再逐个请求（25 个组件逐个渲染会很慢）。
+客户端不再逐个请求（26 个组件逐个渲染会很慢）。
 
 示例 Markdown 的来源：
 - 内置组件用 `COMPONENT_CATALOG[].example`（组件目录里的权威示例，已有测试保证每个示例
@@ -395,7 +395,7 @@ agent 造了自定义组件、主题改了几个 token，人都得先插进正�
 
 ### 验证
 
-`test-editor-component-library.mjs`（Playwright）：入口可见、共 25 个组件、分组正确、
+`test-editor-component-library.mjs`（Playwright）：入口可见、共 26 个组件、分组正确、
 默认渲染非空且带内联样式、切到 gallery 有 flex 布局、搜索命中 2 条、插入后正文含该组件、0 控制台报错。
 
 ### 18.1 踩过的坑：CSS 优先级被基础样式覆盖
@@ -1234,6 +1234,10 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 | `apps/mcp-server/scripts/probe-wechat-landed.mjs` | 逐个打开插入项弹窗，dump 它**要什么参数**。`node … "id1,id2"` 指定目标。只探查不保存 |
 | `apps/mcp-server/scripts/probe-wechat-search-widget.mjs` | 「推荐搜索」专项：走完「点占位文本 → 输入 → 确定」并 dump 落地标签（`<mp-common-search>`）。只探查不保存 |
 | `apps/mcp-server/scripts/probe-wechat-widget-survival.mjs` | **存活验证**：把平台组件标签直接 insertHTML → 保存 → 读回，判定能否自动化（音乐/推荐搜索都是这样验的）。会写 [探针] 草稿并自动删除 |
+| `apps/mcp-server/scripts/probe-wechat-search-position.mjs` | 落点策略矩阵：证明所有 `execCommand` 二次插入都会把搜索块塞进 svg（六种全中），只有预替换正确。只探查不保存 |
+| `apps/mcp-server/scripts/probe-search-presubstitute.mjs` | 验证「注入前预替换」方案：落点正确 + 读回仍在尾图之前。会写 [探针] 草稿并自删 |
+| `apps/mcp-server/scripts/probe-search-keyword-limit.mjs` | 搜索关键词限制矩阵：定位到「16 单位、全角算 2」（汉字 8 / 英文 16）。会写多条草稿并自删 |
+| `apps/mcp-server/scripts/probe-search-save-debug.mjs` | 保存失败诊断：抓平台浮层报错（首次发现关键词超限就是这样）。只诊断 |
 | `packages/preview/scripts/ui-shots.mjs` | 编辑器 19 个面（主界面 / 浮层 / 7 弹窗 / 空态 / 窄屏 / toast）各拍一张，改前后逐面对比 |
 
 ## 24. Mermaid 图（:::mermaid）
@@ -1377,7 +1381,7 @@ draft/get 回读，断言 `<img src="mmbiz…">` 存活且无 `url(#` 引用（�
 | 平台组件 | 落地标记 | 数据位置 | 判据 | 纳入？ |
 | --- | --- | --- | --- | --- |
 | 音乐 | `<mp-common-clmusic>` | 属性（歌名/歌手/listenid） | **保存后存活**（已验证） | ✅ 已做 `:::music`（自动） |
-| 推荐搜索 | `<mp-common-search>` | `data-nickname`/`data-headimg`/`data-keywords`(URL 编码 JSON) | **保存后存活**（已验证） | ⚠️ 可选，见下 |
+| 推荐搜索 | `<mp-common-search>` | `data-nickname`/`data-headimg`/`data-keywords`(URL 编码 JSON) | **保存后存活**（已验证） | ✅ 已做 `:::search`（自动，见 §28）|
 | 账号名片 | 搜索账号 → 选人 | 平台实体 | B 型 | ❌ 只做 CTA（`:::end-card`） |
 | 超链接 | 搜索账号/文章 → 选一个 | 平台实体 | B 型 | ❌ Markdown 链接已够 |
 | 问答 | 搜索账号或问题 | 平台实体 | B 型 | ❌ |
@@ -1395,7 +1399,7 @@ draft/get 回读，断言 `<img src="mmbiz…">` 存活且无 `url(#` 引用（�
 - 要求**平台对象引用**（id / appid / POI / 商品）→ 属于平台运行时，**塞进 Markdown 会让 agent 生成幻觉引用**。
   这是「不该纳入」的核心原因，不是技术做不到。
 
-### 推荐搜索：技术上可做，但只在特定场景值得
+### 推荐搜索：已实现，见 §28
 
 `<mp-common-search>` 已验证存活（`probe-wechat-widget-survival.mjs`），数据自包含：
 
@@ -1404,17 +1408,16 @@ draft/get 回读，断言 `<img src="mmbiz…">` 存活且无 `url(#` 引用（�
   data-headimg="https://wx.qlogo.cn/…" data-keywords="%5B%7B%22label%22%3A%22…%22%7D%5D"></mp-common-search>
 ```
 
-**没急着做成组件**，三个原因：
+**当时记下三条顾虑，做完后发现只有一条是真的**（值得留档，因为误判也会误导后来者）：
 
-1. **`data-headimg` 是公众号头像的 `qlogo.cn` 直链，会过期** —— 除非发布时现场取（用 `data-nickname` 走我们自己的代理），
-   直接塞链接迟早变裂图。而它必须与账号名**匹配**（不匹配就是错号），发布前必须校验。
-2. **`data-nickname` 实测与真实号名不完全一致**（快照里带 `&nbsp;`），照抄有风险。
-3. **价值场景窄** —— 推荐搜索对「矩阵式内容」有用（#1 焦虑 / #2 求学 / #3 人际），
-   对随笔号收益有限；且 `:::end-card` 已覆盖「关注引导」。
+| 当时的顾虑 | 实测结论 |
+| --- | --- |
+| `data-headimg` 会过期，除非发布时现取 | ✅ **成立** → 已用 `getaccountbasicinfo` 现取 |
+| `data-nickname` 与真实号名不一致，照抄有风险 | ❌ **不成立** —— 微信自己会规范化：写 `Hippie 青年`，存下来是 `Hippie&nbsp;青年` |
+| 价值场景窄 | ❌ 由使用者判断，不该由实现者替决定 |
 
-放置位置也要挑：推荐搜索是**读者端唯一带点击交互**的（`custom_select_card`，点击弹搜一搜；
-`:::reveal` 是 SMIL 不是链接），必须放**文末**，不能放头图/封面之后。
-真要做，形态是 `:::search` + 可选 `avoid-block`：把该块插到 `hip-end-a` 之前。
+放置位置：读者端唯一带点击交互的组件（`custom_select_card`，点击弹搜一搜；
+`:::reveal` 是 SMIL 不是链接），所以放**文末**（`hip-end-a` 之前），不能放头图之后。
 
 ### 不该做的结论（避免后来者重复劳动）
 
@@ -1422,3 +1425,73 @@ draft/get 回读，断言 `<img src="mmbiz…">` 存活且无 `url(#` 引用（�
 - 别把 `投票` / `问答` / `礼物` / `地理位置` 做成组件：散在 Markdown 里既杂乱，又与
   「微信端只假设有内联 SVG + SMIL」这条基本约束冲突（它们都要运行时对象）。
 - 别把平台组件当「功能列表」抄过来 —— 抄过来的是**耦合**，不是能力。
+
+## 28. 推荐搜索组件（:::search）
+
+**为什么做**：`mp-common-search` 与音乐同族（§27 的 A 类：数据自包含），是平台组件里
+唯一对**读者端**有价值、且能自动化的那个 —— 它在读者端是**唯一带点击交互**的组件
+（外层 `custom_select_card`，点击唤起搜一搜）。
+
+### 数据全在属性上，可离线合成
+
+```html
+<mp-common-search data-pluginname="insertsearch" data-nickname="Hippie 青年"
+  data-headimg="http://wx.qlogo.cn/mmhead/…"
+  data-keywords="%5B%7B%22label%22%3A%22…%22%7D%5D"></mp-common-search>
+```
+
+实测（`probe-wechat-search-widget.mjs --stage synth`）：用 API 权威数据离线合成 → 保存 →
+`draft/get` 读回**完整存活**。
+
+### 三个踩坑（每个都值得记）
+
+**① 昵称/头像必须发布时现取，不能写进 Markdown。**
+别名不一致就是导流到别人的号；`qlogo.cn` 头像直链会随换头像失效。权威来源是
+`getaccountbasicinfo`（返回 `nickname` + `head_image_info.head_image_url`）。
+所以组件**故意不落**这两个字段，只落关键词 + 占位标记，发布脚本现取。
+
+顺带纠正一条早期误判：原先担心「`data-nickname` 与真实号名不一致、不能照抄」——
+实测**微信自己**会把朴素名规范化（`Hippie 青年` → `Hippie&nbsp;青年`），写朴素名即可。
+
+**② 关键词限制是「16 单位、全角算 2」，不是提示文案说的「16 个字符」。**
+
+| 关键词 | 字数 | 结果 |
+| --- | --- | --- |
+| 好好吃饭 | 4 汉字 | ✅ |
+| 我的所有还有意义 | 8 汉字（16 单位） | ✅ |
+| 我的所有还有意义吗 | 9 汉字（18 单位） | ❌ |
+| abcdefghijklmnop | 16 ASCII | ✅ |
+| abcdefghijklmnopq | 17 ASCII | ❌ |
+
+即**汉字最多 8 个 / 英文最多 16 个**，逐词判定。矩阵实测：`probe-search-keyword-limit.mjs`。
+超限时保存被平台拦下，错误**只以浮层出现**、URL 里没有 `appmsgid` ——
+第一次遇到会当成「保存坏了」，实际是校验没过。
+
+两道防线：`overlongSearchKeywords()` 在渲染期报 **error** 诊断；
+`publish-via-browser.mjs` 把组件 error 诊断当**发布闸门**（此前只看 `validation`，
+不看 `diagnostics`，所以会漏）；保存后读不到 `appmsgid` 时**直接 fail** 而不是
+只打印「请确认」—— 那次就是靠这条发现的。
+
+**③ 必须「注入前预替换」，不能「注入后再插」—— 否则块会落进尾图的 SVG 内部。**
+占位块后面紧邻 `hip-end-a`（含内联 `<svg>`）。实测**所有**走
+`execCommand('insertHTML')` 的落点策略（`setStartAfter` / `setStartBefore` /
+`selectNode` / 插到文档末尾，六种）都会把搜索块塞进 `svg` 里，尾图被破坏。
+判据 `mp-common-search`.closest('svg') !== null。策略矩阵：`probe-search-position.mjs`。
+
+正解：**注入前**把占位块替换成真标签，整篇一次性注入 —— 落点由初次解析决定
+（源码里本来就在尾图之前），不依赖光标位置。验证：`probe-search-presubstitute.mjs`。
+替换时保留 `data-swx` / `data-swx-props` / `data-swx-src` 三个标记，往返回导才不断。
+
+**替换时又踩了铁律⑨两次**（同一个根因，这次是第二次、第三次）：
+
+- `[^>]*>` 找开标签会被属性值里的裸 `>` 截断 → 用引号感知的 `findTagEnd()`
+- `[\s\S]*?</section>` 非贪婪会被**嵌套 section** 骗到，在第一个 `</section>` 就停
+  → 用同深度计数的 `findMatchingSectionEnd()`
+
+两个坑叠加的表现是**静默漏替换**（日志只说「占位块没有关键词」），排查花了不少时间。
+`AGENTS.md` 铁律⑨ 这次真的挡住了第二、三个受害者 —— 这条纪律值得保留。
+
+### 位置
+
+放**文末**（`hip-end-a` 之前）。理由：它是读者端唯一带点击的组件，放头部或正文中间会打断阅读；
+它的用途是「读完了，去看看别的」。

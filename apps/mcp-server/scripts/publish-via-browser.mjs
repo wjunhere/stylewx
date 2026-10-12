@@ -48,8 +48,18 @@
  *   ② 只有 `data-swx-music-clue`（歌手 + 歌名）→ 开「音频 → 音乐」弹窗，
  *      填搜索框后**必须显式点放大镜按钮**（只 input 不触发查询，实测等 9s 也不发请求），
  *      再按歌名精确选中 → 「插入」。新曲目用这条。
- * 实测依据与存活验证：`apps/mcp-server/scripts/probe-wechat-music*.mjs`
+ * 实测依据与存活验证：`apps/mcp-server/scripts/probe-wechat-music.mjs`
  * （标签经保存后 `draft/get` 读回仍完整，编辑器另补 `mp-style-type data-value=3`）。
+ *
+ * ── 推荐搜索（自动，无 flag）──
+ * 与音乐同族（数据自包含），落地 `<mp-common-search>`；同样见到 `data-swx-search` 就处理。
+ * **但昵称与头像必须发布时调 API 现取**（`getaccountbasicinfo`），不能从 Markdown 里读：
+ * ① 昵称不一致就是导流到别人的号；② `qlogo.cn` 头像直链会随换头像失效。
+ * 实测写朴素昵称即可，微信保存时自己规范化成 `Hippie&nbsp;青年`。
+ * 它是读者端**唯一带点击交互**的组件（外层 `custom_select_card`），应放文末。
+ * **实现上是「注入前预替换」（见 substituteSearch）：** 占位块后面紧邻 `hip-end-a`（含内联 svg），
+ * 实测所有二次插入策略都会把它塞进 svg 内部，尾图会被破坏。
+ * 验证：`probe-wechat-search-widget.mjs --stage synth`、`probe-search-presubstitute.mjs`。
  */
 import { spawn } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
@@ -233,6 +243,16 @@ async function buildHtml() {
     const errs = preview.validation.issues.filter((i) => i.severity === 'error')
     fail(`校验未通过（${errs.length} 个 error）：\n` + errs.map((i) => `   · ${i.message}`).join('\n'))
   }
+  // 组件级 error 诊断（如搜索词超平台限制）也要在这里拦 —— 不拦就会走到保存才神秘失败。
+  // 实测：超长搜索词在保存时才被平台拦下，错误只以浮层出现，URL 里没有 appmsgid，
+  // 很容易当成「保存坏了」。所以验证必须发生在不可逆动作之前（铁律⑤）。
+  const diagErrors = (preview.diagnostics ?? []).filter((d) => d.level === 'error')
+  if (diagErrors.length) {
+    fail(
+      `组件诊断存在 ${diagErrors.length} 个 error：\n` +
+        diagErrors.map((d) => `   · [${d.component}] ${d.message}`).join('\n'),
+    )
+  }
   const warns = preview.validation.issues.filter((i) => i.severity === 'warning')
   if (warns.length) log('warn', `${warns.length} 个警告（不阻断）：${warns.slice(0, 2).map((w) => w.message).join('；')}`)
   return { html: preview.html, title }
@@ -241,8 +261,30 @@ async function buildHtml() {
 // ---------------------------------------------------------------------------
 // 2. 主流程
 // ---------------------------------------------------------------------------
-const { html, title } = await buildHtml()
+const built = await buildHtml()
+let html = built.html
+const title = built.title
 log('html', `正文 ${html.length} 字符 · 标题「${title}」`)
+
+// 2.0 推荐搜索：**注入前**预替换（见 substituteSearch 上方注释 —— 二次插入会落进 svg）
+if (html.includes('data-swx-search=')) {
+  log('search', '正文含推荐搜索占位块，先取账号权威信息…')
+  try {
+    const account = await fetchAccountInfo()
+    if (!account?.nickname || !account?.headimg) throw new Error('账号信息缺昵称或头像')
+    log('search', `账号：${account.nickname}`)
+    const sub = substituteSearch(html, account)
+    if (sub.count) {
+      html = sub.html
+      log('search', `✅ 已预替换（关键词：${sub.keywords.join(' / ')}）`)
+    } else {
+      log('search', '⚠️ 占位块没有关键词，跳过（保留占位块）')
+    }
+  } catch (e) {
+    log('search', `⚠️ ${String(e.message).slice(0, 100)}`)
+    log('search', '跳过推荐搜索（发布后可在编辑器手动插入）')
+  }
+}
 
 await ensureDaemon()
 
@@ -754,6 +796,134 @@ async function insertMusic() {
 
 await insertMusic()
 
+// 2.5c 推荐搜索（自动，无需 flag）——**预替换**，不是"注入后再插"
+//
+// 为什么不是"注入后再插"：占位块后面紧邻 hip-end-a（含内联 <svg>），
+// 实测**所有**走 execCommand('insertHTML') 的落点策略都会把搜索块塞进 svg 内部
+// （setStartAfter / setStartBefore / selectNode / 插到文档末尾，六种全中），尾图因此被破坏。
+// 判据 `mp-common-search`.closest('svg') !== null 即中招。策略矩阵见
+// apps/mcp-server/scripts/probe-search-position.mjs。
+//
+// 正确做法：**注入前**就把占位块替换成真组件标签，整篇一次性注入 ——
+// 落点由初次解析决定（源码里本来就在尾图之前），不依赖光标位置。
+// 验证：apps/mcp-server/scripts/probe-search-presubstitute.mjs（落点正确 + 读回仍在尾图之前）。
+//
+// 昵称与头像必须发布时调 API 现取（getaccountbasicinfo）：
+//   ① 昵称不一致就是导流到别人的号；② qlogo.cn 头像直链会随换头像失效。
+// 实测写朴素昵称即可，微信保存时自己规范化成 Hippie&nbsp;青年。
+//
+// 替换时**保留** `data-swx="search"` / `data-swx-props` / `data-swx-src` 包装标记，
+// 这样发布后的文章仍能导回 `:::search{...}`（往返回导）。
+/** 找一个标签的结尾 `>`（**跳过引号内的 `>`**）。
+ *  铁律⑨：`escapeAttr` 不转义 `>`，属性值里会出现裸 `>`，`[^>]*>` 会被提前截断。
+ */
+function findTagEnd(html, from) {
+  let quote = ''
+  for (let i = from; i < html.length; i += 1) {
+    const ch = html[i]
+    if (quote) {
+      if (ch === quote) quote = ''
+    } else if (ch === '"' || ch === "'") {
+      quote = ch
+    } else if (ch === '>') {
+      return i
+    }
+  }
+  return -1
+}
+
+/**
+ * 从 `<section` 的起始下标往后找**配平**的 `</section>` 结束位置。
+ *
+ * 为什么不能用非贪婪 `[\s\S]*?</section>`：占位块内部有多个嵌套 section，
+ * 非贪婪会在**第一个** `</section>` 就停 —— 只替换一半，而且关键词会读不到（静默漏替换）。
+ * 用「同深度计数」自己走一遍。
+ */
+function findMatchingSectionEnd(html, from) {
+  let depth = 0
+  let i = from
+  while (i < html.length) {
+    const open = html.indexOf('<section', i)
+    const close = html.indexOf('</section>', i)
+    if (close !== -1 && (open === -1 || close < open)) {
+      depth -= 1
+      i = close + '</section>'.length
+      if (depth === 0) return i
+      continue
+    }
+    if (open === -1) return -1
+    const end = findTagEnd(html, open)
+    if (end === -1) return -1
+    if (html[end - 1] !== '/') depth += 1
+    i = end + 1
+  }
+  return -1
+}
+
+/**
+ * 把 `:::search` 占位块替换成真 `<mp-common-search>`（**注入前**做，见上方说明）。
+ *
+ * ⚠️ 两个坑，都源于「属性值里可能出现 `>`」（铁律⑨）：
+ *   1. 用 `[^>]*>` 找开标签会被属性值里的 `>` 截断；
+ *   2. 用 `[\s\S]*?</section>` 找结束会被嵌套 section 骗到，提前停下。
+ *   两个坑叠加的表现是**静默漏替换**（日志只说「占位块没有关键词」），很难查。
+ *   所以这里一律用 findTagEnd / findMatchingSectionEnd 的显式扫描。
+ */
+function substituteSearch(html, account) {
+  const start = html.search(/<section\b[^>]*\bdata-swx-search="1"/)
+  if (start === -1) return { html, count: 0, keywords: [] }
+  const openEnd = findTagEnd(html, start)
+  if (openEnd === -1) return { html, count: 0, keywords: [] }
+  const open = html.slice(start, openEnd + 1)
+  const end = findMatchingSectionEnd(html, start)
+  if (end === -1) return { html, count: 0, keywords: [] }
+
+  const kwsAttr = (open.match(/data-swx-search-keywords="([^"]*)"/) || [])[1] || ''
+  const keywords = kwsAttr.split('|').map((s) => s.trim()).filter(Boolean).slice(0, 4)
+  if (!keywords.length) return { html, count: 0, keywords: [] }
+
+  // 保住往返回导用的 swx 标记
+  const keep = []
+  for (const k of ['data-swx', 'data-swx-props', 'data-swx-src']) {
+    const v = open.match(new RegExp(k + '="([^"]*)"'))
+    if (v) keep.push(k + '="' + v[1] + '"')
+  }
+  const swxAttrs = keep.length ? ' ' + keep.join(' ') : ''
+
+  const kwJson = JSON.stringify(keywords.map((label) => ({ label })))
+  const real =
+    '<section' + swxAttrs + '>' +
+    '<section class="mp_search_iframe_wrp custom_select_card_wrp" nodeleaf="">' +
+    '<mp-common-search class="js_mpsearch appmsg_search_iframe js_uneditable custom_select_card mp_common_widget"' +
+    ' data-pluginname="insertsearch"' +
+    ' data-nickname="' + account.nickname + '"' +
+    ' data-headimg="' + account.headimg + '"' +
+    ' data-keywords="' + encodeURIComponent(kwJson) + '"' +
+    ' contenteditable="false"></mp-common-search></section></section>'
+
+  // 切片拼接（不用 replace(re, ...)）：替换串里的 `$&` / `$1` 会被当成替换模式
+  return { html: html.slice(0, start) + real + html.slice(end), count: 1, keywords }
+}
+
+/** 取公众号自身昵称 + 头像（权威来源，用于推荐搜索）。
+ *  为什么不用页面 DOM 里的号名：那是展示值，可能是「未知」或截断；API 才是准的。
+ */
+async function fetchAccountInfo() {
+  const envPath = join(ROOT, '.env')
+  if (!existsSync(envPath)) throw new Error('找不到 .env（缺 WECHAT_APP_ID / WECHAT_APP_SECRET）')
+  const e = {}
+  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z_0-9]+)\s*=\s*(.*)\s*$/)
+    if (m) e[m[1]] = m[2].replace(/^["']|["']$/g, '')
+  }
+  if (!e.WECHAT_APP_ID || !e.WECHAT_APP_SECRET) throw new Error('.env 缺 WECHAT_APP_ID / WECHAT_APP_SECRET')
+  const t = await (await fetch('https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=' + e.WECHAT_APP_ID + '&secret=' + e.WECHAT_APP_SECRET)).json()
+  if (!t.access_token) throw new Error('取 access_token 失败：' + (t.errmsg ?? t.errcode))
+  const info = await (await fetch('https://api.weixin.qq.com/cgi-bin/account/getaccountbasicinfo?access_token=' + t.access_token)).json()
+  return { nickname: info.nickname, headimg: info.head_image_info?.head_image_url }
+}
+
+
 // 2.6 保存草稿
 if (opts.dryRun) {
   log('dry-run', '已填写未保存，可在浏览器里检查效果')
@@ -769,7 +939,21 @@ if (opts.dryRun) {
     log('save', `✅ 草稿已保存 · appmsgid=${saved.appmsgid}`)
     console.log(`\n   后台查看：https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&type=10&appmsgid=${saved.appmsgid}&token=${home.token}&lang=zh_CN\n`)
   } else {
-    log('save', '⚠️ 未读到 appmsgid，请在草稿箱确认')
+    // 保存失败必须报错退出，不能只说「请确认」就算了 —— 实测搜索词超限时保存会被平台拦下，
+    // 错误只以浮层出现、URL 里没有 appmsgid；当成成功会让人以为稿子已进草稿箱。
+    const seen = await evalJson(`(() => {
+      return JSON.stringify({
+        url: location.href.slice(0, 120),
+        errors: [...document.querySelectorAll('[class*=error],[class*=Error]')]
+          .filter(e => e.getBoundingClientRect().height > 0)
+          .map(e => (e.innerText || '').trim()).filter(Boolean).slice(0, 3),
+      });
+    })()`) ?? {}
+    fail(
+      '保存未成功（URL 里没有 appmsgid）' +
+        (seen.errors?.length ? `\n   平台返回：${seen.errors.join('；')}` : '') +
+        `\n   当前地址：${seen.url}\n   草稿**没有**写入。请按上面的提示修正后重试。`,
+    )
   }
 }
 

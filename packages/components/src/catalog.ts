@@ -158,6 +158,28 @@ export const COMPONENT_CATALOG: ComponentSpec[] = [
       '注意：音乐弹窗的搜索**必须显式点一下放大镜按钮**，只填输入框不会触发查询（防抖实测 4s 也不发请求）。' +
       '两种路径的落地效果相同：读者端是可播放的微信原生音乐卡片。',
   },
+  {
+    name: 'search',
+    category: 'image',
+    summary: '推荐搜索：引导读者搜号内其他文章（读者端可点击，唤起搜一搜），发布时由脚本自动插入。',
+    example: `:::search{title="推荐搜索"}
+焦虑抑制剂
+好好吃饭
+:::`,
+    props: [
+      { name: 'title', type: 'text', description: '占位块标题', default: '推荐搜索' },
+      { name: 'keywords', type: 'text', description: '搜索词，用 `|` 分隔，最多 4 个；省略则取组件正文每行' },
+      { name: 'hint', type: 'text', description: '占位块提示语', default: '搜索组件将在发布时插入' },
+      { name: 'show-hint', type: 'boolean', description: '是否显示提示语', default: 'true' },
+    ],
+    notes:
+      '与 music 同族：**数据自包含**，可离线合成标签、零交互插入。实测（2026-10-12）：用 API 权威数据离线合成 → 保存 → draft/get 读回完整存活。' +
+      '昵称与头像**必须发布时现取**（`getaccountbasicinfo` 的 `nickname` / `head_image_info.head_image_url`），所以本组件不落这两个字段：' +
+      '① 昵称不一致就是导流到别人的号，必须校验；② qlogo.cn 头像直链会随换头像失效。' +
+      '实测写朴素昵称（`Hippie 青年`）即可，微信保存时自己规范化成 `Hippie&nbsp;青年`——不需要自己转。' +
+      '位置提醒：它是读者端**唯一带点击交互**的组件（外层 `custom_select_card`），应放**文末**。' +
+      '平台上限 4 个搜索词，超出会被截断。',
+  },
 
   // ---------------- 结构 ----------------
   {

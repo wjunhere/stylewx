@@ -422,6 +422,52 @@ describe('music 占位组件', () => {
   })
 })
 
+describe('search 推荐搜索占位组件', () => {
+  // 与 music 同族：数据自包含，可离线合成标签、零交互插入（docs/DESIGN.md §27）。
+  // 关键约束：**昵称/头像绝不写进 HTML** —— 发布时按当前账号现取（不一致就是导流到别人的号）。
+  it('写出 data-swx-search 与关键词标记', () => {
+    const html = render(':::search{title="推荐搜索"}\n焦虑抑制剂\n好好吃饭\n:::')
+    expect(html).toContain('data-swx-search="1"')
+    expect(html).toContain('data-swx-search-keywords="焦虑抑制剂|好好吃饭"')
+  })
+
+  it('keywords 参数优先于正文，且最多保留 4 个', () => {
+    const html = render(':::search{keywords="a|b|c|d|e|f"}\n忽略这行\n:::')
+    expect(html).toContain('data-swx-search-keywords="a|b|c|d"')
+    // 被忽略的正文不能出现在**渲染出来的胶囊**里
+    // （它仍会留在 data-swx-src 中——那是为了往返回导，不是显示）
+    expect(html).not.toContain('>忽略这行<')
+  })
+
+  it('不落任何账号信息（昵称/头像必须发布时现取）', () => {
+    const html = render(':::search{title="推荐搜索"}\n甲\n:::')
+    expect(html).not.toContain('data-nickname')
+    expect(html).not.toContain('data-headimg')
+    expect(html).not.toContain('qlogo.cn')
+    expect(html).not.toContain('mp-common-search')
+  })
+
+  it('渲染成虚线占位框 + 关键词胶囊，不假装是真搜索卡', () => {
+    const html = render(':::search{title="推荐搜索"}\n焦虑抑制剂\n:::')
+    expect(html).toContain('dashed')
+    expect(html).toContain('搜索组件将在发布时插入')
+    expect(html).toContain('推荐搜索')
+    expect(html).toContain('焦虑抑制剂')
+    expect(html).toContain('<svg')
+  })
+
+  it('无关键词时列出空关键词（不崩、不报错）', () => {
+    const html = render(':::search{show-hint=false}\n:::')
+    expect(html).toContain('data-swx-search="1"')
+    expect(html).not.toContain('data-swx-search-keywords')
+  })
+
+  it('能往返回导为 :::search', () => {
+    const html = render(':::search{title="推荐搜索"}\n焦虑抑制剂\n:::')
+    expect(htmlToMarkdown(html).markdown).toContain(':::search')
+  })
+})
+
 describe('组件样式覆盖（root / * / 语义槽位）', () => {
   // 每个组件一份「把所有部位都写出来」的样本，确保登记表里的槽位都真的可达
   const SLOT_SAMPLES: Record<string, string> = {

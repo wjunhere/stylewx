@@ -93,6 +93,7 @@ pnpm check:artifact   # 装产物真跑：握手版本、工具清单、编辑�
 | 踩过的坑（全量） | §22 |
 | 音乐组件（自动插入） | §26；组件 `packages/components/src/components/music.ts`，实测见 docs/DESIGN.md §26 |
 | 平台内建组件该不该做 | §28（判据：数据在不在自己身上）；探针 `probe-wechat-toolbar.mjs` / `probe-wechat-widget-survival.mjs` |
+| 推荐搜索（:::search） | §29（三个坑：昵称现取 / 关键词 16 单位 / 预替换）；组件 `music.ts` 同级的 `search.ts` |
 | 草稿箱里人的初版 | §27（**不许删**）；快照回灌 `assets-src/restore-originals.mjs` |
 | 发布流程细节 | §3 + `.github/workflows/release.yml` |
 
@@ -172,8 +173,7 @@ brand.md 里那条旧规矩已删除，不要重建。
 自包含的 `<mp-common-*>`（属性里带全数据）→ 能；要先按名称查平台实体 → 不能。详见 docs/DESIGN.md §27。
 
 - ✅ 已纳入：`:::music`（自包含，自动插入）、封面/正文图（走素材库搬运）
-- ⚠️ 技术上可做但按需：`:::search` 推荐搜索（`<mp-common-search>` 已验证存活，
-  但 `data-headimg` 会过期、`data-nickname` 与真实号名有差异 → 发布时现场取并校验）
+- ✅ 已纳入：`:::search` 推荐搜索（`<mp-common-search>` 已验证存活；昵称/头像发布时现取）—— 见 §29
 - ❌ 不做：账号名片 / 超链接 / 小程序 / 投票 / 问答 / 礼物 / 地理位置 / 视频号 / 收入变现
 
 **核心判据不是「能不能做到」，是「谁该拥有这个组件的配置」**：标签是渲染指令 → 属于 Markdown
@@ -182,3 +182,19 @@ brand.md 里那条旧规矩已删除，不要重建。
 
 **别把平台组件当功能列表抄过来** —— 抄过来的是耦合，不是能力。新增前先跑
 `node apps/mcp-server/scripts/probe-wechat-toolbar.mjs` 拿事实清单，再对判据表。
+
+## 29. 推荐搜索（:::search）
+
+与音乐同族（数据自包含），发布时自动插入，无 flag。三个必须知道的点：
+
+1. **昵称/头像发布时调 API 现取**（`getaccountbasicinfo`），不写进 Markdown ——
+   昵称不一致就是导流到别人的号；`qlogo.cn` 头像直链会随换头像失效。写朴素名即可（微信自己规范化）。
+2. **关键词限 16 单位、全角算 2**（汉字最多 8 个 / 英文 16 个），不是提示文案说的「16 个字符」。
+   超限时保存被拦、错误只以浮层出现、URL 无 appmsgid —— 会误判成「保存坏了」。
+   防线：渲染期 error 诊断 + 发布闸门 + 保存后读不到 appmsgid 直接 fail。
+3. **必须「注入前预替换」**，不能「注入后再插」—— 占位块后面紧邻含 `<svg>` 的尾图，
+   所有 `execCommand` 二次插入都会把块塞进 svg 内部（六种策略全中）。
+
+组件 `packages/components/src/components/search.ts`；实测与三个踩坑见 docs/DESIGN.md §28；
+探针 `probe-wechat-search-widget.mjs` / `probe-search-position.mjs` / `probe-search-presubstitute.mjs` /
+`probe-search-keyword-limit.mjs`。

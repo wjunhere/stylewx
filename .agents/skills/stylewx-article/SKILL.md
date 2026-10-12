@@ -40,9 +40,10 @@ description: 用 stylewx MCP 把 Markdown 排成一篇可发布的微信公众�
 踩过的坑：2026-10-12 按一条已推翻的旧规矩把三篇初版当重复项清掉，只能靠删除前的快照恢复。
 详见 `AGENTS.md` §27 与 `docs/DESIGN.md` §26。
 
-**音乐可以全自动插**（与视频不同，不需要 flag）：脚本见到 `data-swx-music` 占位块就处理。
-给旧稿补音乐：从 `draft/get` 原样复制 `<mp-common-clmusic …>` 标签写进 `source` 即可。
-组件 `packages/components/src/components/music.ts`，详见 `docs/DESIGN.md` §26。
+**音乐与推荐搜索可以全自动插**（与视频不同，不需要 flag）：脚本见到 `data-swx-music` / `data-swx-search` 占位块就处理。
+- 音乐：给旧稿补歌，从 `draft/get` 原样复制 `<mp-common-clmusic …>` 标签写进 `source` 即可。
+- 推荐搜索（`:::search`）：**关键词限 16 单位、全角算 2**（汉字最多 8 个，不是提示说的「16 个字符」）；
+  昵称/头像发布时自动调 API 现取；放文末。组件 `search.ts`，详见 `docs/DESIGN.md` §28。
 
 ## 工作流
 
@@ -230,7 +231,7 @@ brand_learn{name, note}                 # 把这次学到的记入品牌档案
 - `*` 不会进入嵌套组件内部。
 - 不要为了改一处样式重新生成主题；用 `tweak_theme` 秒回。
 
-## 定义新组件（内置 25 个不够用时）
+## 定义新组件（内置 26 个不够用时）
 
 用 `save_component` 把 HTML 模板存成新组件，之后用 `:::名字` 调用。
 
