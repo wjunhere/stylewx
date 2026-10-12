@@ -305,7 +305,8 @@ const B = {
       ridgeLine({ peaks: [[46, 130], [156, 122], [266, 106]], baseY: 130, begin: '0.6s', op: 0.52, w: 1.9 }) +
       // 地面基线：纸本的「桌面」
       `<path d="M28 112 H312" stroke="${C.rule}" stroke-width="1.3" stroke-dasharray="284" stroke-dashoffset="284">${drawIn(284, '0.8s', '0s')}</path>` +
-      bird(196, 40, 0.72, C.night, 0.4) + bird(224, 44, 0.62, C.night, 0.32) +
+      // 两只鸟在灯的左侧天空带（x≤214，灯罩左缘 242——勿再右移，会叠进灯罩）
+      bird(186, 34, 0.72, C.night, 0.4) + bird(208, 42, 0.6, C.night, 0.32) +
       lampLine({ x: 268, groundY: 112, topY: 44, bend: -26, begin: '0.5s' }) +
       litArc(246, 120, 62, '1.1s') +
       txt({
