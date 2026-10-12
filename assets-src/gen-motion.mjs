@@ -239,11 +239,14 @@ const pineLine = (x, base, h, w, op = 0.5) =>
   `<path d="M${x} ${base} V${base - h * 0.04}" stroke="${C.night}" stroke-width="1.6" opacity="${op}"/>` +
   `<path d="M${(x - w * 0.2).toFixed(1)} ${base} H${(x + w * 0.2).toFixed(1)}" stroke="${C.night}" stroke-width="1.6" opacity="${op}"/>`
 
-/** 飞鸟剪影。 */
+/**
+ * 飞鸟剪影（滑翔姿，双翅平展、短燕尾）。
+ * 12 个候选里选出来的：之前「椭圆身体+三角超勝」拼出来像鸭子，
+ * 一笔连贯的滑翔姿才是飞鸟的识别性来源（try-bird2.mjs 对比图）。
+ */
 const bird = (x, y, s = 1, color = C.paper, op = 0.85) =>
   `<g transform="translate(${x} ${y}) scale(${s})" fill="${color}" opacity="${op}">` +
-  `<ellipse cx="0" cy="0" rx="5" ry="3.6"/><circle cx="4.6" cy="-3.4" r="2.4"/>` +
-  `<path d="M6.6 -4.2 L11 -3.4 L6.6 -2.4 Z"/><path d="M-5 -1 L-11 -3.4 L-5.4 1.6 Z"/></g>`
+  `<path d="M-14 -2.6 Q-8 -5.4 -3.2 -4.2 Q-1 -3.6 0 -2.2 Q1 -3.6 3.2 -4.2 Q8 -5.4 14 -2.6 Q8.6 -3 4.6 -1.4 Q2.6 -0.6 1.4 0.8 L3 3.2 L-0.4 1.6 L-3.4 3.4 L-2.2 0.9 Q-3.4 -0.6 -5.4 -1.4 Q-9.4 -3 -14 -2.6 Z"/></g>`
 
 /** 弦月。微信剥 mask，所以不能用「两圆相减」，要用两段弧拼。 */
 const moon = (x, y, r, color = C.paper, op = 0.9) =>
