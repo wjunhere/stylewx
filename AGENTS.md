@@ -100,7 +100,7 @@ pnpm check:artifact   # 装产物真跑：握手版本、工具清单、编辑�
 | 踩过的坑（全量） | §22 |
 | 音乐组件（自动插入） | §26；组件 `packages/components/src/components/music.ts`，实测见 docs/DESIGN.md §26 |
 | 平台内建组件该不该做 | §28（判据：数据在不在自己身上）；探针 `probe-wechat-toolbar.mjs` / `probe-wechat-widget-survival.mjs` |
-| 推荐搜索（:::search） | §29（三个坑：昵称现取 / 关键词 16 单位 / 预替换）；组件 `music.ts` 同级的 `search.ts` |
+| 推荐搜索（:::search） | §29（四个坑：昵称现取且**优先读页面不是 API** / 关键词 16 单位 / 预替换 / 发完读回体检）；组件 `music.ts` 同级的 `search.ts` |
 | 草稿箱里人的初版 | §27（**不许删**）；快照回灌 `assets-src/restore-originals.mjs` |
 | 发布流程细节 | §3 + `.github/workflows/release.yml` |
 
@@ -114,6 +114,13 @@ pnpm stylewx:editor                     # 本地编辑器 http://localhost:3777/
 # 品牌体系
 pnpm brand:check                        # 回归：令牌 / 柔影签名 / 按钮层级 / 21 项对比度
 pnpm brand:assets                       # 重生成 logo 与 banner（SVG 源 → PNG 2x）
+
+# 头/尾图（改 assets-src/gen-motion.mjs 后必跑）
+python assets-src/build-brand.py && node assets-src/check-collisions.mjs   # 装饰不得压文字，退出码非零
+node assets-src/shot-abc.mjs && node assets-src/zoom-abc.mjs               # 并排图 + 4x 放大（两个必须一起跑）
+
+# 发到草稿箱后**必须**读回体检（脚本报「已保存」≠ 稿子是对的）
+node apps/mcp-server/scripts/verify-drafts.mjs <appmsgid>…
 
 # 编辑器视觉回归（不进 CI，需 3777 在跑）
 node packages/preview/scripts/ui-shots.mjs .ui-shots/after   # 19 个面各拍一张，改前改后逐面比
@@ -192,16 +199,22 @@ brand.md 里那条旧规矩已删除，不要重建。
 
 ## 29. 推荐搜索（:::search）
 
-与音乐同族（数据自包含），发布时自动插入，无 flag。三个必须知道的点：
+与音乐同族（数据自包含），发布时自动插入，无 flag。四个必须知道的点：
 
-1. **昵称/头像发布时调 API 现取**（`getaccountbasicinfo`），不写进 Markdown ——
-   昵称不一致就是导流到别人的号；`qlogo.cn` 头像直链会随换头像失效。写朴素名即可（微信自己规范化）。
+1. **昵称/头像发布时现取，且首选来源是登录后的后台页面，不是 API**
+   （`.acount_box-nickname` / `.weui-desktop-account__thumb`）—— API（`getaccountbasicinfo`）
+   要 access_token，而取 token 要求本机 IP 在白名单内，出口 IP 会漂。
+   2026-10-13 白名单掉了一次，取账号信息抛错被 `catch` 吞掉，**两篇稿子带着死占位块"保存成功"**。
+   现在：页面优先 → API 兜底 → 都拿不到就 **fail 中止发布**；替换数为 0 也 fail。
+   两种来源的头像 URL 形式不同（`…/n/<hash>/64` vs `…/mmopen/<hash>/64`），**两者都可用**（实测）。
 2. **关键词限 16 单位、全角算 2**（汉字最多 8 个 / 英文 16 个），不是提示文案说的「16 个字符」。
    超限时保存被拦、错误只以浮层出现、URL 无 appmsgid —— 会误判成「保存坏了」。
    防线：渲染期 error 诊断 + 发布闸门 + 保存后读不到 appmsgid 直接 fail。
 3. **必须「注入前预替换」**，不能「注入后再插」—— 占位块后面紧邻含 `<svg>` 的尾图，
    所有 `execCommand` 二次插入都会把块塞进 svg 内部（六种策略全中）。
+4. **发完必须读回草稿体检**：`node apps/mcp-server/scripts/verify-drafts.mjs <appmsgid>…`。
+   脚本报「✅ 已保存」不等于稿子是对的 —— 上面那次就是靠它查出来的。
 
-组件 `packages/components/src/components/search.ts`；实测与三个踩坑见 docs/DESIGN.md §28；
+组件 `packages/components/src/components/search.ts`；实测与四个踩坑见 docs/DESIGN.md §28；
 探针 `probe-wechat-search-widget.mjs` / `probe-search-position.mjs` / `probe-search-presubstitute.mjs` /
-`probe-search-keyword-limit.mjs`。
+`probe-search-keyword-limit.mjs` / `assets-src/probe-search-avatar.mjs`。

@@ -1261,12 +1261,16 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 | `apps/mcp-server/scripts/verify-handoff.mjs` | `save_article` 落盘后从编辑器端点读回（需编辑器在 3777 运行） |
 | `apps/mcp-server/scripts/verify-html-roundtrip.mjs` | 本地往返：渲染 → HTML 回导 → 再渲染，比对组件标记与纯文本 |
 | `apps/mcp-server/scripts/verify-wechat-showcase.mjs` | 真实微信端到端：发布 → 取回 → 核对组件存活 + 回导还原 |
-| `apps/mcp-server/scripts/publish-via-browser.mjs` | 浏览器登录态发布（免 IP 白名单，含封面上传） |
+| `apps/mcp-server/scripts/publish-via-browser.mjs` | 浏览器登录态发布（免 IP 白名单，含封面上传、推荐搜索预替换、音乐注入） |
+| `apps/mcp-server/scripts/verify-drafts.mjs` | **读回已保存草稿体检**（浏览器通道）：头尾同字母 / SVG·animate 存活 / 搜索真标签在尾图之前且昵称·头像·关键词齐全 / 音乐标签 / 封面。发完必跑 —— 脚本报「✅ 已保存」不等于稿子是对的（§28 ④） |
+| `assets-src/probe-search-avatar.mjs` | 草稿里推荐搜索组件的**实际渲染**（shadow DOM 里头像 `naturalWidth` 是否为真加载值）+ 截图。换账号信息来源时必跑 |
 | `scripts/comparison/run.mjs` | 品牌记忆 + 多组排版策略对比（4 篇 × 4 组），输出截图与量化指标 |
 | `packages/preview/scripts/test-editor-*.mjs` | 编辑器 E2E（导入 / 同步滚动 / 交接 / 组件面板，需 Playwright + 3777 运行） |
 | `packages/preview/scripts/capture-hero.mjs` | 重截 README 配图 `docs/assets/editor-preview.png` |
 | `apps/mcp-server/scripts/probe-mermaid-wechat.mjs` | mermaid 图真实微信链路（draft/add → get 回读，会写一条 [probe] 草稿） |
-| `assets-src/shot-abc.mjs` | 三套头/尾图并排截图（`.ui-shots/abc/`），改头图/尾图必跑 |
+| `assets-src/shot-abc.mjs` | 三套头/尾图并排截图（`.ui-shots/abc/`），改头图/尾图必跑（配合 `zoom-abc.mjs` 看细节，改完两个一起跑否则看的是旧图） |
+| `assets-src/zoom-abc.mjs` | 三套头图 4x 放大截图（`.ui-shots/zoom/`），看小尺寸下漏掉的叠压/错位 |
+| `assets-src/check-collisions.mjs` | **几何碰撞闸门**：头/尾图装饰不得压文字。用 `isPointInFill/isPointInStroke` 精确点内判定（不是 bbox 相交），退出码非零，改头/尾图必跑 |
 | `assets-src/cmp-cover.mjs` | 标题图 `:::cover` 高度对照（150/165/180/220），拍出来选而不是拍脑袋定 |
 | `assets-src/final-shots.mjs` | 三篇整页终态截图 + 输出各块高度占比（头/标题/尾图） |
 | `apps/mcp-server/scripts/probe-wechat-music.mjs` | 音乐组件链路探针（`--stage picker` 入口结构 / `inject` 标签注入存活 / `survive` 保存后读回 / `search` 搜索点选）。`survive` 会写一条 [探针] 草稿并在读回后自动删除，其余阶段只探查不保存 |
@@ -1527,6 +1531,36 @@ draft/get 回读，断言 `<img src="mmbiz…">` 存活且无 `url(#` 引用（�
 - `[^>]*>` 找开标签会被属性值里的裸 `>` 截断 → 用引号感知的 `findTagEnd()`
 - `[\s\S]*?</section>` 非贪婪会被**嵌套 section** 骗到，在第一个 `</section>` 就停
   → 用同深度计数的 `findMatchingSectionEnd()`
+
+**④ 账号信息不能依赖 API —— IP 白名单一掉，占位块就静默进了草稿箱。**
+
+2026-10-13：本机出口 IP 被移出白名单（`errcode 40164`），`client_credential` 取不到
+`access_token`，于是 `fetchAccountInfo()` 抛错 —— 而调用处是个 `try/catch`，
+**只打了行警告就继续保存**。结果：草稿箱里躺着两篇 `<mp-common-search>` 为 0、
+占位块原样存在的"成功"稿件。稿子看着发出去了，读者端是坏的。
+
+这跟本模块开头不用 `draft/add` 的理由是**同一条**：出口 IP 会漂、追不上白名单。
+保存走浏览器通道解决了写入，但读账号信息还留着一条 API 依赖，所以同样会掉。
+
+两道修正（缺一不可）：
+
+1. **首选来源改成已登录的后台页面**（与保存同一信任边界）：
+   `.acount_box-nickname` 取昵称、`.weui-desktop-account__thumb` 取头像。
+   实测两种来源的头像 URL 形式不同 —— API 给 `wx.qlogo.cn/n/<hash>/64`，
+   页面给 `wx.qlogo.cn/mmopen/<hash>/64`。**后者一样可用**：
+   编辑器把组件渲染在 shadow DOM 里，头像 `<img>` 的 `naturalWidth = 64`（已加载）。
+   验证：`assets-src/probe-search-avatar.mjs <appmsgid>`。
+2. **替换失败必须硬失败，不能降级继续**。判据三条：取不到账号信息 fail、
+   解析不出关键词 fail、替换数为 0 fail。"保留占位块照样保存"是最坏的选择 ——
+   它把可发现的失败变成了沉默的数据损坏（铁律⑤）。
+
+⚠️ 顺带失效的：`probe-search-presubstitute.mjs` / `probe-search-keyword-limit.mjs`
+等**手动探针**仍走 API，白名单掉的那段时间它们也跑不通（不影响发布路径）。
+
+**读回草稿体检**：`node apps/mcp-server/scripts/verify-drafts.mjs <appmsgid>…`
+（同样走浏览器通道，不受白名单影响）。检查头尾同字母、SVG/animate 存活、
+搜索真标签在尾图之前且昵称/头像/关键词齐全、音乐标签、封面已设。
+这就是发现上面那两篇坏稿的手段 —— 发布脚本报"✅ 已保存"**不等于**稿子是对的。
 
 两个坑叠加的表现是**静默漏替换**（日志只说「占位块没有关键词」），排查花了不少时间。
 `AGENTS.md` 铁律⑨ 这次真的挡住了第二、三个受害者 —— 这条纪律值得保留。

@@ -267,24 +267,8 @@ const title = built.title
 log('html', `正文 ${html.length} 字符 · 标题「${title}」`)
 
 // 2.0 推荐搜索：**注入前**预替换（见 substituteSearch 上方注释 —— 二次插入会落进 svg）
-if (html.includes('data-swx-search=')) {
-  log('search', '正文含推荐搜索占位块，先取账号权威信息…')
-  try {
-    const account = await fetchAccountInfo()
-    if (!account?.nickname || !account?.headimg) throw new Error('账号信息缺昵称或头像')
-    log('search', `账号：${account.nickname}`)
-    const sub = substituteSearch(html, account)
-    if (sub.count) {
-      html = sub.html
-      log('search', `✅ 已预替换（关键词：${sub.keywords.join(' / ')}）`)
-    } else {
-      log('search', '⚠️ 占位块没有关键词，跳过（保留占位块）')
-    }
-  } catch (e) {
-    log('search', `⚠️ ${String(e.message).slice(0, 100)}`)
-    log('search', '跳过推荐搜索（发布后可在编辑器手动插入）')
-  }
-}
+// 注：真正的替换在 2.1 取到登录态、后台页面已打开之后做（账号昵称/头像优先从页面读）。
+const needsSearch = html.includes('data-swx-search=')
 
 await ensureDaemon()
 
@@ -300,6 +284,25 @@ if (!home?.token || !home.loggedIn) {
   fail(`未获取到登录态（${home?.url ?? '未知'}）。\n   请先在浏览器登录公众号后台；若刚被登出，扫码即可。`)
 }
 log('bridge', `已登录 · token=${home.token}`)
+
+// 2.15 推荐搜索预替换 —— 放在这里是因为账号信息优先从**刚打开的后台页面**读，
+// 仍早于注入（2.2），所以落点依然由源码决定。
+if (needsSearch) {
+  log('search', '正文含推荐搜索占位块，取账号信息…')
+  // 这里**不 catch**：占位块留在稿子里 = 读者端搜索组件是坏的，而保存又会「成功」。
+  // 宁可发布失败让人发现，也不要把坏稿子静默送进草稿箱（铁律⑤）。
+  const account = await fetchAccountInfo()
+  if (!account?.nickname || !account?.headimg) {
+    fail('取不到公众号昵称/头像（页面与 API 都失败），推荐搜索无法替换。\n   留给草稿箱的会是个坏组件，已中止发布。')
+  }
+  log('search', `账号：${account.nickname}（来源：${account.source}）`)
+  const sub = substituteSearch(html, account)
+  if (!sub.count) {
+    fail('正文有推荐搜索占位块但没解析出关键词，已中止发布（否则草稿里会留个死占位块）。')
+  }
+  html = sub.html
+  log('search', `✅ 已预替换（关键词：${sub.keywords.join(' / ')}）`)
+}
 
 // 2.2 打开新建图文
 const editorUrl =
@@ -808,9 +811,16 @@ await insertMusic()
 // 落点由初次解析决定（源码里本来就在尾图之前），不依赖光标位置。
 // 验证：apps/mcp-server/scripts/probe-search-presubstitute.mjs（落点正确 + 读回仍在尾图之前）。
 //
-// 昵称与头像必须发布时调 API 现取（getaccountbasicinfo）：
+// 昵称与头像必须发布时现取：
 //   ① 昵称不一致就是导流到别人的号；② qlogo.cn 头像直链会随换头像失效。
 // 实测写朴素昵称即可，微信保存时自己规范化成 Hippie&nbsp;青年。
+//
+// ⚠️ 取值的**首选来源是已登录的后台页面**，不是 API。
+// API（getaccountbasicinfo）要 access_token，而 client_credential 取 token 要求调用方 IP
+// 在白名单内 —— 与本模块开头对 `draft/add` 的说明同一条理由，出口 IP 会漂。
+// 实测（2026-10-12）：IP 被移出白名单后，`fetchAccountInfo()` 抛错被 catch 静默吞掉，
+// 占位块原样进了草稿箱 —— **稿子看着发成功，搜索是坏的**。
+// 现在：页面优先 → API 兜底 → 两者都拿不到就**硬失败**（宁可不发，不发坏的）。
 //
 // 替换时**保留** `data-swx="search"` / `data-swx-props` / `data-swx-src` 包装标记，
 // 这样发布后的文章仍能导回 `:::search{...}`（往返回导）。
@@ -905,10 +915,34 @@ function substituteSearch(html, account) {
   return { html: html.slice(0, start) + real + html.slice(end), count: 1, keywords }
 }
 
+/** 从已登录的后台页面读账号昵称 + 头像（首选来源：与保存同一信任边界，不受 IP 白名单影响）。
+ *
+ *  选择器依据：实测后台 `.mp_account_box` 里有 `.acount_box-nickname`（号名，朴素文本）
+ *  与 `.weui-desktop-account__thumb`（头像，`wx.qlogo.cn` 直链）。多处同值时取第一个
+ *  —— 多账号时那是当前激活账号（我们要发布的正是它的草稿）。
+ */
+async function fetchAccountInfoViaPage() {
+  const r = await evalJson(`(() => {
+    const pick = (sel) => { const el = document.querySelector(sel); return el ? el.textContent.trim() : null }
+    const nickname = pick('.acount_box-nickname') || pick('.weui-desktop-account__info .acount_box-nickname')
+    const img = document.querySelector('.weui-desktop-account__thumb')
+    const headimg = img && img.src ? img.src : null
+    return JSON.stringify({ nickname, headimg })
+  })()`)
+  if (!r?.nickname || !r?.headimg) return null
+  return { nickname: r.nickname, headimg: r.headimg, source: '页面' }
+}
+
 /** 取公众号自身昵称 + 头像（权威来源，用于推荐搜索）。
- *  为什么不用页面 DOM 里的号名：那是展示值，可能是「未知」或截断；API 才是准的。
+ *  页面优先，API 兜底；都不行返回 null（调用方必须硬失败，不能静默跳过）。
  */
 async function fetchAccountInfo() {
+  try {
+    const viaPage = await fetchAccountInfoViaPage()
+    if (viaPage) return viaPage
+  } catch (e) {
+    log('search', `⚠️ 页面取账号信息失败（${String(e.message).slice(0, 60)}），退回 API`)
+  }
   const envPath = join(ROOT, '.env')
   if (!existsSync(envPath)) throw new Error('找不到 .env（缺 WECHAT_APP_ID / WECHAT_APP_SECRET）')
   const e = {}
@@ -920,7 +954,8 @@ async function fetchAccountInfo() {
   const t = await (await fetch('https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=' + e.WECHAT_APP_ID + '&secret=' + e.WECHAT_APP_SECRET)).json()
   if (!t.access_token) throw new Error('取 access_token 失败：' + (t.errmsg ?? t.errcode))
   const info = await (await fetch('https://api.weixin.qq.com/cgi-bin/account/getaccountbasicinfo?access_token=' + t.access_token)).json()
-  return { nickname: info.nickname, headimg: info.head_image_info?.head_image_url }
+  if (!info.nickname || !info.head_image_info?.head_image_url) throw new Error('API 未返回昵称/头像：' + (info.errmsg ?? info.errcode))
+  return { nickname: info.nickname, headimg: info.head_image_info.head_image_url, source: 'API' }
 }
 
 
