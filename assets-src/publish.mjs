@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { WeChatClient, publishDraft } from '../packages/publisher/dist/index.js'
+import { resolveLocalImage } from '../packages/service/dist/index.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const cfg = JSON.parse(readFileSync(process.env.USERPROFILE + '/.pi/agent/mcp.json', 'utf8')).mcpServers.stylewx.env
@@ -23,10 +24,12 @@ const client = new WeChatClient({
 
 const content = readFileSync(join(HERE, 'review', 'article.html'), 'utf8')
 
-// 封面直链从品牌档案读，不依赖临时 .url 文件（那玩意儿老被清掉，害我重跑两次）
-const brand = JSON.parse(readFileSync(join(process.env.USERPROFILE, '.stylewx/brands/hippie-youth/profile.json'), 'utf8'))
+// 封面从品牌档案读。品牌包把 coverImage 改成**包内相对路径**（assets/cover.png），
+// 所以必须带 resolveLocal 把相对路径读成字节 —— 否则会被当成 URL 去 HTTP 请求。
+const BRAND = 'hippie-youth'
+const brand = JSON.parse(readFileSync(join(process.env.USERPROFILE, '.stylewx/brands', BRAND, 'profile.json'), 'utf8'))
 const coverUrl = brand.coverImage
-if (!coverUrl) throw new Error('品牌档案里没有 coverImage，先跑 rasterize.mjs + 上传素材库')
+if (!coverUrl) throw new Error('品牌档案里没有 coverImage，先跑 `stylewx brand attach`')
 
 const result = await publishDraft(client, {
   content,
@@ -35,6 +38,7 @@ const result = await publishDraft(client, {
   coverImage: coverUrl,
   digest: '成绩单寄到家里，焦虑传到了父母手上，可问题并没有解决。',
   relocate: true,
+  resolveLocal: (src) => resolveLocalImage(src, { brand: BRAND }),
 })
 
 console.log(JSON.stringify(result, null, 1))

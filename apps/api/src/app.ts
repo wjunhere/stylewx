@@ -1,6 +1,7 @@
 /**
  * stylewx REST API —— 与 MCP tools 一一对应，复用同一套 service 层。
- * 端点：GET /themes、POST /themes/generate、POST /render、POST /validate、POST /drafts。
+ * 端点：GET /themes、POST /themes/generate、POST /render、POST /validate、POST /drafts、
+ *       GET /brands、GET /brands/:name、GET /brands/doctor、POST /brands/{validate,export,import,attach-assets}。
  * 所有错误返回统一格式 { error: { code, message, hint } }。
  */
 import { Hono } from 'hono'
@@ -8,12 +9,20 @@ import type { Context } from 'hono'
 import { z } from 'zod'
 import {
   analyzeArticle,
+  attachBrandAssets,
+  brandApply,
+  brandDoctor,
+  brandList,
   generateTheme,
+  installBrand,
   listThemes,
+  packBrand,
   publishDraft,
   renderPreview,
+  resolveLocalImage,
   resolveTheme,
   validateArticle,
+  validateBundle,
   serviceError,
   asServiceError,
 } from '@stylewx/service'
@@ -50,9 +59,27 @@ const draftsBody = z.object({
   author: z.string().optional(),
   digest: z.string().optional(),
   coverImage: z.string().optional(),
+  brand: z
+    .string()
+    .optional()
+    .describe('品牌档案名。仅当 coverImage 是包内相对路径（assets/cover.png）时需要，用作解析基准。'),
   contentSourceUrl: z.string().optional(),
   needOpenComment: z.boolean().optional(),
 })
+
+const brandSourceBody = z.object({ source: z.string() })
+
+const brandExportBody = z.object({
+  name: z.string(),
+  out: z.string().optional(),
+  version: z.string().optional(),
+  engine: z.string().optional(),
+  withSource: z.boolean().optional(),
+})
+
+const brandImportBody = z.object({ source: z.string(), as: z.string().optional(), forceNew: z.boolean().optional() })
+
+const brandAttachBody = z.object({ name: z.string(), from: z.string() })
 
 function statusForError(code: string): number {
   switch (code) {
@@ -62,6 +89,11 @@ function statusForError(code: string): number {
       return 503
     case 'invalid_theme':
     case 'invalid_input':
+    case 'invalid_bundle':
+    case 'invalid_asset':
+    case 'bundle_not_found':
+    case 'brand_not_found':
+    case 'install_conflict':
     case 'missing_content':
     case 'missing_title':
     case 'missing_cover':
@@ -93,6 +125,63 @@ export function createApp(deps: ApiDeps = {}): Hono {
   app.get('/themes', (c) => c.json(listThemes()))
 
   app.get('/health', (c) => c.json({ ok: true }))
+
+  // 品牌：列出 / 加载 / 体检 / 打包 / 校验 / 安装（与 MCP 同名工具共用 service 实现）
+  app.get('/brands', (c) => c.json(brandList()))
+
+  app.get('/brands/doctor', (c) => c.json(brandDoctor()))
+
+  app.get('/brands/:name', (c) => {
+    try {
+      return c.json(brandApply(c.req.param('name')))
+    } catch (error) {
+      return respondError(c, errorObjectFrom(error))
+    }
+  })
+
+  app.post('/brands/validate', async (c) => {
+    const body = brandSourceBody.safeParse(await c.req.json().catch(() => ({})))
+    if (!body.success) {
+      return respondError(c, serviceError('invalid_input', '请求体不符合要求。', '请提供 source（`.brand` 文件或品牌目录路径）。'))
+    }
+    return c.json(validateBundle(body.data.source))
+  })
+
+  app.post('/brands/export', async (c) => {
+    const body = brandExportBody.safeParse(await c.req.json().catch(() => ({})))
+    if (!body.success) {
+      return respondError(c, serviceError('invalid_input', '请求体不符合要求。', '请提供 name（品牌档案 ID）。'))
+    }
+    try {
+      return c.json(packBrand(body.data.name, { out: body.data.out, version: body.data.version, engine: body.data.engine, withSource: body.data.withSource }))
+    } catch (error) {
+      return respondError(c, errorObjectFrom(error))
+    }
+  })
+
+  app.post('/brands/import', async (c) => {
+    const body = brandImportBody.safeParse(await c.req.json().catch(() => ({})))
+    if (!body.success) {
+      return respondError(c, serviceError('invalid_input', '请求体不符合要求。', '请提供 source（`.brand` 文件或品牌目录路径）。'))
+    }
+    try {
+      return c.json(installBrand(body.data.source, { as: body.data.as, forceNew: body.data.forceNew }), 201)
+    } catch (error) {
+      return respondError(c, errorObjectFrom(error))
+    }
+  })
+
+  app.post('/brands/attach-assets', async (c) => {
+    const body = brandAttachBody.safeParse(await c.req.json().catch(() => ({})))
+    if (!body.success) {
+      return respondError(c, serviceError('invalid_input', '请求体不符合要求。', '请提供 name 与 from（放着 logo-a.png / cover.png 的目录）。'))
+    }
+    try {
+      return c.json(attachBrandAssets(body.data.name, body.data.from))
+    } catch (error) {
+      return respondError(c, errorObjectFrom(error))
+    }
+  })
 
   app.post('/themes/generate', async (c) => {
     if (!deps.llm) {
@@ -172,6 +261,8 @@ export function createApp(deps: ApiDeps = {}): Hono {
         coverImage: body.data.coverImage,
         contentSourceUrl: body.data.contentSourceUrl,
         needOpenComment: body.data.needOpenComment,
+        // 封面可能是品牌包内相对路径（assets/cover.png）—— 与正文图片一样需要解析成本地字节
+        resolveLocal: (src) => resolveLocalImage(src, body.data.brand ? { brand: body.data.brand } : undefined),
       })
       if (result && typeof result === 'object' && 'error' in result) {
         const err = (result as ServiceError).error

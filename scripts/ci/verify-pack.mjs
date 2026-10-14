@@ -23,7 +23,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
 /** 每个包「必须真的被打进 tarball」的文件。改 files 或改构建产物位置时同步更新这里。 */
 const REQUIRED_FILES = {
-  '@stylewx/mcp-server': ['package/dist/index.js', 'package/editor.html'],
+  '@stylewx/mcp-server': ['package/dist/index.js', 'package/dist/cli.js', 'package/editor.html'],
   '@stylewx/api': ['package/dist/index.js'],
   '@stylewx/core': ['package/dist/index.js'],
   '@stylewx/components': ['package/dist/index.js'],

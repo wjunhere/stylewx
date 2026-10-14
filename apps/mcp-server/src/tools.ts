@@ -32,6 +32,13 @@ import {
   brandLearn,
   brandDelete,
   readBrandDoc,
+  brandDoctor,
+  brandFix,
+  attachBrandAssets,
+  packBrand,
+  installBrand,
+  validateBundle,
+  resolveLocalImage,
   reviewArticle,
   uploadVideo,
 } from '@stylewx/service'
@@ -476,6 +483,13 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
         author: z.string().optional().describe('作者名（可选）。'),
         digest: z.string().optional().describe('摘要（可选）。缺省会自动从正文截取前 120 字。'),
         coverImage: z.string().optional().describe('封面图 URL（建议 900×383 / 2.35:1）。缺省会用正文第一张图作为封面；若正文无图则必须提供。'),
+        brand: z
+          .string()
+          .optional()
+          .describe(
+            '品牌档案名（如 hippie-youth）。只在 coverImage 是**包内相对路径**（`assets/cover.png`，品牌包的形式）时需要：' +
+              '相对路径必须有个基准目录，不给就只能拒。绝对路径与 http(s) 链接不需要它。',
+          ),
         contentSourceUrl: z.string().optional().describe('原文链接（可选）。'),
         needOpenComment: z.boolean().optional().describe('是否允许用户评论，默认按公众号设置。'),
       },
@@ -507,6 +521,10 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
           coverImage: args.coverImage,
           contentSourceUrl: args.contentSourceUrl,
           needOpenComment: args.needOpenComment,
+          // 非 http(s) 的图片引用（编辑器资产库 / 品牌包内相对路径 / 本地文件）解析成字节。
+          // 封面也用这个钩子：品牌包的 coverImage 是 `assets/cover.png`，
+          // 不解析就会被拿去 HTTP 请求。相对路径以 `brand` 为基准。
+          resolveLocal: (src) => resolveLocalImage(src, args.brand ? { brand: args.brand } : undefined),
         })
         return textResult(result)
       } catch (error) {
@@ -721,6 +739,101 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
       inputSchema: { name: z.string().describe('要删除的品牌档案 ID。') },
     },
     wrap(async ({ name }) => textResult(brandDelete(name))),
+  )
+
+  // ---- brand_doctor ----
+  server.registerTool(
+    'brand_doctor',
+    {
+      title: '品牌一致性体检',
+      description:
+        '检查品牌三方是否一致：品牌目录（真源，profile.json + brand.md）↔ themes.json（编辑器主题下拉的副本）↔ components.json（渲染时解析的副本）。' +
+        '会报出：副本漂移/缺失、brand.md 自动段与 profile 不一致、自动段标记不成对、人写段与 profile 不一致（警告）。' +
+        '**修不好真源**：--fix 只修能从真源重算的东西（自动段与副本）。发布前 / 改过品牌后跑一次。',
+      inputSchema: {
+        name: z.string().optional().describe('只检查这一个品牌；缺省检查全部。'),
+        fix: z.boolean().optional().describe('true = 按真源修自动段与派生副本（不碰 profile.json）。'),
+      },
+    },
+    wrap(async ({ name, fix }) =>
+      textResult(fix ? brandFix({ name }) : brandDoctor({ name })),
+    ),
+  )
+
+  // ---- brand_export ----
+  server.registerTool(
+    'brand_export',
+    {
+      title: '导出品牌包（.brand）',
+      description:
+        '把品牌档案打成一个 `.brand` 文件（zip 容器）—— 这是分发给别人的形态。包内含 manifest.json（版本/engine/文件 sha256）、' +
+        'brand.json（机器真源）、brand.md（人的文档）、assets/（只有身份位图 logo-*.png / cover.png）。' +
+        '**source/ 默认不进包**（分发品牌 ≠ 交接源码）；要交接就传 withSource。' +
+        '品牌目录 assets/ 为空且 logo 还是外链时会拒绝打包 —— 先跑 `stylewx brand attach <name> --from <目录>` 把图片落进来。',
+      inputSchema: {
+        name: z.string().describe('品牌档案 ID。'),
+        out: z.string().optional().describe('输出目录或文件路径；缺省当前目录，文件名 `<name>-<version>.brand`。'),
+        version: z.string().optional().describe('版本号（semver）；缺省用档案更新日期，如 2026.10.14。'),
+        engine: z.string().optional().describe('最低 stylewx 版本断言（semver range），例如 `>=0.6.0`。'),
+        withSource: z.boolean().optional().describe('连 `source/` 一起打（交接源码场景）。'),
+      },
+    },
+    wrap(async ({ name, out, version, engine, withSource }) =>
+      textResult(packBrand(name, { out, version, engine, withSource })),
+    ),
+  )
+
+  // ---- brand_validate ----
+  server.registerTool(
+    'brand_validate',
+    {
+      title: '校验品牌包（不落盘）',
+      description:
+        '装之前先看一眼：容器能否解开、manifest 的 formatVersion/kind/engine 认不认、每个文件的 sha256 对不对、' +
+        '资产路径是否安全（拒绝远程 URL 与 `../`）、组件名与 brand.md 标记是否合法。**不写任何文件**。' +
+        'dry-run 专用：真正安装用 brand_import。',
+      inputSchema: {
+        source: z.string().describe('`.brand` 文件路径，或品牌目录路径（两种都收）。'),
+      },
+    },
+    wrap(async ({ source }) => textResult(validateBundle(source))),
+  )
+
+  // ---- brand_import ----
+  server.registerTool(
+    'brand_import',
+    {
+      title: '安装品牌包',
+      description:
+        '把一个 `.brand` 文件（或品牌目录）装进本机品牌库。重名规则三条，重点是幂等：' +
+        '① 组件撞名 → 加品牌后缀 `x--<brand>` 并记进 profile 的 renamedFrom（返回值会给出映射，照着用调用名）；' +
+        '② 品牌名撞名（不同来源）→ 加数字后缀 `x-2`，**绝不无声覆盖**（档案里有人写的散文）；' +
+        '③ 同一品牌再次导入 = 升级，按 name + origin 认亲、原地替换（不会攒出 -2 -3）。' +
+        '装完会自动同步主题与组件副本，并跑一遍一致性检查。',
+      inputSchema: {
+        source: z.string().describe('`.brand` 文件路径，或品牌目录路径。'),
+        as: z.string().optional().describe('指定安装后的品牌名（跳过撞名规则）。'),
+        forceNew: z.boolean().optional().describe('true = 即使同名同源也装成新名字（不升级）。'),
+      },
+    },
+    wrap(async ({ source, as, forceNew }) => textResult(installBrand(source, { as, forceNew }))),
+  )
+
+  // ---- brand_attach_assets ----
+  server.registerTool(
+    'brand_attach_assets',
+    {
+      title: '把品牌图片挂进档案',
+      description:
+        '把本机目录里的身份位图（约定文件名 logo-a.png / logo-b.png / logo-c.png / cover.png）拷进品牌目录的 assets/，' +
+        '并把 profile 的 logo / coverImage 从远程 URL 改成**包内相对路径**。' +
+        '这是打包前的必经一步：品牌包拒绝远程 URL 资产。',
+      inputSchema: {
+        name: z.string().describe('品牌档案 ID。'),
+        from: z.string().describe('放着 logo-a.png / cover.png 等文件的目录（如 assets-src/motion）。'),
+      },
+    },
+    wrap(async ({ name, from }) => textResult(attachBrandAssets(name, from))),
   )
 
   // ---- review_article ----

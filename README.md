@@ -3,7 +3,7 @@
 <p align="center">
   <picture>
     <source media="(max-width: 700px)" srcset="./docs/assets/banner-640x200.png">
-    <img src="./docs/assets/banner-1280x420.png" alt="stylewx：排版内核，可校验。23 个 MCP 工具 + REST API" width="100%">
+    <img src="./docs/assets/banner-1280x420.png" alt="stylewx：排版内核，可校验。28 个 MCP 工具 + REST API" width="100%">
   </picture>
 </p>
 
@@ -30,7 +30,7 @@
 
 ## 功能
 
-- **23 个 MCP 工具**：品牌、主题、组件、排版、发布五组原语（见 [MCP 工具](#mcp-工具)），
+- **28 个 MCP 工具**：品牌、主题、组件、排版、发布五组原语（见 [MCP 工具](#mcp-工具)），
   既能一步成稿，也能拆开逐步迭代。
 - **品牌记忆系统**：品牌档案固化为可复用的排版资产，每次迭代都沉淀，越用越准（见 [品牌记忆系统](#品牌记忆系统)）。
 - **26 个富组件 + 自定义组件**：图片图注 / 多图网格 / 图文卡片 / 自动轮播 / 音乐 / 推荐搜索 / 时间线 / 步骤条 / 对比 /
@@ -49,7 +49,7 @@
 
 ```
 ┌─── Agent（Kimi Code / Claude Code / Cursor / Pi / Codex）───────────┐
-│  23 个 MCP 工具：品牌 · 主题 · 组件 · 排版 · 发布                   │
+│  28 个 MCP 工具：品牌 · 主题 · 组件 · 排版 · 发布                   │
 └──────────────┬──────────────────────────┬───────────────────────────┘
          MCP (stdio / Streamable HTTP)         REST API (/themes … /drafts)
                │                                │
@@ -74,7 +74,7 @@ stylewx/
 │   └── api/         # REST API（Hono）
 ├── examples/        # mcp.json 示例 + component-showcase.md
 ├── scripts/         # ci 发布闸门 · brand 品牌资产 · comparison 排版策略对比
-└── docs/            # DESIGN.md 设计决策 · COMPONENTS.md 组件参考
+└── docs/            # DESIGN.md 设计索引 · design/ 分主题正文 · COMPONENTS.md 组件参考
 ```
 
 ## 快速开始
@@ -202,12 +202,45 @@ pnpm --filter @stylewx/api dev      # http://localhost:3001
 公众号排版最大的问题是「每次从零选模板」，排出来像任意一个号。品牌记忆系统把品牌资产固化成
 可复用的排版档案：定位、色彩论证、核心色板、语气规则、禁忌、专属组件、迭代记录都会沉淀下来。
 
-存在 `~/.stylewx/brands/<name>/`（可用 `STYLEWX_BRANDS_PATH` 覆盖），双轨：
+存在 `~/.stylewx/brands/<name>/`（可用 `STYLEWX_BRANDS_PATH` 覆盖），**目录是唯一真源**：
 
 | 文件 | 作用 |
 | --- | --- |
-| `profile.json` | 结构化真相源：完整主题 + 品牌专属组件 + voice/taboos + learnings |
-| `brand.md` | **人可读的「品牌宪法」**，人可直接编辑，改完重新 `brand_save` 即生效 |
+| `profile.json` | 结构化真源：完整主题 + 品牌专属组件 + voice/taboos + learnings |
+| `brand.md` | **人可读的「品牌宪法」**，人可直接编辑。事实类小节带 `<!-- stylewx:auto … -->` 标记，由程序生成；散文（定位/色彩论证/语气/禁忌）留给人写 |
+
+`themes.json`（编辑器主题下拉）与 `components.json`（渲染 `:::名字`）是**派生副本**，
+由 `brand_save` / `brand_apply` 同步。三处会漂，所以有一道闸门：
+
+```bash
+pnpm check:brands        # 体检：真源 ↔ 副本 ↔ brand.md 自动段，不一致退出码非零
+pnpm check:brands:fix    # 只修能从真源重算的东西（自动段与副本），不碰 profile.json
+```
+
+改品牌的事实请改 profile（`brand_save` / `brand_learn`）；直接改 `brand.md` 里的自动段会在下次同步时被覆盖。
+
+### 打包带走（`.brand`）
+
+品牌可以打成一个文件发给别人：
+
+```bash
+stylewx brand attach hippie-youth --from assets-src/motion   # 先把 logo/封面落进品牌目录
+stylewx brand pack hippie-youth --out ./dist                 # 产出 hippie-youth-<版本>.brand
+stylewx brand validate ./dist/hippie-youth-*.brand           # 装之前先看一眼（不落盘）
+stylewx brand install ./dist/hippie-youth-*.brand            # 装到本机品牌库
+```
+
+`.brand` 是一个 zip：`manifest.json`（版本 / engine / 每个文件的 sha256）+ `brand.json`（机器真源）
++ `brand.md`（人的文档）+ `assets/`（只有身份位图）。两个约定：
+
+- **后缀只是提示**，真正的判据是 manifest 里的 `kind` + `formatVersion`；
+  所以 `.brand` / `.stylewx` / `.zip` 都能装，改成 `.txt` 也认，而改了后缀的普通文件会被明确拒绝。
+- **远程 URL 资产一律拒收**（否则一个包就能让导入方去请求任意地址）。
+  微信素材库的 CDN 链接属于发布结果，存在品牌目录的 `.published.json`，不会被打进包。
+
+装包时的重名处理（重点是幂等）：组件撞名加品牌后缀 `x--<brand>`（原名记在 `renamedFrom`）；
+品牌名撞名（不同来源）加数字后缀 `-2`，**绝不无声覆盖**；同一品牌再次导入是**升级**，
+按 `name` + `origin` 认亲、原地替换（不会攒出 `-2 -3`）。
 
 ```
 brand_list                          先看有没有档案
@@ -262,6 +295,11 @@ save_article → editorUrl → 人在本地编辑器微调 → brand_learn 记�
 | `brand_list` | 列出已有品牌档案（摘要） |
 | `brand_apply` | 加载档案：返回主题 + 品牌宪法 + 专属组件（组件自动同步进渲染库） |
 | `brand_learn` | 追加一条迭代记录（写入 profile 与 brand.md） |
+| `brand_doctor` | 品牌三方一致性体检；`fix: true` 按真源修自动段与派生副本（不碰 profile.json） |
+| `brand_export` | 把品牌打成 `.brand` 文件（zip）；`withSource` 才带 `source/` |
+| `brand_validate` | 校验品牌包（sha256 / 远程 URL / `../` / engine），**不落盘** |
+| `brand_import` | 安装品牌包（`.brand` 或目录）；三条重名规则 + 自动同步副本 |
+| `brand_attach_assets` | 把本机目录里的 logo/封面落进品牌目录，并把 URL 改成包内相对路径 |
 | `brand_delete` | 删除品牌档案目录 |
 
 **主题**
@@ -418,12 +456,25 @@ node apps/mcp-server/scripts/publish-via-browser.mjs 文章.md --theme business 
 ```bash
 pnpm build && pnpm type-check && pnpm test    # 标准三连
 pnpm stylewx:editor                            # 起本地编辑器
-pnpm brand:check                               # 品牌体系回归
+pnpm brand:check                               # 品牌体系回归（含品牌三方一致性）
+pnpm check:brands                              # 只跑品牌一致性；--fix 修自动段与副本
 pnpm check:release && pnpm check:pack && pnpm check:artifact   # 发布前闸门
 ```
 
-改动前请读 [`AGENTS.md`](./AGENTS.md)：铁律、发布流程、脚本清单与失败教训都在那里。
-设计决策与权衡见 [`docs/DESIGN.md`](./docs/DESIGN.md)。
+命令行（与 MCP 共用同一实现）：
+
+```bash
+stylewx brand list          # 列出品牌档案
+stylewx brand doctor        # 三方一致性体检（退出码非零 = 不一致）；--fix 修自动段与副本
+stylewx brand attach <name> --from <目录>    # 把 logo/封面落进品牌目录
+stylewx brand pack <name> --out <目录>       # 打成 .brand
+stylewx brand validate <包>                  # 校验（不落盘）
+stylewx brand install <包>                   # 安装（--as / --new）
+```
+
+改动前请读 [`AGENTS.md`](./AGENTS.md)：铁律、发布闸门、「想改 X 先读 Y」的索引。
+设计决策、实测结论与踩坑全量在 [`docs/design/`](./docs/design/)（索引 [`docs/DESIGN.md`](./docs/DESIGN.md)）：
+踩坑在 `pitfalls.md`，手动验证脚本在 `manual-scripts.md`。
 
 ## 许可
 

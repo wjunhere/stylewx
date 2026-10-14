@@ -20,6 +20,7 @@ import type { UserComponentDef } from '@stylewx/components'
 import { validateUserComponent, saveUserComponent } from './component-store.js'
 import { saveTheme } from './theme-store.js'
 import { serviceError } from './errors.js'
+import { AUTO_KEYS, autoTitle, findUnpairedMarkers, renderAutoSection, syncBrandDoc } from './brand-doc.js'
 
 const DEFAULT_DIR = join(homedir(), '.stylewx', 'brands')
 
@@ -45,9 +46,29 @@ export interface BrandLearning {
   note: string
 }
 
+/**
+ * 品牌包里的资产索引（`brand.json` 的 `assets` 键）。
+ *
+ * 历史包袱：本仓的 `assets` 早先被 agent 当「资产说明」的自由文本用过
+ * （`motionSource` / `generator` / `plans` / `illustration`）。那些键**原样保留**，
+ * 机器可读的路径放在 `files` 下 —— 不丢旧内容，也不把两种语义搅在一起。
+ */
+export interface BrandAssets {
+  /** 身份位图：用途 → 品牌目录内的相对路径（如 `{ logo: 'assets/logo-a.png' }`）。 */
+  files?: Record<string, string>
+  /** 历史自由字段（motionSource / generator / plans / illustration…）原样保留。 */
+  [key: string]: unknown
+}
+
 export interface BrandProfile {
   /** 品牌档案 ID（目录名），小写字母/数字/连字符。 */
   name: string
+  /** 品牌包容器格式版本（导入/打包时写入；本机自建为空）。 */
+  formatVersion?: number
+  /** 资产索引（身份位图在品牌目录内的相对路径）。 */
+  assets?: BrandAssets
+  /** 撞名映射：导入时被改名的组件 → 原名（让 agent 知道该调哪个名字）。 */
+  renamedFrom?: Record<string, string>
   /** 对外展示名（如公众号名）。 */
   displayName?: string
   /** 一句话品牌定位 + 气质关键词。 */
@@ -58,9 +79,9 @@ export interface BrandProfile {
   theme: Theme
   /** 品牌专属组件库（建议以品牌名为前缀，如 tide-quote）。 */
   components: UserComponentDef[]
-  /** 品牌 logo 图片 URL（用于文章开头品牌头图、封面图、end-card 签名位；不进正文每节）。 */
+  /** 品牌 logo 图片路径（品牌目录内相对路径，或内联 `data:`；导入时拒绝远程 URL）。 */
   logo?: string
-  /** 品牌默认封面图 URL（无特定封面时使用）。 */
+  /** 品牌默认封面图路径（同上）。 */
   coverImage?: string
   /** 品牌头图组件名：每篇文章开头自动调用（如 ink-header），通常包含 logo + 品牌名 + 期号。 */
   headerComponent?: string
@@ -103,13 +124,19 @@ function writeProfile(profile: BrandProfile, opts?: BrandStoreOptions): void {
   writeFileSync(profilePath(profile.name, opts), JSON.stringify(profile, null, 2), 'utf8')
 }
 
-/** 从 profile 自动生成 brand.md 骨架（agent 传了 doc 则用 doc 覆盖正文主体）。 */
+/**
+ * 从 profile 生成 brand.md 骨架（agent 传了 doc 则用 doc 覆盖正文主体）。
+ *
+ * 事实类小节（色板 / 字号 / 组件清单 / logo / 迭代记录）走 `<!-- stylewx:auto … -->`
+ * 自动段，由程序生成、由 doctor 校验；定位 / 色彩论证 / 语气 / 禁忌留给人写。
+ */
 function renderBrandDoc(profile: BrandProfile): string {
-  const t = profile.theme.tokens
   const lines: string[] = []
   lines.push(`# ${profile.displayName ?? profile.name} · 品牌宪法`)
   lines.push('')
-  lines.push(`> 本文件由 stylewx 品牌记忆系统维护，人可以直接编辑；改完告诉 agent 重新 brand_save 即可生效。`)
+  lines.push(`> 本文件由 stylewx 品牌记忆系统维护，人可以直接编辑。`)
+  lines.push(`> 标注 \`<!-- stylewx:auto … -->\` 的小节由程序生成（改它会被下一次同步覆盖），其余小节是人写的。`)
+  lines.push(`> 改完告诉 agent 重新 brand_save 即可生效。`)
   lines.push('')
   lines.push('## 品牌定位')
   lines.push('')
@@ -118,51 +145,27 @@ function renderBrandDoc(profile: BrandProfile): string {
   lines.push('## 色彩论证')
   lines.push('')
   lines.push(profile.rationale)
-  lines.push('')
-  lines.push('## 核心色板')
-  lines.push('')
-  lines.push(`| 用途 | 色值 |`)
-  lines.push(`| --- | --- |`)
-  lines.push(`| 主色 primary | \`${t.primaryColor}\` |`)
-  lines.push(`| 正文 text | \`${t.textColor}\` |`)
-  if (t.accentColor) lines.push(`| 强调 accent | \`${t.accentColor}\` |`)
-  if (t.cardBg) lines.push(`| 卡片底 cardBg | \`${t.cardBg}\` |`)
-  if (t.dividerColor) lines.push(`| 分割线 divider | \`${t.dividerColor}\` |`)
-  lines.push('')
-  lines.push('## 排版基调')
-  lines.push('')
-  lines.push(`- 字号 ${t.fontSize} / 行高 ${t.lineHeight}`)
-  lines.push(`- 字体栈 \`${t.fontFamily}\``)
-  if (profile.theme.description) lines.push(`- 主题描述：${profile.theme.description}`)
-  lines.push('')
+  for (const key of AUTO_KEYS) {
+    const section = renderAutoSection(key, profile)
+    if (!section) continue
+    lines.push('')
+    lines.push(`## ${autoTitle(key)}`)
+    lines.push('')
+    lines.push(section)
+  }
   if (profile.voice?.length) {
+    lines.push('')
     lines.push('## 语气与编排规则')
     lines.push('')
     for (const v of profile.voice) lines.push(`- ${v}`)
-    lines.push('')
   }
   if (profile.taboos?.length) {
+    lines.push('')
     lines.push('## 禁忌')
     lines.push('')
     for (const v of profile.taboos) lines.push(`- ${v}`)
-    lines.push('')
   }
-  if (profile.components.length) {
-    lines.push('## 品牌专属组件')
-    lines.push('')
-    if (profile.headerComponent) lines.push(`- 头图规范：每篇文章开头先调 \`:::${profile.headerComponent}\`（含 logo 与品牌名）`)
-    for (const c of profile.components) lines.push(`- \`:::${c.name}\` —— ${c.description ?? ''}`)
-    lines.push('')
-  }
-  if (profile.logo) {
-    lines.push(`## Logo\n\n![logo](${profile.logo})\n\n> logo 用于文章头图 / 封面 / end-card 签名位，不进正文每节。\n`)
-  }
-  if (profile.learnings.length) {
-    lines.push('## 迭代记录')
-    lines.push('')
-    for (const l of profile.learnings) lines.push(`- ${l.date}：${l.note}`)
-    lines.push('')
-  }
+  lines.push('')
   return lines.join('\n')
 }
 
@@ -255,12 +258,20 @@ export interface BrandSaveInput {
   taboos?: string[]
   /** 人可读的品牌宪法正文（Markdown）。缺省由 profile 自动生成骨架。 */
   doc?: string
-  /** 品牌 logo 图片 URL（可选）。 */
+  /** 品牌 logo 路径（可选）。 */
   logo?: string
-  /** 品牌默认封面图 URL（可选）。 */
+  /** 品牌默认封面图路径（可选）。 */
   coverImage?: string
   /** 品牌头图组件名（可选）：每篇文章开头先调它。 */
   headerComponent?: string
+  /** 品牌包来源标识（导入时写入侧车 manifest.json，不写进 profile）。 */
+  origin?: string
+  /** 容器格式版本（导入/打包时写入 profile）。 */
+  formatVersion?: number
+  /** 资产索引（导入时写入 profile）。 */
+  assets?: BrandAssets
+  /** 撞名映射（导入时写入 profile）。 */
+  renamedFrom?: Record<string, string>
 }
 
 export interface BrandSaveResult {
@@ -342,6 +353,9 @@ export function brandSave(input: unknown, opts?: BrandStoreOptions): BrandSaveRe
   const existing = existsSync(profilePath(name, opts)) ? readProfile(name, opts) : undefined
   const profile: BrandProfile = {
     name,
+    formatVersion: raw.formatVersion ?? existing?.formatVersion,
+    assets: raw.assets ?? existing?.assets,
+    renamedFrom: raw.renamedFrom ?? existing?.renamedFrom,
     displayName: raw.displayName ?? existing?.displayName,
     description: raw.description.trim(),
     rationale: raw.rationale.trim(),
@@ -357,7 +371,21 @@ export function brandSave(input: unknown, opts?: BrandStoreOptions): BrandSaveRe
   }
 
   writeProfile(profile, opts)
-  const doc = typeof raw.doc === 'string' && raw.doc.trim() ? raw.doc : renderBrandDoc(profile)
+  // 自动段必须成对：漏一个结束标记，后面的散文会被当成段内容吞掉（人写的字就丢了）。
+  const provided = typeof raw.doc === 'string' && raw.doc.trim() ? raw.doc : undefined
+  if (provided) {
+    const unpaired = findUnpairedMarkers(provided)
+    if (unpaired.length) {
+      throw serviceError(
+        'invalid_brand',
+        `brand.md 的自动段标记不完整：${unpaired.join('；')}`,
+        '每个 `<!-- stylewx:auto <key> -->` 都必须有对应的 `<!-- /stylewx:auto -->`。',
+      )
+    }
+  }
+  // 无论 doc 是传进来的还是自动生成的，事实类小节都按 profile 重算一遍：
+  // 段外（人写的散文）原样保留。
+  const { doc } = syncBrandDoc(provided ?? renderBrandDoc(profile), profile)
   const dir = brandDir(name, opts)
   mkdirSync(dir, { recursive: true })
   writeFileSync(docPath(name, opts), doc, 'utf8')
@@ -393,6 +421,31 @@ export function brandList(opts?: BrandStoreOptions): { brands: Array<Pick<BrandP
 function readdirSafe(dir: string): string[] {
   try {
     return readdirSync(dir).filter((n) => existsSync(join(dir, n, 'profile.json')))
+  } catch {
+    return []
+  }
+}
+
+/** 品牌档案根目录（doctor / 编辑器用）。 */
+export function brandsRootPath(opts?: BrandStoreOptions): string {
+  return brandsDir(opts)
+}
+
+/** 读取一个品牌档案（doctor / 编辑器用）。 */
+export function readBrandProfile(name: string, opts?: BrandStoreOptions): BrandProfile {
+  return readProfile(name, opts)
+}
+
+/** 品牌档案在磁盘上的三个位置（报错时指路用）。 */
+export function brandPaths(name: string, opts?: BrandStoreOptions): { dir: string; profile: string; doc: string } {
+  return { dir: brandDir(name, opts), profile: profilePath(name, opts), doc: docPath(name, opts) }
+}
+
+/** 品牌目录列表（含没有 profile.json 的目录，doctor 要能报出它们）。 */
+export function brandDirNames(opts?: BrandStoreOptions): string[] {
+  const dir = brandsDir(opts)
+  try {
+    return readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
   } catch {
     return []
   }
@@ -442,20 +495,11 @@ export function brandLearn(name: string, note: string, opts?: BrandStoreOptions)
   profile.learnings.push({ date: new Date().toISOString().slice(0, 10), note: trimmed })
   profile.updatedAt = new Date().toISOString()
   writeProfile(profile, opts)
-  // 同步进 brand.md 的迭代记录节（存在则追加，否则重建整个文档）
+  // 迭代记录是自动段：整体按 profile 重算，不再靠正则往标题下塞一行
+  // （旧实现遇到「迭代记录」标题被人改过、或标题下已有内容时会插错位置）。
   const file = docPath(name, opts)
-  if (existsSync(file)) {
-    let doc = readFileSync(file, 'utf8')
-    const line = `- ${profile.learnings[profile.learnings.length - 1]!.date}：${trimmed}`
-    if (/^## 迭代记录$/m.test(doc)) {
-      doc = doc.replace(/^## 迭代记录$/m, `## 迭代记录\n\n${line}`)
-    } else {
-      doc = doc.trimEnd() + `\n\n## 迭代记录\n\n${line}\n`
-    }
-    writeFileSync(file, doc, 'utf8')
-    return { profile, doc }
-  }
-  const doc = renderBrandDoc(profile)
+  const base = existsSync(file) ? readFileSync(file, 'utf8') : renderBrandDoc(profile)
+  const { doc } = syncBrandDoc(base, profile)
   mkdirSync(brandDir(name, opts), { recursive: true })
   writeFileSync(file, doc, 'utf8')
   return { profile, doc }

@@ -485,7 +485,7 @@
   .tb-btn.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line)}
   .tb-btn b,.tb-btn i,.tb-btn s,.tb-btn span{font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
   .tb-btn svg{display:block;margin:auto}
-  /* 上标/下标：.tb-btn 是 flex 容器，sup/sub 会被 blockify 吃掉 vertical-align（见 AGENTS.md §4.6），
+  /* 上标/下标：.tb-btn 是 flex 容器，sup/sub 会被 blockify 吃掉 vertical-align（见 docs/DESIGN.md §22.6），
      所以标记里包了一层 span 还原行内上下文；但 sup/sub 默认还会把行盒撑高，
      导致「x²」与「x₂」的 x 不在同一水平线（实测差 2.83px）。
      line-height:0 让它们不参与行盒高度计算，两份标签的 x 基线就对齐了（实测 0px）。 */
@@ -690,6 +690,7 @@
       <button id="navImgHost"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 19a4 4 0 0 1-.6-7.9 6 6 0 0 1 11.4-1.5A4.5 4.5 0 0 1 18 19z"/><path d="M12 12v6M9 15l3 3 3-3"/></svg>图床设置</button>
       <button id="navAi"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/><path d="M5 15l.7 1.8 1.8.7-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>AI 优化</button>
       <button id="navComp"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><path d="M17 13v8M13 17h8"/></svg>组件库</button>
+      <button id="navBrand"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>品牌档案</button>
       <button id="navKeys"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M19 11h.01M7 15h4M14 15h3"/></svg>快捷键设置</button>
     </div>
     <button class="new-btn" id="newBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>新建文章</button>
@@ -817,7 +818,7 @@
           <button class="tb-btn" data-a="video" title="插入视频占位块（真视频需发布后在公众号编辑器插入）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg></button>
           <button class="tb-btn" data-a="table" title="表格"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/></svg></button>
           <!-- Mermaid 图：下拉里是十种图型的模板，选一个插入 :::mermaid 源码块。
-               渲染在服务端出图（见 AGENTS.md §20.11），读者端拿到的是图片，微信稳定可显。 -->
+               渲染在服务端出图（见 docs/DESIGN.md §24），读者端拿到的是图片，微信稳定可显。 -->
           <button class="tb-btn tm-trigger" data-a="mermaid" title="插入 Mermaid 图（流程图 / 时序图 / 饼图等，发布时渲染为图片）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/><path d="m15 12 3 3 3-3"/></svg></button>
           <button class="tb-btn" data-a="hr" title="分隔线"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 12h16"/></svg></button>
           <button class="tb-btn tm-trigger" data-a="callout" title="警告框"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg></button>
@@ -934,6 +935,35 @@
   </div>
 </div>
 
+<div class="overlay" id="brandOverlay">
+  <div class="modal comp-modal">
+    <div class="modal-head"><div><b>品牌档案</b><span class="sub" id="brCount"></span></div><button class="modal-close" data-close-br aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="modal-body comp-body">
+      <aside class="comp-side">
+        <input class="comp-search" id="brSearch" placeholder="搜索品牌…" />
+        <div class="comp-list" id="brList"></div>
+      </aside>
+      <section class="comp-detail">
+        <div class="comp-head">
+          <div class="comp-name" id="brName">选择一个品牌</div>
+          <div class="comp-desc" id="brDesc">左侧列表可以搜索、点击查看品牌宪法</div>
+          <div class="comp-slots" id="brMeta"></div>
+          <div class="comp-actions">
+            <button class="btn ink" id="brApply" disabled>应用品牌</button>
+            <button class="btn" id="brExport" disabled>导出 .brand</button>
+            <button class="btn" id="brImport">导入 .brand…</button>
+            <button class="btn ghost" id="brCopyTheme" disabled>复制主题 JSON</button>
+          </div>
+          <input type="file" id="brFile" accept=".brand,.stylewx,.zip" style="display:none" />
+          <div class="comp-notes" id="brNotes" style="display:none"></div>
+        </div>
+        <div class="comp-preview-wrap"><div class="comp-empty" id="brEmpty">正在加载…</div><iframe class="comp-preview theme-prev" id="brPreview" style="display:none" sandbox="allow-same-origin"></iframe></div>
+        <details class="comp-src"><summary>品牌宪法（brand.md）</summary><pre id="brDoc"></pre></details>
+      </section>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="impOverlay">
   <div class="modal">
     <div class="modal-head"><div><b>导入 HTML</b><span class="sub">带组件标记的 HTML 可精确还原成 ::: 指令</span></div><button class="modal-close" data-close-imp aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
@@ -1043,7 +1073,7 @@ function busy(btn, waiting){
 
 // ---- 通用：模态框打开/关闭 + 焦点记忆 + Esc 退出 + Tab 焦点圈定 ----
 let _lastFocus=null;
-const MODALS=['#imgHostOverlay','#aiOverlay','#keyOverlay','#impOverlay','#compOverlay','#themeOverlay','#saveAsOverlay'];
+const MODALS=['#imgHostOverlay','#aiOverlay','#keyOverlay','#impOverlay','#compOverlay','#themeOverlay','#brandOverlay','#saveAsOverlay'];
 function openModal(id, focusSel){
   const o=$(id); if(!o) return; _lastFocus=document.activeElement; o.classList.add('show');
   const el=o.querySelector(focusSel||'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])');
@@ -1602,7 +1632,7 @@ const CALLOUT_OPTS=[
   {label:'注意内容', action:()=>insertCallout('note','注意内容')} ];
 
 // Mermaid 图模板：与用户在其它工具里的图型菜单一一对应。
-// 插入的是 :::mermaid 源码块（服务端渲染成图片后发布，见 docs/DESIGN.md §20.11）；
+// 插入的是 :::mermaid 源码块（服务端渲染成图片后发布，见 docs/DESIGN.md §24）；
 // 光标停在第一处可编辑内容，写完源码预览处会自动出图。
 const MERMAID_BLOCK=(body, caret)=>insertBlock(':::mermaid{caption="图注（可删）"}\n'+body+'\n:::', caret);
 const MERMAID_OPTS=[
@@ -2120,6 +2150,162 @@ $('#thCopyName').onclick=async()=>{
 document.querySelectorAll('[data-close-th]').forEach(b=>b.onclick=()=>closeModal('#themeOverlay'));
 $('#themeOverlay').addEventListener('click',e=>{ if(e.target.id==='themeOverlay') closeModal('#themeOverlay'); });
 
+// ---- 品牌档案面板 ----
+// 为什么需要它：编辑器一直只认识「主题」与「组件」，看不到也应用不了「品牌」这个**整体**
+// （voice / taboos / 迭代记录 / 头图规范）。结果品牌只存在于 agent 的上下文里，
+// 人在编辑器里能选到「hippie-youth 主题」和 hip-head-a 组件，却拼不出那个品牌。
+// 这一版只做**只读**：列出 / 看宪法 / 应用。导入导出是下一期。
+let brBrands=[]; let brCurrent=null; let brSeq=0;
+// 「当前生效的品牌名」—— 发布时封面若是品牌包内相对路径（assets/cover.png），
+// 相对路径需要一个解析基准，就是它。应用品牌、或选择品牌主题时更新。
+let activeBrand='';
+function brRenderList(filter){
+  const kw=(filter||'').trim().toLowerCase();
+  const hit=(b)=>!kw || b.name.toLowerCase().includes(kw) || (b.displayName||'').toLowerCase().includes(kw) || (b.description||'').toLowerCase().includes(kw);
+  const list=brBrands.filter(hit);
+  $('#brList').innerHTML=list.length
+    ? list.map(b=>'<button class="comp-item'+(brCurrent&&brCurrent.name===b.name?' on':'')+'" data-name="'+esc(b.name)+'" title="'+esc(b.description||'')+'">'
+        +esc(b.name)+(b.displayName?'<span class="sub">'+esc(b.displayName)+'</span>':'')
+        +'<span class="sub">'+esc((b.description||'').slice(0,64))+'</span></button>').join('')
+    : '<div class="comp-empty">'+(brBrands.length?'没有匹配的品牌':'还没有品牌档案（让 agent 访谈建档后保存）')+'</div>';
+}
+async function brSelect(name){
+  const b=brBrands.find(x=>x.name===name); if(!b) return;
+  brCurrent=b;
+  $('#brName').textContent=(b.displayName||b.name)+' · '+b.name;
+  $('#brDesc').textContent=b.description||'';
+  const parts=[];
+  parts.push('主题 <code>'+esc(b.theme.name)+'</code>');
+  if(b.headerComponent) parts.push('头图 <code>'+esc(b.headerComponent)+'</code>');
+  parts.push('组件 '+b.components.length);
+  parts.push('迭代 '+b.learningCount+' 条');
+  $('#brMeta').innerHTML=parts.join(' · ');
+  $('#brDoc').textContent=b.doc||'（没有 brand.md）';
+  $('#brApply').disabled=false; $('#brCopyTheme').disabled=false; $('#brExport').disabled=false;
+  brRenderList($('#brSearch').value);
+  // 预览：用品牌主题渲染当前文章（没写就抽一段统一示例）。
+  // 渲染放服务端（与主题预览同一路径），不在 iframe 里跑脚本 —— 编辑器页面没有内联脚本通道。
+  const seq=++brSeq;
+  const md=$('#md').value.trim()||BR_SAMPLE;
+  const f=$('#brPreview'); f.style.display='none';
+  $('#brEmpty').style.display=''; $('#brEmpty').textContent='正在渲染…';
+  try{
+    const d=await api('/editor/api/render',{markdown:md,theme:b.theme});
+    if(seq!==brSeq) return;   // 期间又点了别的品牌，丢弃这次结果
+    f.srcdoc='<html><head><meta charset="utf-8"></head><body style="margin:0;padding:26px 30px;background:#fff;font-size:15px;line-height:1.7">'+(d.html||'')+'</body></html>';
+    f.style.display='';
+    $('#brEmpty').style.display='none';
+  }catch(e){
+    if(seq!==brSeq) return;
+    $('#brEmpty').textContent='渲染失败：'+e.message;
+  }
+}
+const BR_SAMPLE='# 品牌预览\n\n用这一段文字预览这个品牌的排版：字体、行距、颜色与标题层级。\n\n## 一、小节标题\n\n正文段落。**加粗**、*强调*、==高亮==、`行内代码`。\n\n> 引用一段话。\n\n:::section-title{index="02" title="小节" subtitle="SECTION" align="left"}\n:::\n';
+async function openBrandPanel(){
+  openModal('#brandOverlay','#brSearch');
+  $('#brEmpty').style.display=''; $('#brEmpty').textContent='正在加载…';
+  $('#brPreview').style.display='none';
+  $('#brList').innerHTML='';
+  $('#brApply').disabled=true; $('#brCopyTheme').disabled=true; $('#brExport').disabled=true;
+  try{
+    const d=await api('/editor/api/brands');
+    brBrands=d.brands||[];
+    $('#brCount').textContent='共 '+brBrands.length+' 个品牌';
+    brRenderList('');
+    if(brBrands[0]) brSelect(brBrands[0].name);
+    else $('#brEmpty').textContent='还没有品牌档案';
+  }catch(e){ $('#brEmpty').textContent='加载失败：'+e.message; }
+}
+$('#navBrand').onclick=()=>{ nav('navBrand'); openBrandPanel(); };
+$('#brSearch').addEventListener('input',e=>brRenderList(e.target.value));
+$('#brList').addEventListener('click',e=>{
+  const b=e.target.closest('.comp-item'); if(!b) return;
+  brSelect(b.dataset.name);
+});
+$('#brApply').onclick=async()=>{
+  if(!brCurrent) return;
+  busy($('#brApply'),true);
+  try{
+    // 应用 = 把品牌主题写进当前编辑会话（与主题下拉选中的效果一致），
+    // 并同步品牌组件进组件库 —— 后者在服务端做（/editor/api/brands/apply 复用 brand_apply）。
+    const d=await api('/editor/api/brands/apply',{name:brCurrent.name});
+    // brand_apply 已经把主题写进 themes.json，所以重新拉一次主题列表即可，
+    // 不要在这里另拼一份 select 选项 —— 两份来源必然会对不上。
+    await loadThemes();
+    themeOverrides={};
+    activeBrand=d.name||brCurrent.name;
+    // 品牌配了封面（可能是包内相对路径 assets/cover.png）就填进封面框 ——
+    // 发布时连同 activeBrand 一起传给服务端，相对路径才解析得开。
+    if(d.coverImage && !coverFile){ $('#cover').value=d.coverImage; paintCoverState(); }
+    $('#themeSel').value=d.theme.name;
+    $('#themeSel').dispatchEvent(new Event('change'));
+    closeModal('#brandOverlay');
+    toast('已应用品牌：'+(d.displayName||d.name)+(d.headerComponent?'（头图 :::'+d.headerComponent+'）':''));
+  }catch(e){ toast('应用失败：'+e.message,false); }
+  finally{ busy($('#brApply'),false); }
+};
+$('#brCopyTheme').onclick=async()=>{
+  if(!brCurrent) return;
+  try{ await navigator.clipboard.writeText(JSON.stringify(brCurrent.theme,null,2)); toast('已复制品牌主题 JSON'); }
+  catch(e){ toast('复制失败：'+e.message,false); }
+};
+// 导出：服务端打成 .brand（zip）后下载。用 fetch+blob 而不是 <a download> 直链 ——
+// 导出要带参数（brand 名 / 版本），直链做不到。
+$('#brExport').onclick=async()=>{
+  if(!brCurrent) return;
+  busy($('#brExport'),true);
+  try{
+    const d=await api('/editor/api/brands/export',{name:brCurrent.name});
+    const bin=atob(d.data); const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'}));
+    const a=document.createElement('a'); a.href=url; a.download=d.fileName; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast('已导出 '+d.fileName+'（'+Math.round(d.bytes/1024)+'KB）');
+  }catch(e){ toast('导出失败：'+e.message+(e.hint?'（'+e.hint+'）':''),false); }
+  finally{ busy($('#brExport'),false); }
+};
+// 导入：选文件 → 先校验（dry-run）→ 确认后安装。先校验再装，是因为装之前要让人看到风险
+// （sha256 不对、远程 URL、组件将要改名…）。
+$('#brImport').onclick=()=>{ $('#brFile').value=''; $('#brFile').click(); };
+$('#brFile').addEventListener('change',async e=>{
+  const file=e.target.files && e.target.files[0]; if(!file) return;
+  busy($('#brImport'),true);
+  const notes=$('#brNotes'); notes.style.display=''; notes.textContent='正在校验…';
+  try{
+    const buf=await file.arrayBuffer();
+    let bin=''; const bytes=new Uint8Array(buf);
+    for(let i=0;i<bytes.length;i+=0x8000) bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));
+    const b64=btoa(bin);
+    const check=await api('/editor/api/brands/validate',{data:b64,fileName:file.name});
+    if(!check.ok){
+      notes.textContent='✗ 这个包不能用：\n'+check.issues.join('\n');
+      toast('品牌包校验未通过',false); return;
+    }
+    const lines=['合法：'+check.manifest.name+' '+check.manifest.version+'（engine '+check.manifest.engine+'）'];
+    for(const w of check.warnings||[]) lines.push('! '+w);
+    lines.push('') ; lines.push('正在安装…');
+    notes.textContent=lines.join('\n');
+    const r=await api('/editor/api/brands/import',{data:b64,fileName:file.name});
+    const out=[(r.upgraded?'已升级':'已安装')+'：'+r.name+(r.displayName?'（'+r.displayName+'）':'')];
+    if(Object.keys(r.renamedFrom||{}).length){
+      out.push('组件撞名已改名（新名 → 原名）：');
+      for(const [n,o] of Object.entries(r.renamedFrom)) out.push('  '+n+' → '+o);
+    }
+    for(const w of r.warnings||[]) out.push('! '+w);
+    notes.textContent=out.join('\n');
+    toast('已安装品牌：'+r.name);
+    // 刷新列表并选中新装的那个
+    const d=await api('/editor/api/brands'); brBrands=d.brands||[]; $('#brCount').textContent='共 '+brBrands.length+' 个品牌';
+    brRenderList(''); await brSelect(r.name);
+  }catch(err){
+    notes.textContent='✗ 导入失败：'+err.message+(err.hint?'\n→ '+err.hint:'');
+    toast('导入失败：'+err.message,false);
+  }finally{ busy($('#brImport'),false); }
+});
+document.querySelectorAll('[data-close-br]').forEach(b=>b.onclick=()=>closeModal('#brandOverlay'));
+$('#brandOverlay').addEventListener('click',e=>{ if(e.target.id==='brandOverlay') closeModal('#brandOverlay'); });
+
 // 主题切换后，组件库预览跟随刷新（下次打开即为当前主题）
 
 // ---- 通过 ?file= 打开项目里的 Markdown（save_article 交接入口）----
@@ -2368,7 +2554,7 @@ async function copyRich(html,msg){
   }catch(e){ toast('复制失败（浏览器限制）：'+e.message,false); }
 }
 $('#copyWxBtn').onclick=()=> lastHtml?copyRich(lastHtml,'已复制富文本，去公众号编辑器粘贴'):toast('请先渲染',false);
-$('#pubBtn').onclick=async()=>{ const title=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名'); busy($('#pubBtn'),true); toast('正在发布草稿箱…'); try{ const cover=$('#cover').value.trim(); const d=await api('/editor/api/publish',{markdown:$('#md').value,title,theme:currentTheme(),relocate:$('#relocateOpt').checked,coverImage:cover||undefined,coverData:coverFile?coverFile.data:undefined,coverMime:coverFile?coverFile.mime:undefined}); toast('已发布 media_id='+(d.media_id||'').slice(0,20)+'…'); const cs=coverFile?'本地上传':(cover?'自定义URL':(d.coverMediaId?'自动':'')); setVal([{kind:'ok',text:'✅ 已发布草稿 media_id='+d.media_id+(cs?'（封面：'+cs+'）':'')}]); saveSnap(); }catch(e){ toast('发布失败：'+e.message,false); } finally{ busy($('#pubBtn'),false); } };
+$('#pubBtn').onclick=async()=>{ const title=$('#title').value||((($('#md').value.match(/^#\s+(.+)$/m)||[])[1])||'未命名'); busy($('#pubBtn'),true); toast('正在发布草稿箱…'); try{ const cover=$('#cover').value.trim(); const d=await api('/editor/api/publish',{markdown:$('#md').value,title,theme:currentTheme(),relocate:$('#relocateOpt').checked,coverImage:cover||undefined,coverData:coverFile?coverFile.data:undefined,coverMime:coverFile?coverFile.mime:undefined,brand:activeBrand||undefined}); toast('已发布 media_id='+(d.media_id||'').slice(0,20)+'…'); const cs=coverFile?'本地上传':(cover?'自定义URL':(d.coverMediaId?'自动':'')); setVal([{kind:'ok',text:'✅ 已发布草稿 media_id='+d.media_id+(cs?'（封面：'+cs+'）':'')}]); saveSnap(); }catch(e){ toast('发布失败：'+e.message,false); } finally{ busy($('#pubBtn'),false); } };
 
 // ---- 侧栏导航 / 设置 / AI 优化 ----
 function nav(id){ document.querySelectorAll('.subnav button').forEach(b=>b.classList.remove('active')); var b=document.getElementById(id); if(b)b.classList.add('active'); }

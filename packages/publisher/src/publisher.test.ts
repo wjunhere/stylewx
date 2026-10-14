@@ -210,6 +210,30 @@ describe('publishDraft', () => {
     expect(calls.some((c) => c.url.includes('/cgi-bin/material/add_material'))).toBe(true)
   })
 
+  it('非 http 封面走 resolveLocal，不做 HTTP 请求（品牌包内相对路径）', async () => {
+    const { client, calls } = makeClient()
+    const r = await publishDraft(client, {
+      title: 'x',
+      content: '<p>a</p>',
+      coverImage: 'assets/cover.png',
+      resolveLocal: (src) =>
+        src === 'assets/cover.png'
+          ? { bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]), mimeType: 'image/png' }
+          : undefined,
+    })
+    expect(r.media_id).toBe('draft_abcdef')
+    // 关键断言：封面字节没有经过下载路径（相对路径 HTTP 必失败）
+    expect(calls.some((c) => String(c.url).includes('cover.png'))).toBe(false)
+    expect(calls.some((c) => c.url.includes('/cgi-bin/material/add_material'))).toBe(true)
+  })
+
+  it('品牌包内路径但没有解析基准 → 明确报错（不静默、不误报成网络问题）', async () => {
+    const { client } = makeClient()
+    await expect(
+      publishDraft(client, { title: 'x', content: '<p>a</p>', coverImage: 'assets/cover.png' }),
+    ).rejects.toThrow(/解析基准/)
+  })
+
   it('安全边界：不暴露任何 freepublish/submit 能力', () => {
     const client = new WeChatClient({
       appId: 'a', appSecret: 's', baseUrl: 'https://api.weixin.qq.com', fetchImpl: makeMockFetch().fetchMock,

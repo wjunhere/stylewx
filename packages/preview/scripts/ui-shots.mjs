@@ -152,6 +152,13 @@ await shot('14-modal-theme-library')
 await page.keyboard.press('Escape')
 await page.waitForTimeout(300)
 
+// 品牌面板：改动它时这一面要能拍到，否则「品牌档案」页坏了没人知道
+await page.locator('#navBrand').click()
+await page.waitForTimeout(3200)
+await shot('14b-modal-brands')
+await page.keyboard.press('Escape')
+await page.waitForTimeout(300)
+
 console.log('空态与窄屏')
 await page.fill('#md', '')
 await page.waitForTimeout(900)

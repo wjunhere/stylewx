@@ -217,7 +217,9 @@ if (result) {
   }
 
   // 工具能列出来（不锁总数：工具会随版本增加，锁总数只会让闸门变噪音）
-  const REQUIRED = ['list_themes', 'analyze_article', 'render_preview', 'validate_article', 'publish_draft']
+  // brand_doctor 单独列进来：它是闸门类工具，产物里少了它，「品牌一致性可检查」这个承诺就没了
+  // （而且它是 CLI `stylewx brand doctor` 的同一实现，缺了 CLI 也会断）。
+  const REQUIRED = ['list_themes', 'analyze_article', 'render_preview', 'validate_article', 'publish_draft', 'brand_doctor', 'brand_apply']
   const missing = REQUIRED.filter((n) => !result.tools?.includes(n))
   missing.length === 0
     ? pass(`核心工具齐全（共 ${result.tools.length} 个）`)
@@ -255,6 +257,61 @@ if (existsSync(editorPath)) {
     : fail(`实底蓝按钮应仅为 pubBtn，实际：${primaryIds.join(', ') || '无'}`)
 } else {
   fail('editor.html 不在产物里（/editor 会起不来）');
+}
+
+/* ── 6. CLI 可执行 ───────────────────────────────────────────────────── */
+// 为什么单独跑一道：verify-pack 只检查 `dist/cli.js` **在不在**，从没真跑过它。
+// 实测撞到过：手工 `npm install` 单个 tarball 时解析到了 registry 上的旧 service，
+// CLI 一跑就 `does not provide an export named 'attachBrandAssets'` —— 而当时所有闸门全绿。
+// 单测跑的是 TS 源码，产物里这份 dist/cli.js 只有真跑才算验过（铁律④）。
+console.log('\nCLI 产物')
+const cliPath = join(pkgRoot, 'dist/cli.js')
+if (!existsSync(cliPath)) {
+  fail('dist/cli.js 不在产物里（`stylewx` 命令会 404）')
+} else {
+  /** 跑 CLI，返回 { code, stdout, stderr }。 */
+  const runCli = (argv) => {
+    try {
+      const stdout = execFileSync(process.execPath, [cliPath, ...argv], {
+        encoding: 'utf8',
+        cwd: pkgRoot,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { code: 0, stdout, stderr: '' }
+    } catch (error) {
+      return { code: error.status ?? -1, stdout: error.stdout ?? '', stderr: error.stderr ?? '' }
+    }
+  }
+
+  // 1) `brand doctor --json` 是本包的闸门命令，必须跑得起来
+  const doctor = runCli(['brand', 'doctor', '--json'])
+  let doctorOk = null
+  try {
+    doctorOk = JSON.parse(doctor.stdout).ok
+  } catch {
+    doctorOk = null
+  }
+  if (doctorOk === null) {
+    fail(`\`stylewx brand doctor --json\` 没吐出可解析的 JSON（退出码 ${doctor.code}）：${(doctor.stdout + doctor.stderr).slice(0, 300)}`)
+  } else if (doctor.code !== (doctorOk ? 0 : 1)) {
+    // 退出码是闸门的意义所在：CI 靠它拦发布，对不上就等于闸门失效
+    fail(`brand doctor 退出码 ${doctor.code} 与报告 ok=${doctorOk} 不一致`)
+  } else {
+    pass(`\`stylewx brand doctor\` 可跑且退出码正确（${doctor.code}）`)
+  }
+
+  // 2) 纯本地子命令（不依赖品牌档案存在）
+  const list = runCli(['brand', 'list', '--json'])
+  if (list.code !== 0 || !Array.isArray(JSON.parse(list.stdout || 'null')?.brands)) {
+    fail(`\`stylewx brand list --json\` 失败（退出码 ${list.code}）：${(list.stdout + list.stderr).slice(0, 200)}`)
+  } else {
+    pass('`stylewx brand list` 可跑')
+  }
+
+  // 3) 用法问题的退出码是 2（写脚本的人靠它区分「用法错」与「执行失败」）
+  const noArgs = runCli([])
+  if (noArgs.code === 2) pass('无参数时以 2 退出（用法问题）')
+  else fail(`无参数应退出码 2，实际 ${noArgs.code}`)
 }
 
 /* ── 收尾 ────────────────────────────────────────────────────────────── */

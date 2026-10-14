@@ -56,7 +56,8 @@ jobs:
 
       - name: Brand system check
         # 纯 Node 脚本，不需要 Playwright：核对 editor.html 的令牌/按钮层级/自包含，
-        # 以及 21 项对比度。品牌色被误改时在这里就能拦住。
+        # 以及 21 项对比度，再加品牌三方一致性（真源 ↔ themes.json/components.json 副本 ↔ brand.md 自动段）。
+        # 品牌色被误改时在这里就能拦住；CI 机器上没有品牌档案，doctor 会直接跳过。
         run: pnpm brand:check
 
       - name: Smoke test (stdio MCP server)

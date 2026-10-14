@@ -7,8 +7,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
-import { readFileSync, statSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { basename, resolve, dirname, join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { createMcpServer } from './server.js'
 import {
@@ -32,25 +33,24 @@ import {
   withPlaceholderImages,
   saveImageAsset,
   readImageAssetByUrl,
+  resolveLocalImage,
   renderThemePreviews,
   parseFrontMatter,
   saveArticle,
   listDir,
   makeDir,
+  brandList,
+  brandOverview,
+  brandApply,
+  attachBrandAssets,
+  installBrand,
+  packBrand,
+  validateBundle,
 } from '@stylewx/service'
 import { renderCoverPng, prepareImage } from '@stylewx/preview'
 import { loadConfigFromEnv, WeChatClient, publishDraft as publisherPublishDraft } from '@stylewx/publisher'
 import { htmlToMarkdown, buildPalette } from '@stylewx/components'
 import type { ToolDeps } from './tools.js'
-
-/** 本地路径 → MIME（只收真图片，别的扩展名一律不读）。 */
-const EXT_IMAGE_MIME: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.gif': 'image/gif',
-}
 
 interface CliOptions {
   transport: 'stdio' | 'http'
@@ -202,6 +202,113 @@ async function handleEditorApi(
         return sendJson(res, { components })
       } catch (error) {
         return sendErr(res, { code: 'list_failed', message: `读取组件库失败：${String(error)}`, hint: '请检查 ~/.stylewx/components.json 是否可读。' })
+      }
+    }
+
+    // 品牌档案（编辑器「品牌档案」面板）：
+    //   GET  /editor/api/brands            → 品牌总览（含 brand.md 原文）
+    //   POST /editor/api/brands/apply      → 把品牌的完整主题返回给编辑器（不写盘）
+    // 品牌的写操作（导入/导出）走 P1/P2，这里只做「看到 / 应用 / 预览」。
+    if (path === '/editor/api/brands' && req.method === 'GET') {
+      try {
+        return sendJson(res, brandOverview())
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
+    }
+    if (path === '/editor/api/brands/apply' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      const name = typeof b.name === 'string' ? b.name.trim() : ''
+      if (!name) {
+        return sendErr(res, { code: 'missing_name', message: '缺少品牌名 name。', hint: '请提供要应用的品牌档案 ID。' })
+      }
+      try {
+        const applied = brandApply(name)
+        // 注意：brandApply 会把品牌组件同步进全局组件库 —— 这是「正文里 :::组件名 能渲染」的前提，
+        // 与 MCP 的 brand_apply 行为一致（同一个 service 实现，不另写逻辑）。
+        return sendJson(res, {
+          name: applied.profile.name,
+          displayName: applied.profile.displayName,
+          theme: applied.theme,
+          doc: applied.doc,
+          components: applied.syncedComponents,
+          headerComponent: applied.profile.headerComponent,
+          // 封面可能是品牌包内相对路径（assets/cover.png）—— 回给编辑器，
+          // 发布时原样传回 + 带 brand 作解析基准（见 editor.html 的 activeBrand）。
+          coverImage: applied.profile.coverImage,
+          logo: applied.profile.logo,
+        })
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
+    }
+
+    // 导出：打成 .brand 返回 base64（浏览器自己存盘 —— 服务端不写用户的下载目录）
+    if (path === '/editor/api/brands/export' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      const name = typeof b.name === 'string' ? b.name.trim() : ''
+      if (!name) {
+        return sendErr(res, { code: 'missing_name', message: '缺少品牌名 name。', hint: '请提供要导出的品牌档案 ID。' })
+      }
+      try {
+        // 包的落盘位置由服务端定（临时目录），字节直接回给浏览器下载
+        const tmpDir = mkdtempSync(join(tmpdir(), 'stylewx-brand-export-'))
+        const packed = packBrand(name, {
+          out: tmpDir,
+          version: typeof b.version === 'string' ? b.version : undefined,
+          withSource: b.withSource === true,
+        })
+        const bytes = readFileSync(packed.path)
+        rmSync(tmpDir, { recursive: true, force: true })
+        return sendJson(res, {
+          fileName: basename(packed.path),
+          bytes: bytes.length,
+          data: bytes.toString('base64'),
+          manifest: packed.manifest,
+        })
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      }
+    }
+
+    // 校验/导入：收浏览器传来的 base64 zip（浏览器选的文件在硬盘上，服务端看不到路径）
+    if ((path === '/editor/api/brands/validate' || path === '/editor/api/brands/import') && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      const data = typeof b.data === 'string' ? b.data : ''
+      const fileName = typeof b.fileName === 'string' && b.fileName.trim() ? b.fileName.trim() : 'brand.brand'
+      if (!data) {
+        return sendErr(res, { code: 'missing_content', message: '缺少包内容。', hint: '请通过选择 .brand 文件导入。' })
+      }
+      // 落到临时文件再走 service（service 只收路径；也顺便让 pack/install 两条路径完全一致）
+      const tmpDir = mkdtempSync(join(tmpdir(), 'stylewx-brand-import-'))
+      const tmpFile = join(tmpDir, basename(fileName).replace(/[^A-Za-z0-9._-]/g, '_'))
+      try {
+        writeFileSync(tmpFile, Buffer.from(data, 'base64'))
+        if (path.endsWith('/validate')) return sendJson(res, validateBundle(tmpFile))
+        const result = installBrand(tmpFile, {
+          as: typeof b.as === 'string' && b.as.trim() ? b.as.trim() : undefined,
+          forceNew: b.forceNew === true,
+        })
+        return sendJson(res, result, 201)
+      } catch (error) {
+        return respondErrorOrSend(res, error)
+      } finally {
+        rmSync(tmpDir, { recursive: true, force: true })
+      }
+    }
+
+    // 挂资产：把本机目录里的身份位图落进品牌目录（打包前的必经一步）
+    if (path === '/editor/api/brands/attach-assets' && req.method === 'POST') {
+      const b = await readJsonBody(req)
+      const name = typeof b.name === 'string' ? b.name.trim() : ''
+      const from = typeof b.from === 'string' ? b.from.trim() : ''
+      if (!name || !from) {
+        return sendErr(res, { code: 'missing_param', message: '缺少 name 或 from。', hint: '用法：{ name, from }，from 是放着 logo-a.png / cover.png 的目录。' })
+      }
+      try {
+        return sendJson(res, attachBrandAssets(name, from))
+      } catch (error) {
+        return respondErrorOrSend(res, error)
       }
     }
 
@@ -365,30 +472,10 @@ async function handleEditorApi(
           const palette = buildPalette(theme.tokens)
           return { top: palette.primaryStrong, bottom: palette.primarySoft }
         })(),
-        // 正文里的本地图片：本服务的资产 URL 直接回读；绝对路径允许读（微信素材库本来就是自己的，
-        // 且只读图片字节），相对路径没有基准、明确不支持。其余交给默认 HTTP 下载。
-        resolveLocal: (src: string) => {
-          const fromStore = readImageAssetByUrl(src)
-          if (fromStore) return fromStore
-          let p = ''
-          if (src.startsWith('file://')) {
-            try { p = fileURLToPath(src) } catch { return undefined }
-          } else if (/^[a-zA-Z]:[\\/]/.test(src) || src.startsWith('/')) {
-            p = src
-          } else {
-            return undefined
-          }
-          const ext = p.slice(p.lastIndexOf('.')).toLowerCase()
-          const mime = EXT_IMAGE_MIME[ext]
-          if (!mime) return undefined
-          try {
-            const bytes = readFileSync(p)
-            if (bytes.length === 0 || bytes.length > 20 * 1024 * 1024) return undefined
-            return { bytes: new Uint8Array(bytes), mimeType: mime }
-          } catch {
-            return undefined
-          }
-        },
+        // 正文里的本地图片：本服务的资产 URL、file://、绝对路径、品牌包内相对路径。
+        // 解析逻辑统一在 @stylewx/service（resolveLocalImage）—— 在这里再写一份必漂。
+        // 相对路径以 `brand` 为基准（编辑器应用品牌时会带上，见 editor.html 的 activeBrand）。
+        resolveLocal: (src: string) => resolveLocalImage(src, typeof b.brand === 'string' && b.brand ? { brand: b.brand } : undefined),
       })
       return sendJson(res, { media_id: result.media_id, uploadedImages: result.uploadedImages, coverMediaId: result.coverMediaId })
     }

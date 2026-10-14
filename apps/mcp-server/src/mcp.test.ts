@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client'
@@ -54,11 +54,16 @@ describe('stylewx MCP Server (in-memory)', () => {
     expect(names).toEqual([
       'analyze_article',
       'brand_apply',
+      'brand_attach_assets',
       'brand_delete',
+      'brand_doctor',
+      'brand_export',
+      'brand_import',
       'brand_interview',
       'brand_learn',
       'brand_list',
       'brand_save',
+      'brand_validate',
       'delete_component',
       'export_theme',
       'generate_theme',
@@ -152,6 +157,165 @@ describe('stylewx MCP Server (in-memory)', () => {
     if (prevThemesPath === undefined) delete process.env.STYLEWX_THEMES_PATH
     else process.env.STYLEWX_THEMES_PATH = prevThemesPath
     rmSync(brandDir, { recursive: true, force: true })
+  })
+
+  it('brand_doctor 报出人为制造的漂移，并能 --fix 修好', async () => {
+    // 环境变量隔离（不是 options）：brandSave / brandApply 内部的组件校验路径不接受组件库选项，
+    // 传 options 会漏到真实 ~/.stylewx。
+    const brandDir = join(mkdtempSync(join(tmpdir(), 'stylewx-doctor-')), 'brands')
+    const themesFile = join(mkdtempSync(join(tmpdir(), 'stylewx-doctor-themes-')), 'themes.json')
+    const componentsFile = join(mkdtempSync(join(tmpdir(), 'stylewx-doctor-comps-')), 'components.json')
+    const prev = {
+      brands: process.env.STYLEWX_BRANDS_PATH,
+      themes: process.env.STYLEWX_THEMES_PATH,
+      comps: process.env.STYLEWX_COMPONENTS_PATH,
+    }
+    process.env.STYLEWX_BRANDS_PATH = brandDir
+    process.env.STYLEWX_THEMES_PATH = themesFile
+    process.env.STYLEWX_COMPONENTS_PATH = componentsFile
+    try {
+      const { client } = await startClient()
+      const theme = {
+        name: 'drift-brand',
+        description: '测试品牌主题',
+        tokens: {
+          primaryColor: '#1D5C4A',
+          textColor: '#2A2A26',
+          fontSize: '15px',
+          lineHeight: 1.85,
+          fontFamily: 'Georgia, serif',
+          spacing: { block: '20px' },
+        },
+        blocks: {
+          h1: { 'font-size': '30px', color: '{{primaryColor}}', 'font-weight': 'bold' },
+          h2: { 'font-size': '22px', color: '{{primaryColor}}', 'font-weight': 'bold' },
+          p: { 'font-size': '15px', color: '{{textColor}}', 'line-height': '{{lineHeight}}' },
+        },
+      }
+      await client.callTool({
+        name: 'brand_save',
+        arguments: {
+          name: 'drift-brand',
+          description: '测试号，气质：干净',
+          rationale: '主色采自测试用的青苔绿，压低饱和度模拟油墨质感',
+          theme,
+        },
+      })
+      // 制造漂移：改坏 brand.md 里的自动段
+      const docPath = join(brandDir, 'drift-brand', 'brand.md')
+      writeFileSync(docPath, readFileSync(docPath, 'utf8').replace('`#1D5C4A`', '`#FF00FF`'), 'utf8')
+
+      const before = parseText((await client.callTool({ name: 'brand_doctor', arguments: {} }) as never))
+      expect(before.ok).toBe(false)
+      expect(before.issues.some((i: { kind: string }) => i.kind === 'doc_drift')).toBe(true)
+
+      const fixed = parseText((await client.callTool({ name: 'brand_doctor', arguments: { fix: true } }) as never))
+      expect(fixed.docsSynced).toContain('drift-brand')
+
+      const after = parseText((await client.callTool({ name: 'brand_doctor', arguments: {} }) as never))
+      expect(after.ok).toBe(true)
+      expect(readFileSync(docPath, 'utf8')).toContain('| 主色 primary | `#1D5C4A` |')
+    } finally {
+      for (const [key, value] of [
+        ['STYLEWX_BRANDS_PATH', prev.brands],
+        ['STYLEWX_THEMES_PATH', prev.themes],
+        ['STYLEWX_COMPONENTS_PATH', prev.comps],
+      ] as const) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+      rmSync(brandDir, { recursive: true, force: true })
+      rmSync(join(themesFile, '..'), { recursive: true, force: true })
+      rmSync(join(componentsFile, '..'), { recursive: true, force: true })
+    }
+  })
+
+  it('brand_export → brand_validate → brand_import 全链路（真 zip）', async () => {
+    // 源品牌库与目标品牌库分开，模拟「把包发给另一个人」
+    const srcRoot = mkdtempSync(join(tmpdir(), 'stylewx-export-src-'))
+    const dstRoot = mkdtempSync(join(tmpdir(), 'stylewx-export-dst-'))
+    const outDir = mkdtempSync(join(tmpdir(), 'stylewx-export-out-'))
+    const prev = {
+      brands: process.env.STYLEWX_BRANDS_PATH,
+      themes: process.env.STYLEWX_THEMES_PATH,
+      comps: process.env.STYLEWX_COMPONENTS_PATH,
+    }
+    const setEnv = (base: string): void => {
+      process.env.STYLEWX_BRANDS_PATH = join(base, 'brands')
+      process.env.STYLEWX_THEMES_PATH = join(base, 'themes.json')
+      process.env.STYLEWX_COMPONENTS_PATH = join(base, 'components.json')
+    }
+    try {
+      process.env.STYLEWX_BRANDS_PATH = join(srcRoot, 'brands')
+      process.env.STYLEWX_THEMES_PATH = join(srcRoot, 'themes.json')
+      process.env.STYLEWX_COMPONENTS_PATH = join(srcRoot, 'components.json')
+      const { client } = await startClient()
+
+      // 建一个带身份位图的品牌（资产必须落成文件，远程 URL 会被拒）
+      const { writeFileSync: write, mkdirSync: mkdir } = await import('node:fs')
+      const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c6300010000050001' + '0d0a2db40000000049454e44ae426082', 'hex')
+      const brandHome = join(srcRoot, 'brands', 'tide-notes')
+      mkdir(join(brandHome, 'assets'), { recursive: true })
+      write(join(brandHome, 'assets', 'logo-a.png'), png)
+      const theme = {
+        name: 'tide-notes',
+        description: '测试品牌主题',
+        tokens: { primaryColor: '#1D5C4A', textColor: '#2A2A26', fontSize: '15px', lineHeight: 1.85, fontFamily: 'Georgia, serif', spacing: { block: '20px' } },
+        blocks: {
+          h1: { 'font-size': '30px', color: '{{primaryColor}}', 'font-weight': 'bold' },
+          h2: { 'font-size': '22px', color: '{{primaryColor}}', 'font-weight': 'bold' },
+          p: { 'font-size': '15px', color: '{{textColor}}', 'line-height': '{{lineHeight}}' },
+        },
+      }
+      await client.callTool({
+        name: 'brand_save',
+        arguments: { name: 'tide-notes', displayName: '潮汐手记', description: '生活方式号，气质：温暖、治愈', rationale: '主色采自海边礁石的青苔绿，压低饱和度模拟油墨印刷质感', theme, logo: 'assets/logo-a.png' },
+      })
+
+      // 导出
+      const exported = parseText((await client.callTool({ name: 'brand_export', arguments: { name: 'tide-notes', out: outDir, version: '1.2.3' } }) as never))
+      expect(exported.path.endsWith('tide-notes-1.2.3.brand')).toBe(true)
+      expect(exported.manifest.kind).toBe('stylewx.brand')
+      expect(exported.manifest.version).toBe('1.2.3')
+      const paths = exported.manifest.files.map((f: { path: string }) => f.path)
+      expect(paths).toContain('brand.json')
+      expect(paths).toContain('brand.md')
+      expect(paths).toContain('assets/logo-a.png')
+      // source/ 默认不进包
+      expect(paths.some((p: string) => p.startsWith('source/'))).toBe(false)
+
+      // 校验（不落盘）
+      const validated = parseText((await client.callTool({ name: 'brand_validate', arguments: { source: exported.path } }) as never))
+      expect(validated.ok).toBe(true)
+      expect(validated.issues).toEqual([])
+
+      // 换到干净环境安装
+      setEnv(dstRoot)
+      const installed = parseText((await client.callTool({ name: 'brand_import', arguments: { source: exported.path } }) as never))
+      expect(installed.name).toBe('tide-notes')
+      expect(installed.upgraded).toBe(false)
+      expect(installed.themeName).toBe('tide-notes')
+      // 组件与主题副本都同步了，doctor 应绿
+      const doctor = parseText((await client.callTool({ name: 'brand_doctor', arguments: {} }) as never))
+      expect(doctor.ok).toBe(true)
+      // 资产真落地了
+      expect(existsSync(join(dstRoot, 'brands', 'tide-notes', 'assets', 'logo-a.png'))).toBe(true)
+
+      // 幂等：再导一次不产生 -2
+      const again = parseText((await client.callTool({ name: 'brand_import', arguments: { source: exported.path } }) as never))
+      expect(again.name).toBe('tide-notes')
+      expect(again.upgraded).toBe(true)
+      const brandsDir = readdirSync(join(dstRoot, 'brands'))
+      expect(brandsDir).toEqual(['tide-notes'])
+    } finally {
+      for (const [key, value] of [['STYLEWX_BRANDS_PATH', prev.brands], ['STYLEWX_THEMES_PATH', prev.themes], ['STYLEWX_COMPONENTS_PATH', prev.comps]] as const) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+      rmSync(srcRoot, { recursive: true, force: true })
+      rmSync(dstRoot, { recursive: true, force: true })
+      rmSync(outDir, { recursive: true, force: true })
+    }
   })
 
   it('list_components 返回组件目录与语法', async () => {

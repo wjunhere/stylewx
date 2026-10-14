@@ -46,6 +46,8 @@
     "@stylewx/publisher": "workspace:*",
     "@stylewx/theme": "workspace:*",
     "@stylewx/validator": "workspace:*",
+    "fflate": "^0.8.3",
+    "semver": "^7.8.5",
     "zod": "^4.0.0"
   },
   "publishConfig": {
@@ -54,5 +56,8 @@
   "engines": {
     "node": ">=20"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "devDependencies": {
+    "@types/semver": "^7.8.0"
+  }
 }

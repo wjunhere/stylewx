@@ -32,7 +32,8 @@
     }
   },
   "bin": {
-    "stylewx-mcp": "dist/index.js"
+    "stylewx-mcp": "dist/index.js",
+    "stylewx": "dist/cli.js"
   },
   "files": [
     "dist",

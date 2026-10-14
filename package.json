@@ -22,10 +22,12 @@
     "stylewx:editor": "node apps/mcp-server/scripts/editor.mjs",
     "brand:assets": "node scripts/brand/gen-brand-assets.mjs",
     "brand:contrast": "node scripts/brand/check-contrast.mjs",
-    "brand:check": "node scripts/brand/check-editor.mjs --check && node scripts/brand/check-contrast.mjs --check",
+    "brand:check": "node scripts/brand/check-editor.mjs --check && node scripts/brand/check-contrast.mjs --check && node scripts/brand/check-brands.mjs",
     "stylewx:editor:http": "node apps/mcp-server/scripts/editor.mjs . 3777",
     "prepublishOnly": "pnpm build",
-    "check:artifact": "node scripts/ci/verify-artifact.mjs"
+    "check:artifact": "node scripts/ci/verify-artifact.mjs",
+    "check:brands": "node scripts/brand/check-brands.mjs",
+    "check:brands:fix": "node scripts/brand/check-brands.mjs --fix"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

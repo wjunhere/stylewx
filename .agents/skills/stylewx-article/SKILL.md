@@ -26,7 +26,7 @@ description: 用 stylewx MCP 把 Markdown 排成一篇可发布的微信公众�
 
 **发布通道**：给人看的稿子必须走浏览器登录态（`apps/mcp-server/scripts/publish-via-browser.mjs`），
 **不要用 `publish_draft`** —— 它走 `cgi-bin/draft/add`，写进去的稿子后台编辑器不认领，**人改不了**。
-判据：`draft/get` 里 `leaf=0` 就说明改不了。详见 `docs/DESIGN.md` §20.7。
+判据：`draft/get` 里 `leaf=0` 就说明改不了。详见 `docs/DESIGN.md` §20.7（正文在 `docs/design/publishing.md`）。
 
 **草稿箱纪律（不许删）**：
 
@@ -38,12 +38,13 @@ description: 用 stylewx MCP 把 Markdown 排成一篇可发布的微信公众�
 - 真删错了：用落盘的快照回灌（`assets-src/restore-originals.mjs`，只新建、不删除）。
 
 踩过的坑：2026-10-12 按一条已推翻的旧规矩把三篇初版当重复项清掉，只能靠删除前的快照恢复。
-详见 `AGENTS.md` §27 与 `docs/DESIGN.md` §26。
+详见 `docs/design/publishing.md` §29。
 
 **音乐与推荐搜索可以全自动插**（与视频不同，不需要 flag）：脚本见到 `data-swx-music` / `data-swx-search` 占位块就处理。
 - 音乐：给旧稿补歌，从 `draft/get` 原样复制 `<mp-common-clmusic …>` 标签写进 `source` 即可。
 - 推荐搜索（`:::search`）：**关键词限 16 单位、全角算 2**（汉字最多 8 个，不是提示说的「16 个字符」）；
-  昵称/头像发布时自动调 API 现取；放文末。组件 `search.ts`，详见 `docs/DESIGN.md` §28。
+  昵称/头像发布时自动取（**优先读登录后台页面**，API 只是兜底，都拿不到就中止发布）；放文末。
+  组件 `search.ts`，详见 `docs/design/platform-widgets.md` §28。
 
 ## 工作流
 
@@ -142,10 +143,14 @@ review 之后**必须再做定性自查**（工具返回的 qualitativePrompt �
 ### 6. 发布
 
 ```
-publish_draft{title, markdown, theme, author?, digest?, coverImage?}
+publish_draft{title, markdown, theme, author?, digest?, coverImage?, brand?}
 ```
 
 只写入**草稿箱**，不会群发。发布后仍需人在公众号后台确认。logo 按品牌档案放在封面图。
+
+`coverImage` 可以是 http(s) 链接，也可以是**品牌包内相对路径**（`assets/cover.png`，
+品牌档案里就是这个形式）—— 后一种必须同时传 `brand`（品牌档案名）作解析基准，
+因为相对路径本身没有基准、发布进程的工作目录也不是品牌目录。
 
 ### 7. 交接与积累（每次排版后收尾）
 
@@ -246,7 +251,7 @@ brand_learn{name, note}                 # 把这次学到的记入品牌档案
 塞进 Markdown 只会让你生成幻觉引用 |
 
 判据一句话：**标签是渲染指令 → 属于 Markdown 源，你能写；
-要求平台对象引用 → 属于平台运行时，交给人和后台。** 全量盘点见 `docs/DESIGN.md` §27。
+要求平台对象引用 → 属于平台运行时，交给人和后台。** 全量盘点见 `docs/design/platform-widgets.md` §27。
 
 ```
 save_component{

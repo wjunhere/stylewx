@@ -2,6 +2,7 @@
  * 发布编排：搬运图片 → 确定封面 media_id → 调 draft/add 写入草稿箱。
  * ⚠️ 只发布到「草稿箱」，不含任何群发（freepublish/submit）能力。
  */
+import { isAbsolute } from 'node:path'
 import { WeChatClient } from './client.js'
 import type { DraftArticle } from './client.js'
 import { relocateExternalImages } from './relocate.js'
@@ -57,8 +58,7 @@ async function resolveThumbMediaId(
   }
   // 1. 优先使用显式封面图
   if (params.coverImage) {
-    const { bytes, mimeType } = await client.downloadImage(params.coverImage)
-    const thumb = await client.uploadThumb(bytes, guessThumbFilename(params.coverImage), mimeType)
+    const thumb = await loadCover(params.coverImage, client, params.resolveLocal)
     return thumb.media_id
   }
   // 2. 回退到正文第一张已上传的图（素材库 media_id 通用）
@@ -67,6 +67,42 @@ async function resolveThumbMediaId(
   const cover = generateDefaultCover(params.coverPalette)
   const thumb = await client.uploadThumb(cover.bytes, cover.filename, cover.mimeType)
   return thumb.media_id
+}
+
+/**
+ * 把封面引用变成素材库 media_id。
+ *
+ * 非 http(s) 的封面（品牌包的 `assets/cover.png`、编辑器资产库 URL、绝对路径）
+ * 先过 `resolveLocal` 解析成字节，**不能拿去 HTTP 请求** —— 相对路径必然拿不到基准，
+ * 报出的却是一个看起来像「网络坏了」的下载失败。正文图片早就走这条路（见 relocate.ts），
+ * 封面这里曾经漏了：品牌包把 coverImage 改成包内相对路径后，发布会在封面这一步炸。
+ */
+async function loadCover(
+  src: string,
+  client: WeChatClient,
+  resolveLocal: PublishParams['resolveLocal'],
+): Promise<{ media_id: string }> {
+  const isHttp = /^https?:\/\//i.test(src)
+  if (isHttp) {
+    const { bytes, mimeType } = await client.downloadImage(src)
+    return client.uploadThumb(bytes, guessThumbFilename(src), mimeType)
+  }
+  const local = resolveLocal?.(src)
+  if (!local) {
+    // 没命中本地解析器 → 不是「读不到」，而是根本没给解析能力。
+    // 相对路径必属此类（http(s) 已在上面分流），报「缺基准」才是可行动的提示。
+    // 不在本包写一份「品牌相对路径」正则去分类：service 已有一份，两处必然锈。
+    const isRelative = !isAbsolute(src) && !/^[a-zA-Z]:[\\/]/.test(src) && !src.startsWith('\\')
+    throw new Error(
+      isRelative
+        ? `封面图是相对路径（${src}），但发布时没有提供解析基准。\n` +
+            '相对路径在不同工作目录下指向不同文件，所以必须显式给基准 —— ' +
+            '发布时传 `brand`（品牌档案名）由它定位品牌目录，或改用绝对路径 / http(s) 链接。'
+        : `封面图无法解析：${src}\n` +
+            '它不是 http(s) 链接，也没能按本地文件读出字节（不存在 / 不是图片 / 空文件 / 超过 20MB）。',
+    )
+  }
+  return client.uploadThumb(local.bytes, guessThumbFilename(src), local.mimeType)
 }
 
 function guessThumbFilename(url: string): string {
