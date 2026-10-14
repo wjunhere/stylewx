@@ -19,72 +19,109 @@ interface Palette {
   borderColor: string
 }
 
-/** 生成一组默认 block，可传入覆盖项做定制。 */
+/**
+ * 生成一组默认 block，可传入覆盖项做定制。
+ *
+ * ── 这套默认值为什么长这样 ─────────────────────────────────────────
+ * 它是「默认的 Markdown 样式」：6 套原创主题、agent 直出的主题、品牌档案里没写的
+ * block 全部继承它。所以它必须成立，而不只是能看。
+ *
+ * 旧版的三个毛病（都是「模板感」的来源，不是审美偏好问题）：
+ *
+ * 1. **三级标题全用强调色、字重一样** —— 一屏里到处是同一种颜色，层级只能靠字号，
+ *    结果既分不出主次、又把强调色用尽（链接/加粗再想强调就没有手段了）。
+ *    改：标题用正文墨色，层级交给字号 + 字重 + 空气；强调色只留给链接、行内代码、组件。
+ *    依据：Tailwind Typography 的 prose 默认值就是这么分层的（h1 800 / h2 700 / h3 600，
+ *    颜色基本不参与）；mdnice 的「默认最佳实践」也是黑字标题。
+ * 2. **每个元素的下边距都是同一个 `spacing.block`** —— 标题和段落一样挤，一页读下来没有呼吸。
+ *    改：标题的上边距用 em（随字号缩放）而不是 token，h2 给到 1.9em；段落间距仍归 token。
+ * 3. **引用块是「圆角灰药丸」、行内代码是「灰块」** —— 这两样加在一起就是文档模板的脸。
+ *    改：引用块去掉圆角，左线 3px + 浅底（mdnice：`border-left: 3px solid rgba(0,0,0,.4)`
+ *    + 5% 底，无圆角）；行内代码用浅底 + 1px 描边（doocs/md：`color: primary` +
+ *    `background: primary 8%` + `border: 1px solid primary 20%`，我们只能用字面色值）。
+ *
+ * 另外两处中文排版的调整：正文字距 0.04em（doocs 用 0.1em、mdnice 用 0，取中间：
+ * 看得出节奏感但不吃栏宽）；**加粗不再染色**（染色加粗是「满屏主色」的另一半来源）。
+ *
+ * 代价：h2 用 `display: table` 让下划线**贴字**（doocs 的 H1 就是这么做的），
+ * 所以自带下划线的主题要显式写 `border-bottom: none` 才能换成别的装饰 ——
+ * 这是「一个装饰各写一次」换来的，比三级标题全同款划算。
+ */
 function defaultBlocks(p: Palette, overrides?: Partial<Record<string, ThemeBlock>>): Theme['blocks'] {
   const base: Theme['blocks'] = {
     h1: {
-      color: '{{primaryColor}}',
-      'font-size': '1.6em',
-      'font-weight': '600',
-      'line-height': '1.35',
-      'margin': `0 0 {{spacing.block}}`,
+      color: '{{textColor}}',
+      'font-size': '1.5em',
+      'font-weight': '700',
+      'line-height': '1.32',
+      'letter-spacing': '0.01em',
+      'margin': '0 0 0.85em',
     },
     h2: {
-      color: '{{primaryColor}}',
-      'font-size': '1.35em',
-      'font-weight': '600',
-      'line-height': '1.4',
-      'margin': `0 0 {{spacing.block}}`,
+      color: '{{textColor}}',
+      'font-size': '1.25em',
+      'font-weight': '700',
+      'line-height': '1.35',
+      'letter-spacing': '0.01em',
+      // display:table 让盒子缩到文字宽，下划线才会「只贴在字下面」而不是整行一条
+      display: 'table',
+      'border-bottom': `2px solid {{primaryColor}}`,
+      'padding-bottom': '0.3em',
+      'margin': '1.9em 0 0.95em',
     },
     h3: {
-      color: '{{primaryColor}}',
-      'font-size': '1.15em',
+      color: '{{textColor}}',
+      'font-size': '1.1em',
       'font-weight': '600',
       'line-height': '1.4',
-      'margin': `0 0 {{spacing.block}}`,
+      'border-left': `3px solid {{primaryColor}}`,
+      'padding-left': '0.5em',
+      'margin': '1.5em 0 0.6em',
     },
     p: {
       color: '{{textColor}}',
       'font-size': '{{fontSize}}',
       'line-height': '{{lineHeight}}',
+      'letter-spacing': '0.04em',
       'margin': `0 0 {{spacing.block}}`,
     },
     blockquote: {
-      'border-left': `4px solid {{primaryColor}}`,
+      'border-left': `3px solid {{primaryColor}}`,
       'background-color': p.blockquoteBg,
       color: p.blockquoteColor,
-      padding: '12px 16px',
+      padding: '0.85em 1.1em',
       margin: `0 0 {{spacing.block}}`,
-      'border-radius': '4px',
     },
     ul: {
-      'padding-left': '1.4em',
+      'padding-left': '1.35em',
       margin: `0 0 {{spacing.block}}`,
       'list-style': 'disc',
     },
     ol: {
-      'padding-left': '1.4em',
+      'padding-left': '1.45em',
       margin: `0 0 {{spacing.block}}`,
     },
     li: {
       'line-height': '{{lineHeight}}',
-      margin: '0 0 6px',
+      margin: '0 0 0.35em',
     },
     code: {
       'font-family': 'Menlo, Consolas, "Courier New", monospace',
-      'font-size': '0.9em',
+      'font-size': '0.88em',
       'background-color': p.codeBg,
       color: p.codeColor,
-      padding: '2px 5px',
+      border: `1px solid ${p.borderColor}`,
+      padding: '1px 5px',
       'border-radius': '4px',
     },
     pre: {
       'background-color': p.codeBg,
-      padding: '16px',
-      'border-radius': '6px',
+      border: `1px solid ${p.borderColor}`,
+      padding: '14px 16px',
+      'border-radius': '8px',
       'overflow-x': 'auto',
-      'font-size': '0.88em',
-      'line-height': '1.6',
+      'font-size': '0.86em',
+      'line-height': '1.65',
       'font-family': 'Menlo, Consolas, "Courier New", monospace',
       color: p.codeColor,
       margin: `0 0 {{spacing.block}}`,
@@ -93,19 +130,20 @@ function defaultBlocks(p: Palette, overrides?: Partial<Record<string, ThemeBlock
       'max-width': '100%',
       height: 'auto',
       display: 'block',
-      'border-radius': '4px',
+      'border-radius': '6px',
       margin: `0 auto {{spacing.block}}`,
     },
     figcaption: {
-      'font-size': '0.85em',
+      'font-size': '0.82em',
       color: p.weakText,
       'text-align': 'center',
-      'margin-top': '8px',
+      'letter-spacing': '0.02em',
+      'margin-top': '0.5em',
     },
     hr: {
       border: 'none',
       'border-top': `1px solid ${p.borderColor}`,
-      margin: '24px 0',
+      margin: '2.2em 0',
     },
     a: {
       color: '{{primaryColor}}',
@@ -113,8 +151,9 @@ function defaultBlocks(p: Palette, overrides?: Partial<Record<string, ThemeBlock
       'border-bottom': `1px solid {{primaryColor}}`,
     },
     strong: {
-      color: '{{primaryColor}}',
-      'font-weight': '600',
+      // 不染色：加粗靠字重，强调色留给链接与行内代码（否则整屏都是主色）
+      color: '{{textColor}}',
+      'font-weight': '700',
     },
   }
   return mergeBlocks(base, overrides)
@@ -174,10 +213,9 @@ const techMinimal = build(
     fontFamily: safeFont,
     spacing: { block: '16px' },
   },
-  {
-    h1: { 'border-left': '5px solid #0b6bff', 'padding-left': '12px' },
-    h2: { 'border-left': '3px solid #0b6bff', 'padding-left': '10px' },
-  },
+  // 故意不给标题加自己的竖线：默认那套已经有 h2 贴字下划线 + h3 左竖线，
+  // 这里再给 h1/h2 各加一条蓝竖线，就是「三层同款装饰」（一屏里到处是同一根蓝条）。
+  // 这个主题的身份由调色板承担：冷蓝强调 + 大量留白。
 )
 
 /** 商务 —— 稳重藏蓝 + 金色点缀，适合企业、财经、公司动态。 */
@@ -232,7 +270,8 @@ const magazine = build(
   },
   {
     h1: { 'text-align': 'center', 'letter-spacing': '2px' },
-    h2: { 'text-align': 'center', 'font-style': 'normal' },
+    // h2 是 display:table（下划线贴字），居中得靠 margin auto —— text-align 只对齐盒子里的字
+    h2: { 'text-align': 'center', 'font-style': 'normal', 'margin': '1.9em auto 0.95em' },
     p: { 'text-align': 'justify', 'text-indent': '2em' },
     blockquote: { 'font-style': 'italic' },
   },
@@ -262,7 +301,7 @@ const govRed = build(
   },
   {
     h1: { 'text-align': 'center', 'font-weight': '700' },
-    h2: { 'border-left': '5px solid #c8142c', 'padding-left': '12px' },
+    h2: { 'border-left': '5px solid #c8142c', 'padding-left': '12px', 'border-bottom': 'none' },
     p: { 'text-indent': '2em' },
   },
 )

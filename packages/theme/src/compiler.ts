@@ -46,8 +46,28 @@ function buildBlockRules(theme: Theme): string[] {
       .join(' ')
     rules.push(`${blockName} { ${css} }`)
   }
+  rules.push(`pre code { ${PRE_CODE_RESET} }`)
   return rules
 }
+
+/**
+ * `pre > code` 的重置：代码块里的 <code> 不能再套一层行内代码的盒子。
+ *
+ * 行内代码的样式是经 `code {}` 这条规则生效的，而代码块是 `<pre><code>` ——
+ * 于是代码块里嵌着第二个盒子（自己的浅底 + 描边 + 内边距 + 圆角），
+ * 字号还会叠两次（pre 的 0.86em × code 的 0.88em ≈ 0.76em）。
+ * 表现就是「代码块里又套了一个小框，字还特别小」。
+ *
+ * 只重置盒模型与字号，**不动 color / font-family** —— 那两样是主题的表达手段
+ * （深色主题故意用亮色代码字），重置掉就把主题的意思改了。
+ */
+const PRE_CODE_RESET = [
+  'background-color: transparent',
+  'border: none',
+  'padding: 0',
+  'border-radius: 0',
+  'font-size: inherit',
+].join('; ')
 
 /**
  * 编译主题为 CSS 字符串。
