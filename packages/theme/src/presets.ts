@@ -1,221 +1,69 @@
 /**
- * 预置主题。
+ * 预置主题（原创 6 套）。
+ *
+ * 默认 block 与调色板类型在 `theme-builder.ts`（三批主题共用同一份基线）；
+ * 社区风格的 10 套在 `community-presets.ts`，WeMD 移植的 20 套在 `wemd-presets.ts`。
  * 每个主题通过 tokens 定义配色/字体/间距，blocks 尽量使用 `{{token}}` 引用以保持一致性。
  * description 面向「选主题的 Agent」，务必写清楚风格与适用场景。
  */
 
-import type { Theme, ThemeBlock } from './schema.js'
+import type { Theme } from './schema.js'
+import { build, safeFont } from './theme-builder.js'
+import { COMMUNITY_THEMES } from './community-presets.js'
 import { WEMD_THEMES } from './wemd-presets.js'
 
-interface Palette {
-  primaryColor: string
-  textColor: string
-  backgroundColor?: string
-  codeBg: string
-  codeColor: string
-  blockquoteBg: string
-  blockquoteColor: string
-  weakText: string
-  borderColor: string
-}
-
 /**
- * 生成一组默认 block，可传入覆盖项做定制。
+ * 科技极简 —— 石板灰墨 + 工程绿，代码块深色底，适合技术、效率、产品类文章。
  *
- * ── 这套默认值为什么长这样 ─────────────────────────────────────────
- * 它是「默认的 Markdown 样式」：6 套原创主题、agent 直出的主题、品牌档案里没写的
- * block 全部继承它。所以它必须成立，而不只是能看。
+ * 这次改版换掉了原来的 `#0b6bff`：那个蓝正是 SKILL 里「被用烂清单」点名的那一支
+ * （默认科技蓝 #0066FF 系），一个仓库不应该一边教 agent 别用、一边把它当默认主题。
+ * 新配色取自 ui-ux-pro-max 给「developer tool 文档站」的推荐（Slate 墨 + Emerald 强调），
+ * 但把强调色的明度压到 700 档：推荐里的 `#22C55E` 在白底上对比度只有约 2.2:1，当文字色不合格；
+ * `#047857` 在白底上约 5.3:1。
  *
- * 旧版的三个毛病（都是「模板感」的来源，不是审美偏好问题）：
- *
- * 1. **三级标题全用强调色、字重一样** —— 一屏里到处是同一种颜色，层级只能靠字号，
- *    结果既分不出主次、又把强调色用尽（链接/加粗再想强调就没有手段了）。
- *    改：标题用正文墨色，层级交给字号 + 字重 + 空气；强调色只留给链接、行内代码、组件。
- *    依据：Tailwind Typography 的 prose 默认值就是这么分层的（h1 800 / h2 700 / h3 600，
- *    颜色基本不参与）；mdnice 的「默认最佳实践」也是黑字标题。
- * 2. **每个元素的下边距都是同一个 `spacing.block`** —— 标题和段落一样挤，一页读下来没有呼吸。
- *    改：标题的上边距用 em（随字号缩放）而不是 token，h2 给到 1.9em；段落间距仍归 token。
- * 3. **引用块是「圆角灰药丸」、行内代码是「灰块」** —— 这两样加在一起就是文档模板的脸。
- *    改：引用块去掉圆角，左线 3px + 浅底（mdnice：`border-left: 3px solid rgba(0,0,0,.4)`
- *    + 5% 底，无圆角）；行内代码用浅底 + 1px 描边（doocs/md：`color: primary` +
- *    `background: primary 8%` + `border: 1px solid primary 20%`，我们只能用字面色值）。
- *
- * 另外两处中文排版的调整：正文字距 0.04em（doocs 用 0.1em、mdnice 用 0，取中间：
- * 看得出节奏感但不吃栏宽）；**加粗不再染色**（染色加粗是「满屏主色」的另一半来源）。
- *
- * 代价：h2 用 `display: table` 让下划线**贴字**（doocs 的 H1 就是这么做的），
- * 所以自带下划线的主题要显式写 `border-bottom: none` 才能换成别的装饰 ——
- * 这是「一个装饰各写一次」换来的，比三级标题全同款划算。
+ * 两个刻意的选择：
+ * - **代码块用深色底**（`pre` 石板 800 + 亮灰字）：这是「工程感」最省成本的一处签名，
+ *   和正文的浅底形成对比；行内代码仍留在浅底上（`pre code` 会继承 pre 的颜色，见 compiler.ts）。
+ * - **标题不再各加一条绿竖线**：默认那套已经有 h2 贴字下划线 + h3 左竖线，
+ *   主题的身份由调色板承担，不靠重复装饰。
  */
-function defaultBlocks(p: Palette, overrides?: Partial<Record<string, ThemeBlock>>): Theme['blocks'] {
-  const base: Theme['blocks'] = {
-    h1: {
-      color: '{{textColor}}',
-      'font-size': '1.5em',
-      'font-weight': '700',
-      'line-height': '1.32',
-      'letter-spacing': '0.01em',
-      'margin': '0 0 0.85em',
-    },
-    h2: {
-      color: '{{textColor}}',
-      'font-size': '1.25em',
-      'font-weight': '700',
-      'line-height': '1.35',
-      'letter-spacing': '0.01em',
-      // display:table 让盒子缩到文字宽，下划线才会「只贴在字下面」而不是整行一条
-      display: 'table',
-      'border-bottom': `2px solid {{primaryColor}}`,
-      'padding-bottom': '0.3em',
-      'margin': '1.9em 0 0.95em',
-    },
-    h3: {
-      color: '{{textColor}}',
-      'font-size': '1.1em',
-      'font-weight': '600',
-      'line-height': '1.4',
-      'border-left': `3px solid {{primaryColor}}`,
-      'padding-left': '0.5em',
-      'margin': '1.5em 0 0.6em',
-    },
-    p: {
-      color: '{{textColor}}',
-      'font-size': '{{fontSize}}',
-      'line-height': '{{lineHeight}}',
-      'letter-spacing': '0.04em',
-      'margin': `0 0 {{spacing.block}}`,
-    },
-    blockquote: {
-      'border-left': `3px solid {{primaryColor}}`,
-      'background-color': p.blockquoteBg,
-      color: p.blockquoteColor,
-      padding: '0.85em 1.1em',
-      margin: `0 0 {{spacing.block}}`,
-    },
-    ul: {
-      'padding-left': '1.35em',
-      margin: `0 0 {{spacing.block}}`,
-      'list-style': 'disc',
-    },
-    ol: {
-      'padding-left': '1.45em',
-      margin: `0 0 {{spacing.block}}`,
-    },
-    li: {
-      'line-height': '{{lineHeight}}',
-      margin: '0 0 0.35em',
-    },
-    code: {
-      'font-family': 'Menlo, Consolas, "Courier New", monospace',
-      'font-size': '0.88em',
-      'background-color': p.codeBg,
-      color: p.codeColor,
-      border: `1px solid ${p.borderColor}`,
-      padding: '1px 5px',
-      'border-radius': '4px',
-    },
-    pre: {
-      'background-color': p.codeBg,
-      border: `1px solid ${p.borderColor}`,
-      padding: '14px 16px',
-      'border-radius': '8px',
-      'overflow-x': 'auto',
-      'font-size': '0.86em',
-      'line-height': '1.65',
-      'font-family': 'Menlo, Consolas, "Courier New", monospace',
-      color: p.codeColor,
-      margin: `0 0 {{spacing.block}}`,
-    },
-    img: {
-      'max-width': '100%',
-      height: 'auto',
-      display: 'block',
-      'border-radius': '6px',
-      margin: `0 auto {{spacing.block}}`,
-    },
-    figcaption: {
-      'font-size': '0.82em',
-      color: p.weakText,
-      'text-align': 'center',
-      'letter-spacing': '0.02em',
-      'margin-top': '0.5em',
-    },
-    hr: {
-      border: 'none',
-      'border-top': `1px solid ${p.borderColor}`,
-      margin: '2.2em 0',
-    },
-    a: {
-      color: '{{primaryColor}}',
-      'text-decoration': 'none',
-      'border-bottom': `1px solid {{primaryColor}}`,
-    },
-    strong: {
-      // 不染色：加粗靠字重，强调色留给链接与行内代码（否则整屏都是主色）
-      color: '{{textColor}}',
-      'font-weight': '700',
-    },
-  }
-  return mergeBlocks(base, overrides)
-}
-
-function mergeBlocks(
-  base: Theme['blocks'],
-  overrides?: Partial<Record<string, ThemeBlock>>,
-): Theme['blocks'] {
-  const result: Theme['blocks'] = { ...base }
-  if (!overrides) return result
-  for (const [key, value] of Object.entries(overrides)) {
-    if (!value) continue
-    const k = key as keyof Theme['blocks']
-    result[k] = { ...(result[k] ?? {}), ...value }
-  }
-  return result
-}
-
-function build(
-  name: string,
-  description: string,
-  p: Palette,
-  tokens: Theme['tokens'],
-  blockOverrides?: Partial<Record<string, ThemeBlock>>,
-): Theme {
-  return {
-    name,
-    description,
-    tokens,
-    blocks: defaultBlocks(p, blockOverrides),
-  }
-}
-
-const safeFont =
-  '-apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif'
-
-/** 科技极简 —— 冷冽的蓝/青主色，留白多，适合技术、效率、产品类文章。 */
 const techMinimal = build(
   'tech-minimal',
-  '科技极简：以冷峻的青蓝色为主，大量留白、细线条与克制的高对比，强调「清晰易读」。适合技术博客、效率工具、SaaS 产品介绍、测试与工程类文章。',
+  '科技极简：石板灰墨 + 工程绿强调，代码块走深色底。留白多、线条细、克制，适合技术博客、效率工具、SaaS 产品介绍、工程与测试类文章。',
   {
-    primaryColor: '#0b6bff',
-    textColor: '#1f2329',
-    codeBg: '#f0f4ff',
-    codeColor: '#3b5b9a',
-    blockquoteBg: '#f5f9ff',
-    blockquoteColor: '#3a4a5a',
-    weakText: '#8a94a6',
+    primaryColor: '#047857',
+    textColor: '#1e293b',
+    codeBg: '#f1f5f9',
+    codeColor: '#047857',
+    blockquoteBg: '#f8fafc',
+    blockquoteColor: '#334155',
+    weakText: '#64748b',
     borderColor: '#e2e8f0',
+    tableHeadBg: '#f1f5f9',
   },
   {
-    primaryColor: '#0b6bff',
-    textColor: '#1f2329',
+    primaryColor: '#047857',
+    textColor: '#1e293b',
     fontSize: '15px',
     lineHeight: 1.75,
-    fontFamily: safeFont,
+    // Plex 优先：装了它的机器会拿到开发者味的拉丁字形，没装就落到系统栈（中文仍是苹方/雅黑）
+    fontFamily: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
     spacing: { block: '16px' },
+    mutedColor: '#64748b',
+    cardBg: '#f1f5f9',
+    cardBorderColor: '#e2e8f0',
+    dividerColor: '#e2e8f0',
+    canvasBg: '#f8fafc',
+    radius: '8px',
   },
-  // 故意不给标题加自己的竖线：默认那套已经有 h2 贴字下划线 + h3 左竖线，
-  // 这里再给 h1/h2 各加一条蓝竖线，就是「三层同款装饰」（一屏里到处是同一根蓝条）。
-  // 这个主题的身份由调色板承担：冷蓝强调 + 大量留白。
+  {
+    pre: {
+      'background-color': '#1e293b',
+      border: '1px solid #1e293b',
+      color: '#e2e8f0',
+      'border-radius': '10px',
+    },
+  },
 )
 
 /** 商务 —— 稳重藏蓝 + 金色点缀，适合企业、财经、公司动态。 */
@@ -231,6 +79,7 @@ const business = build(
     blockquoteColor: '#59627a',
     weakText: '#8a8f99',
     borderColor: '#d9dee8',
+    tableHeadBg: '#f2f4f8',
   },
   {
     primaryColor: '#1f3864',
@@ -239,10 +88,16 @@ const business = build(
     lineHeight: 1.8,
     fontFamily: safeFont,
     spacing: { block: '16px' },
+    accentColor: '#b8860b',
+    mutedColor: '#59627a',
+    cardBg: '#f4f6fa',
+    cardBorderColor: '#d9dee8',
+    dividerColor: '#d9dee8',
+    radius: '6px',
   },
   {
     h1: { 'background-color': '#1f3864', color: '#ffffff', padding: '10px 14px', 'border-radius': '4px' },
-    h2: { 'border-bottom': '2px solid #1f3864', 'padding-bottom': '8px' },
+    h2: { 'border-bottom': '2px solid #1f3864', 'padding-bottom': '8px', display: 'table' },
   },
 )
 
@@ -259,6 +114,7 @@ const magazine = build(
     blockquoteColor: '#7d6a6a',
     weakText: '#a89a9a',
     borderColor: '#e8dbd7',
+    tableHeadBg: '#faf3f1',
   },
   {
     primaryColor: '#b4546a',
@@ -267,6 +123,11 @@ const magazine = build(
     lineHeight: 2,
     fontFamily: 'Georgia, "STZhongsong", "Songti SC", "SimSun", serif',
     spacing: { block: '18px' },
+    mutedColor: '#7d6a6a',
+    cardBg: '#faf3f1',
+    cardBorderColor: '#e8dbd7',
+    dividerColor: '#e8dbd7',
+    radius: '4px',
   },
   {
     h1: { 'text-align': 'center', 'letter-spacing': '2px' },
@@ -290,6 +151,7 @@ const govRed = build(
     blockquoteColor: '#8a4a4a',
     weakText: '#9a8a8a',
     borderColor: '#e7d2d4',
+    tableHeadBg: '#fdf2f3',
   },
   {
     primaryColor: '#c8142c',
@@ -298,6 +160,11 @@ const govRed = build(
     lineHeight: 1.9,
     fontFamily: safeFont,
     spacing: { block: '16px' },
+    mutedColor: '#8a4a4a',
+    cardBg: '#fdf2f3',
+    cardBorderColor: '#e7d2d4',
+    dividerColor: '#e7d2d4',
+    radius: '4px',
   },
   {
     h1: { 'text-align': 'center', 'font-weight': '700' },
@@ -319,6 +186,7 @@ const academic = build(
     blockquoteColor: '#4a5a63',
     weakText: '#888888',
     borderColor: '#d8d8d8',
+    // 论文表格本来就不填底色（靠三线/全框区分），这里刻意留空
   },
   {
     primaryColor: '#005a8c',
@@ -327,12 +195,24 @@ const academic = build(
     lineHeight: 1.85,
     fontFamily: 'Georgia, "Times New Roman", "Songti SC", serif',
     spacing: { block: '14px' },
+    mutedColor: '#4a5a63',
+    cardBg: '#f2f5f7',
+    cardBorderColor: '#d8d8d8',
+    dividerColor: '#d8d8d8',
+    radius: '2px',
   },
   {
-    h1: { 'font-weight': '700', 'border-bottom': '2px solid #005a8c', 'padding-bottom': '8px' },
-    h2: { 'font-weight': '700', 'border-bottom': '1px solid #cccccc', 'padding-bottom': '6px' },
+    h1: { 'font-weight': '700', 'border-bottom': '2px solid #005a8c', 'padding-bottom': '8px', display: 'block' },
+    h2: {
+      'font-weight': '700',
+      'border-bottom': '1px solid #cccccc',
+      'padding-bottom': '6px',
+      'margin': '1.7em 0 0.8em',
+    },
+    h3: { 'border-left': 'none', 'padding-left': '0', 'font-weight': '700' },
     p: { 'text-align': 'justify' },
     blockquote: { 'font-style': 'italic' },
+    hr: { 'border-top': '1px solid #1c1c1c', margin: '1.6em 0' },
   },
 )
 
@@ -349,6 +229,7 @@ const darkCode = build(
     blockquoteColor: '#b7b7c0',
     weakText: '#9a9aa3',
     borderColor: '#3a3a40',
+    tableHeadBg: '#26262a',
   },
   {
     primaryColor: '#3ee0a4',
@@ -357,40 +238,33 @@ const darkCode = build(
     lineHeight: 1.7,
     fontFamily: safeFont,
     spacing: { block: '16px' },
+    accentColor: '#7cd1ff',
+    mutedColor: '#9a9aa3',
+    cardBg: '#26262a',
+    cardBorderColor: '#3a3a40',
+    dividerColor: '#3a3a40',
+    canvasBg: '#16161a',
+    // 深色整页主题必须自带页底：暗色文字落在白底上等于不可读，
+    // 而 canvasBg 只有正文用 ::::canvas 包住时才生效（SKILL 里的那条硬约束）。
+    pageBackgroundColor: '#16161a',
+    radius: '8px',
   },
   {
-    h1: { color: '#3ee0a4', 'border-bottom': '1px solid #2a2a30', 'padding-bottom': '8px' },
-    h2: { color: '#7cd1ff', 'border-bottom': '1px solid #2a2a30', 'padding-bottom': '6px' },
+    h1: { color: '#e7e7e7', 'border-bottom': '1px solid #2a2a30', 'padding-bottom': '8px', display: 'block' },
+    h2: { color: '#e7e7e7', 'border-bottom': '1px solid #2a2a30', 'padding-bottom': '6px' },
+    h3: { 'border-left': '3px solid #3ee0a4' },
     p: { color: '#e7e7e7' },
     blockquote: { color: '#b7b7c0', 'border-left': '4px solid #3ee0a4' },
-    code: { color: '#f4b25b', 'background-color': '#2d2d33' },
+    code: { color: '#7cd1ff', 'background-color': '#2d2d33', border: '1px solid #3a3a40' },
     pre: { color: '#c9d1d9', 'background-color': '#1e1e1e' },
-    a: { color: '#7cd1ff' },
+    a: { color: '#7cd1ff', 'border-bottom': '1px solid #7cd1ff' },
     strong: { color: '#3ee0a4' },
     hr: { 'border-top': '1px solid #3a3a40' },
-    img: { 'border-radius': '6px' },
+    table: { 'font-size': '0.92em' },
+    th: { 'background-color': '#26262a', color: '#e7e7e7', border: '1px solid #3a3a40' },
+    td: { color: '#e7e7e7', border: '1px solid #3a3a40' },
   },
 )
-
-/** 中性调色板（用于补全 agent 直出的部分 block 集，不引入额外色彩倾向）。 */
-const NEUTRAL_PALETTE: Palette = {
-  primaryColor: '#333333',
-  textColor: '#444444',
-  codeBg: '#f5f5f5',
-  codeColor: '#333333',
-  blockquoteBg: '#f7f7f7',
-  blockquoteColor: '#555555',
-  weakText: '#999999',
-  borderColor: '#dddddd',
-}
-
-/**
- * 把 agent 直出的部分 block 集补全为完整 15 block 集（缺省用中性样式）。
- * brand_save / 任何「agent 只写关键 block」的场景都应用它，降低产出门槛。
- */
-export function completeThemeBlocks(overrides?: Partial<Record<string, ThemeBlock>>): Theme['blocks'] {
-  return defaultBlocks(NEUTRAL_PALETTE, overrides)
-}
 
 export const PRESET_THEMES: Theme[] = [
   techMinimal,
@@ -399,6 +273,7 @@ export const PRESET_THEMES: Theme[] = [
   govRed,
   academic,
   darkCode,
+  ...COMMUNITY_THEMES,
   ...WEMD_THEMES,
 ]
 

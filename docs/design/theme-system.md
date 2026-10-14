@@ -1,13 +1,13 @@
-# 默认 Markdown 样式（§32）
+# 默认 Markdown 样式与主题分层（§32–§33）
 
-默认 block 与内联渲染的两处修正。主题体系本身散在
-[brand-system.md](./brand-system.md)、[component-system.md](./component-system.md)；
+默认 block、内联渲染的两处修正、表格 block，以及 10 套社区样式的取法与代价。
+主题体系本身散在 [brand-system.md](./brand-system.md)、[component-system.md](./component-system.md)；
 上层：[设计说明索引](../DESIGN.md)。
 
 ## 32. 默认 block：所有主题的基线
 
-`packages/theme/src/presets.ts` 的 `defaultBlocks()` 是**所有主题的基线**：
-6 套原创预置主题、agent 直出的主题、品牌档案里没写的 block 全部继承它。
+`packages/theme/src/presets.ts` 的 `defaultBlocks()`（现在在 `theme-builder.ts`）是**所有主题的基线**：
+36 套预置主题、agent 直出的主题、品牌档案里没写的 block 全部继承它。
 所以它长什么样，直接决定「默认排版」好不好看 —— 改它的收益覆盖全部主题，
 代价也是全部主题。
 
@@ -50,9 +50,60 @@ h2 用 `display: table` 让下划线只贴文字宽度，于是：
 不动 `color` / `font-family` —— 那两样是主题的表达手段（深色主题故意用亮色代码字），
 重置掉就把主题的意思改了。
 
-### 已知缺口：表格没有 block
+### 表格 block：可选，但基线里必须有
 
-`BLOCK_NAMES` 里没有 `table` / `th` / `td`，所以 Markdown 表格拿不到任何主题样式，
-在预览里就是「一堆没有边框的文字」。白名单其实已经放行了 `border-collapse` / `table-layout`
-这类属性，说明当初留了口子。没补的原因是取舍：SKILL 建议数据用 `:::ink-stat` 这类数据条
-而不是 Markdown 表格（微信里表格挤）。要补就是 `BLOCK_NAMES` 加三个名字 + 默认样式 + 更新快照。
+`table` / `th` / `td` 曾经不在 `BLOCK_NAMES` 里，于是 Markdown 表格拿不到任何主题样式 ——
+预览里就是「一堆没边框的文字」，而白名单一直放着 `border-collapse` / `table-layout` 这类属性，
+说明当初留了口子。现在补上了，取法有三个刻意的决定：
+
+1. **做成「可选 block」（`EXTRA_BLOCK_NAMES`）而不是必需项。**
+   判据：**默认基线里有的，就是可选**。
+   自建的主题（默认基线、6 套原创、10 套社区）都带表格；
+   但 `wemd-presets.ts` 那 20 套是**生成文件**（上游没有映射表格），把它们也算成必需会让整批红掉，
+   而它们不设表格样式只是回到旧行为，不是错误。
+2. **表头底色可选**：`Palette.tableHeadBg` 不填就不输出 —— GitHub / Tailwind 这类样式的表头本来就没底色，
+   塞一个灰底就变味了（填底色的主题靠 `th` 的 `background-color`）。
+3. **默认三线或全框，各主题自定**：LaTeX 用三线（`table` 上下粗线 + `th` 下细线，`td` 无边框），
+   GitHub / Tailwind 用只有横线的表，原创主题用全框。这些都在 `border` / `border-top` / `border-bottom`
+   上表达，不需要新机制。
+
+守住它的测试：基线里 `table`/`th`/`td` 必须存在；删掉必需 block（如 `h1`）仍必须报错；
+编译产物里真的出现 `table {}`（不是只存在于类型里）。
+
+## 33. 社区流行样式（10 套）
+
+编辑器里除了 6 套原创与 20 套 WeMD 移植，还有一层**社区经典**：
+GitHub 文档、GitHub 深色、Tailwind `prose`、Water.css、new.css、Sakura、Pico、LaTeX 论文、Tufte 长文、
+doocs/md「优雅」。它们的价值不在「好看」，而在**读者见过** —— 挑主题时有个可对齐的参照。
+
+**为什么按原值来、不掺我们的配方**：一旦掺了，十套都变成「我们那套默认 + 换个色」
+（正是 §32 要修的那个毛病），参照作用就没了。所以颜色 / 字号 / 边框 / 表格线都取自各自上游，
+只把无法内联表达的部分换成等价写法。
+
+### 三处刻意的偏离
+
+1. **正文字距统一 0.04em**（默认基线那个值）。这些样式原本都没有字距 —— 它们是给西文网页写的，
+   中文多这一点点更耐读。想完全贴原样就单独覆盖 `p`。
+2. **不用 `box-shadow` / 渐变**。`box-shadow` 在白名单的 GRAY 档（草稿 API 实测保留、读者端不确定，
+   用它会带来提示），渐变里的 `background` 属性根本不在白名单。
+   所以 doocs「优雅」原有的投影与渐隐分隔线换成边框与纯色底 —— 结构和排版照旧，只把「光源」去掉。
+3. **纯黑 `#000` 一律换成近黑**（`#111` 一档）。实测微信编辑器会把 `color: #000000` 整条吞掉
+   （mdnice 的默认主题里专门用 `rgb(1,1,1)` 绕开它）。
+
+### 搬不过来的两处，说明原因而不是硬凑
+
+- **Tailwind 的行内代码靠 `code::before/::after` 打反引号** —— 微信不支持伪元素，
+  退回浅底 + 等宽字重，不假装有反引号。
+- **Water.css 的斑马纹**（`tbody tr:nth-child(even)`）与 **Tufte 的旁注**需要 `tr` / 旁注定位，
+  主题的 block 只到 `table`/`th`/`td` 一层，表达不了。
+
+### 许可与出处
+
+上游全部允许再分发（九个 MIT、doocs/md 是 WTFPL），逐套列在 `community-presets.ts` 文件头。
+和 WeMD 移植那批一样：**只取样式值，不拷 CSS 文本**，重新表达成我们的 tokens + blocks。
+
+### 怎么并排看
+
+`node packages/service/scripts/theme-sheet.mjs --group community --out /c/tmp/sheet.png`
+（`--group preset|community|wemd|all`、`--themes a,b`、`--cols`、`--md`）。
+它每列都在**真实 390px 宽度**下渲染 —— 缩放过的样张不是它真实的排版。

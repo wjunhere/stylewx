@@ -210,10 +210,10 @@ export function preprocessCallouts(markdown: string): string {
   )
 }
 
-/** 默认配色：未传主题时组件使用（与 tech-minimal 接近的中性蓝）。 */
+/** 默认配色：未传主题时组件使用（与 tech-minimal 同一套：石板灰墨 + 工程绿）。 */
 const DEFAULT_TOKENS: PaletteTokens = {
-  primaryColor: '#0b6bff',
-  textColor: '#1f2329',
+  primaryColor: '#047857',
+  textColor: '#1e293b',
   fontSize: '15px',
   lineHeight: 1.75,
   fontFamily:

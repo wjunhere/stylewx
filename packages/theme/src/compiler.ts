@@ -4,7 +4,7 @@
  * 供 core 的 juice 内联管线使用。纯函数、无 DOM / Node 依赖。
  */
 
-import { BLOCK_NAMES } from './schema.js'
+import { BLOCK_NAMES, EXTRA_BLOCK_NAMES, STYLEABLE_ELEMENTS } from './schema.js'
 import type { Theme } from './schema.js'
 import { resolveTokenReferences } from './tokens.js'
 import type { ThemeTokens } from './schema.js'
@@ -32,8 +32,9 @@ export function resolveDeclValue(value: string, tokens: ThemeTokens): string {
 
 function buildBlockRules(theme: Theme): string[] {
   const rules: string[] = []
-  for (const blockName of BLOCK_NAMES) {
+  for (const blockName of STYLEABLE_ELEMENTS) {
     const declarations = theme.blocks[blockName]
+    if (!declarations) continue
     const entries = Object.entries(declarations)
     if (entries.length === 0) continue
     const css = entries
@@ -58,8 +59,11 @@ function buildBlockRules(theme: Theme): string[] {
  * 字号还会叠两次（pre 的 0.86em × code 的 0.88em ≈ 0.76em）。
  * 表现就是「代码块里又套了一个小框，字还特别小」。
  *
- * 只重置盒模型与字号，**不动 color / font-family** —— 那两样是主题的表达手段
- * （深色主题故意用亮色代码字），重置掉就把主题的意思改了。
+ * 只重置盒模型、字号与颜色，**不动 font-family** —— 字体栈是主题的表达手段。
+ * `color: inherit` 是必须的：`pre` 才是代码块文字颜色的主人。
+ * 不重置它的话，行内代码的颜色会盖到代码块上 ——
+ * 于是「深色代码块 + 亮色行内代码」这种（很常见的）配色根本写不出来（实测：
+ * 深底上压一行 #047857 的字，基本看不清）。
  */
 const PRE_CODE_RESET = [
   'background-color: transparent',
@@ -67,6 +71,7 @@ const PRE_CODE_RESET = [
   'padding: 0',
   'border-radius: 0',
   'font-size: inherit',
+  'color: inherit',
 ].join('; ')
 
 /**

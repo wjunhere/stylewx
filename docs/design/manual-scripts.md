@@ -35,4 +35,6 @@
 | `apps/mcp-server/scripts/probe-search-keyword-limit.mjs` | 搜索关键词限制矩阵：定位到「16 单位、全角算 2」（汉字 8 / 英文 16）。会写多条草稿并自删 |
 | `apps/mcp-server/scripts/probe-search-save-debug.mjs` | 保存失败诊断：抓平台浮层报错（首次发现关键词超限就是这样）。只诊断 |
 | `packages/preview/scripts/ui-shots.mjs` | 编辑器 19 个面（主界面 / 浮层 / 7 弹窗 / 空态 / 窄屏 / toast）各拍一张，改前后逐面对比 |
+| `packages/service/scripts/theme-sheet.mjs` | 主题样张：多套主题并排渲染成一张对比图（挑主题/改默认 block 后看效果）。需先 `pnpm build`；选 3777 以外的编辑器用 `EDITOR_URL=…` |
+| `packages/preview/scripts/capture-theme-library.mjs` | 重截 `docs/assets/theme-library.png`（需 3777 在跑；改了预置主题就要重跑） |
 

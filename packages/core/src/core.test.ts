@@ -239,8 +239,10 @@ describe('renderMarkdownToHtml', () => {
 
   it('主题 CSS 编译结果可被 validator 白名单复验', () => {
     const css = compileThemeToCss(theme)
-    expect(css).toContain('#0b6bff')
+    expect(css).toContain('#047857')
     expect(css).not.toContain('position')
+    // 代码块里的 <code> 不能再套一层行内代码的盒子（字号叠两层 + 双描边）
+    expect(css).toContain('pre code')
   })
 
   it('非法主题抛错', () => {
@@ -293,8 +295,8 @@ describe('富组件（@stylewx/components 集成）', () => {
     expect(html).toContain('封面')
     expect(html).toContain('卡片标题')
     expect(html).toContain('感谢阅读')
-    // tech-minimal 的 primaryColor = #0b6bff，应出现在组件内联样式里
-    expect(html).toContain('#0b6bff')
+    // tech-minimal 的 primaryColor = #047857，应出现在组件内联样式里
+    expect(html).toContain('#047857')
     expect(html).not.toContain('{{')
   })
 

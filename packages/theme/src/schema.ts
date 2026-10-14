@@ -22,6 +22,22 @@ export const BLOCK_NAMES = [
 ] as const
 export type BlockName = (typeof BLOCK_NAMES)[number]
 
+/**
+ * 可选 block：可以设，也可以不设。
+ *
+ * 为什么要单独一档：表格是 Markdown 里最容易「丑」的一块，我们自建的主题（默认基线、
+ * 6 套原创、10 套社区移植）都该带上它；但 `wemd-presets.ts` 那 20 套是**生成文件**
+ * （上游没映射表格），把它们也算成必需会让整批红掉 —— 而它们不设表格样式时
+ * 只是回到旧行为（浏览器默认边框），不是错误。
+ *
+ * 判据：**默认基线里有的，就是可选**；基线没有的才算必需。
+ */
+export const EXTRA_BLOCK_NAMES = ['table', 'th', 'td'] as const
+export type ExtraBlockName = (typeof EXTRA_BLOCK_NAMES)[number]
+
+/** 会被编译成 CSS 的元素全集（必需 + 可选）。 */
+export const STYLEABLE_ELEMENTS = [...BLOCK_NAMES, ...EXTRA_BLOCK_NAMES] as const
+
 export const colorSchema = z
   .string()
   .refine(
@@ -52,7 +68,14 @@ const blockSchema = z.record(declarationValueSchema, declarationValueSchema)
 function buildBlockObjectSchema() {
   const record: Record<string, typeof blockSchema> = {}
   for (const name of BLOCK_NAMES) record[name] = blockSchema
-  return z.object(record as Record<BlockName, typeof blockSchema>)
+  // 可选元素：不设就是不设（不报错、不生成 CSS）。
+  // 这里把三个键写全而不是从 EXTRA_BLOCK_NAMES 推导 —— 用 Record<string, …> 去 extend
+  // 会把整个对象推成带索引签名的形状，所有键都变可选（踩过）。键与常量的对应由测试守。
+  return z.object(record as Record<BlockName, typeof blockSchema>).extend({
+    table: blockSchema.optional(),
+    th: blockSchema.optional(),
+    td: blockSchema.optional(),
+  })
 }
 
 export const themeBlocksSchema = buildBlockObjectSchema()
@@ -188,8 +211,9 @@ export const themeSchema = z
       }
     }
 
-    for (const blockName of BLOCK_NAMES) {
+    for (const blockName of STYLEABLE_ELEMENTS) {
       const block = theme.blocks[blockName]
+      if (!block) continue
       for (const [property, rawValue] of Object.entries(block)) {
         const propPath = `blocks.${blockName}.${property}`
 

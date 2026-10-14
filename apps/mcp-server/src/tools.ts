@@ -172,13 +172,13 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
           .record(z.string(), z.union([z.string(), z.number()]))
           .optional()
           .describe(
-            '要改的 token，例如 { primaryColor: "#0b6bff", fontSize: "16px", lineHeight: 1.8, radius: "14px", cardBg: "#f8fafc" }。',
+            '要改的 token，例如 { primaryColor: "#047857", fontSize: "16px", lineHeight: 1.8, radius: "14px", cardBg: "#f1f5f9" }。',
           ),
         blocks: z
           .record(z.string(), z.record(z.string(), z.string()))
           .optional()
           .describe(
-            '直接覆盖元素 CSS 声明，例如 { p: { "font-size": "16px" }, h2: { "border-left": "4px solid #0b6bff" } }；属性必须在微信白名单内。',
+            '直接覆盖元素 CSS 声明，例如 { p: { "font-size": "16px" }, h2: { "border-left": "4px solid #047857" } }；属性必须在微信白名单内。',
           ),
         name: z.string().optional().describe('改主题名（保存不同版本时用）。'),
         description: z.string().optional().describe('改主题描述。'),

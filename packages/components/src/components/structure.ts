@@ -45,9 +45,9 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
         gap: '7px',
         'font-size': '15px',
         'font-weight': '600',
-        color: tone.strong,
+        color: palette.text,
         'padding-bottom': '9px',
-        'border-bottom': `1px dashed ${tone.soft}`,
+        'border-bottom': `1px solid ${palette.divider}`,
         'margin-bottom': '11px',
       })}">${
         icon
@@ -70,18 +70,17 @@ function renderCard(node: ComponentNode, ctx: RenderContext): string {
         color: palette.weak,
         'margin-top': '10px',
         'padding-top': '8px',
-        'border-top': `1px dashed ${palette.divider}`,
+        'border-top': `1px solid ${palette.divider}`,
       })}">${escapeHtml(footer)}</section>`
     : ''
 
   const outer = css({
     margin: `0 0 ${palette.blockGap}`,
-    'background-color': variant === 'plain' ? '#ffffff' : tone.soft,
-    border: variant === 'plain' ? `1px solid ${palette.cardBorder}` : `1px solid ${tone.soft}`,
-    'border-left': `4px solid ${tone.base}`,
+    'background-color': variant === 'plain' ? '#ffffff' : palette.cardBg,
+    border: `1px solid ${palette.cardBorder}`,
     'border-radius': palette.radius,
-    padding: '14px 16px',
-    'box-shadow': variant === 'raised' ? `0 6px 20px ${tone.soft}` : undefined,
+    padding: '15px 16px',
+    'box-shadow': variant === 'raised' ? `0 6px 20px ${palette.cardBorder}` : undefined,
   })
 
   return `<section style="${outer}">${header}<section data-swx-body="1"${ctx.slot('body')}>${inner}</section>${footerHtml}</section>`
@@ -309,31 +308,33 @@ function renderQuote(node: ComponentNode, ctx: RenderContext): string {
   const source = prop(p, 'source')
 
   const inner = ctx.renderChildren(node)
+  // 落款：上面一条发丝线，右对齐。
   const attribution = author || source
     ? `<section${ctx.slot('author')} style="${css({
         'font-size': '12.5px',
         color: palette.muted,
-        'margin-top': '10px',
+        'margin-top': '12px',
+        'padding-top': '8px',
+        'border-top': `1px solid ${palette.divider}`,
         'text-align': 'right',
       })}">${author ? escapeHtml(author) : ''}${
         author && source ? ' · ' : ''
       }${source ? escapeHtml(source) : ''}</section>`
     : ''
 
+  // quote 不做盒子：它要与 card（有边界的容器）、callout（贴在左线的提示）在形状上分开。
+  // 引文就是一段话（大引号 + 正文 + 落款），不是一块面。
   return `<section style="${css({
     margin: `0 0 ${palette.blockGap}`,
-    'background-color': tone.soft,
-    'border-radius': palette.radius,
-    padding: '16px 16px 12px',
-    position: undefined,
   })}">` +
     `<section style="${css({
-      'font-size': '26px',
+      'font-family': 'Georgia, "Times New Roman", serif',
+      'font-size': '2.4em',
       'line-height': '0.8',
       color: tone.base,
-      'margin-bottom': '6px',
+      'margin-bottom': '4px',
     })}">“</section>` +
-    `<section data-swx-body="1"${ctx.slot('text')} style="${css({ 'font-size': '14px', color: palette.text, 'line-height': '1.8' })}">${inner}</section>` +
+    `<section data-swx-body="1"${ctx.slot('text')} style="${css({ 'font-size': '15px', color: palette.text, 'line-height': '1.9' })}">${inner}</section>` +
     attribution +
     `</section>`
 }

@@ -36,7 +36,7 @@
 - **26 个富组件 + 自定义组件**：图片图注 / 多图网格 / 图文卡片 / 自动轮播 / 音乐 / 推荐搜索 / 时间线 / 步骤条 / 对比 /
   引用卡 / 目录 / 提示框 / 进度条 / 封面 / 结尾卡片等，用 `:::名字{参数}` 书写、可嵌套，正文继续用 Markdown；
   也能用 HTML 模板定义新组件存进本地组件库。
-- **26 套预置主题**（6 套原创 + 20 套 WeMD 移植），支持保存自定义主题与 LLM 生成主题；
+- **36 套预置主题**（6 套原创 + 10 套社区经典 + 20 套 WeMD 移植），支持保存自定义主题与 LLM 生成主题；
   主题的 blocks 可只写关键项，缺省自动补全。
 - **发布前评审** `review_article`：确定性检查标题/正文层级比、组件堆砌、主题独特性，并给出定性评审框架。
 - **设计由 agent 直出**：agent 产出主题 JSON → 校验落盘；`generate_theme`（烧 LLM）只是无 agent 场景的回退。
@@ -64,7 +64,7 @@ stylewx/
 ├── packages/
 │   ├── components/  # 富组件库：::: 指令解析 + 组件渲染器 + HTML 反向导入 + 组件目录（同构）
 │   ├── core/        # Markdown → 内联样式 HTML（unified/remark/rehype + juice），纯函数
-│   ├── theme/       # 主题 Schema、微信 CSS 白名单、主题→CSS 编译器、26 套预置主题
+│   ├── theme/       # 主题 Schema、微信 CSS 白名单、主题→CSS 编译器、36 套预置主题
 │   ├── validator/   # 微信兼容性校验器，输出结构化报告
 │   ├── publisher/   # 微信 API：token / 素材上传 / draft.add + 外链图搬运（不含群发）
 │   ├── preview/     # Playwright 截图（390px 视口）

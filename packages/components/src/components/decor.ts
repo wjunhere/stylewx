@@ -201,29 +201,19 @@ function renderCallout(node: ComponentNode, ctx: RenderContext): string {
     margin: `0 0 ${palette.blockGap}`,
     'background-color': tone.soft,
     'border-left': `4px solid ${tone.base}`,
-    'border-radius': palette.radiusSm,
+    // 只在右侧收圆角：左边贴着那条色线，读起来是「一条注」而不是「一个盒子」。
+    // 盒子是 card 的活 —— 两个组件长得一样时，读者分不出哪块是强调、哪块是容器。
+    'border-radius': `0 ${palette.radiusSm} ${palette.radiusSm} 0`,
     padding: '12px 16px',
   })}">` +
     `<section${ctx.slot('title')} style="${css({
-      display: 'flex',
-      'align-items': 'center',
-      gap: '7px',
+      'font-size': '13px',
       'font-weight': '600',
-      'font-size': '14px',
+      'letter-spacing': '0.5px',
       color: tone.strong,
-      'margin-bottom': '6px',
+      'margin-bottom': '5px',
     })}">` +
-    `<span style="${css({
-      width: '16px',
-      height: '16px',
-      'border-radius': '50%',
-      'background-color': tone.base,
-      color: tone.onBase,
-      'font-size': '11px',
-      'line-height': '16px',
-      'text-align': 'center',
-      'flex-shrink': 0,
-    })}">${escapeHtml(icon)}</span>` +
+    `<span style="${css({ color: tone.base, 'margin-right': '5px' })}">${escapeHtml(icon)}</span>` +
     `<span>${escapeHtml(title)}</span></section>` +
     `<section data-swx-body="1"${ctx.slot('body')} style="${css({ 'font-size': '13.5px', color: palette.text, 'line-height': '1.75' })}">${ctx.renderChildren(
       node,

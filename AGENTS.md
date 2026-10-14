@@ -84,7 +84,7 @@ Publishing 登记、provenance 与回查办法 → 见 `.github/workflows/releas
 | 富组件 / 自定义组件 / 样式覆盖 | `component-system.md §11、§14–§16`；语法与清单见 `docs/COMPONENTS.md` |
 | MCP 工具 | `README.md`「MCP 工具」+ `apps/mcp-server/src/tools.ts` |
 | 文章主题 | `packages/theme/src/presets.ts`（原创 6 套）、`wemd-presets.ts`（移植 20 套） |
-| 默认 Markdown 样式（默认 block / 代码块内联） | `theme-system.md §32` |
+| 默认 Markdown 样式（默认 block / 代码块内联 / 表格） | `theme-system.md §32–§33` |
 | 品牌动效资产（头图/尾图/logo） | `pitfalls.md §22.8`（①~⑩）+ `assets-src/gen-motion.mjs` |
 | 标题图太大 / 头尾图发灰 | `pitfalls.md §22.8` ①/⑧（深色底暖色填充必脏，只能描边）+ `assets-src/cmp-cover.mjs` |
 | 发布通道 / 浏览器自动化 / 正文嵌视频 | `publishing.md §20` |

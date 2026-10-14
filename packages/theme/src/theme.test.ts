@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
+  COMMUNITY_THEMES,
+  EXTRA_BLOCK_NAMES,
+  STYLEABLE_ELEMENTS,
   compileThemeToCss,
   compileRootBaseStyle,
+  completeThemeBlocks,
   getPresetTheme,
   PRESET_THEMES,
   resolveTokenReferences,
@@ -56,7 +60,7 @@ describe('preset themes', () => {
     }
   })
 
-  it('每套主题应包含全部 16 个 block', () => {
+  it('每套主题应包含全部 block（必需项）', () => {
     const names = [
       'h1', 'h2', 'h3', 'p', 'blockquote', 'ul', 'ol', 'li',
       'code', 'pre', 'img', 'figcaption', 'hr', 'a', 'strong',
@@ -64,6 +68,51 @@ describe('preset themes', () => {
     for (const theme of PRESET_THEMES) {
       for (const n of names) expect(theme.blocks[n], `${theme.name} 缺 block ${n}`).toBeDefined()
     }
+  })
+
+  it('主题名唯一（36 套重名会静默覆盖：getPresetTheme 只返回第一个）', () => {
+    const names = PRESET_THEMES.map((t) => t.name)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
+  it('社区样式 10 套都已注册', () => {
+    expect(COMMUNITY_THEMES.map((t) => t.name)).toEqual([
+      'github-markdown',
+      'github-markdown-dark',
+      'tailwind-prose',
+      'water-css',
+      'new-css',
+      'sakura',
+      'pico',
+      'latex-paper',
+      'tufte-notes',
+      'doocs-grace',
+    ])
+    for (const t of COMMUNITY_THEMES) expect(PRESET_THEMES).toContain(t)
+  })
+
+  it('表格 block：默认基线里必须有，主题可以省略', () => {
+    // 基线（agent 直出主题、品牌档案缺省 block 都走它）必须带表格，否则表格又回到浏览器默认那一套
+    const baseline = completeThemeBlocks()
+    for (const name of STYLEABLE_ELEMENTS) expect(baseline[name], `基线缺 ${name}`).toBeDefined()
+
+    // 但「可选」是真的可选：老主题（wemd 那批是生成文件）不写表格也合法
+    const base = getPresetTheme('github-markdown') as Theme
+    const withoutTables = { ...base, blocks: { ...base.blocks } } as Theme
+    for (const name of EXTRA_BLOCK_NAMES) delete (withoutTables.blocks as Record<string, unknown>)[name]
+    expect(validateTheme(withoutTables).ok).toBe(true)
+
+    // 必需项缺了就必须报错（否则「可选」会变成「全都可选」）
+    const withoutH1 = { ...base, blocks: { ...base.blocks } } as Theme
+    delete (withoutH1.blocks as Record<string, unknown>).h1
+    expect(validateTheme(withoutH1).ok).toBe(false)
+  })
+
+  it('可选的表格 block 会被编译成 CSS（不是只存在于类型里）', () => {
+    const css = compileThemeToCss(getPresetTheme('github-markdown') as Theme)
+    expect(css).toContain('table {')
+    expect(css).toContain('th {')
+    expect(css).toContain('td {')
   })
 
   it('可通过名字查找预置主题', () => {

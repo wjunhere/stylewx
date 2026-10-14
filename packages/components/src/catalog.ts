@@ -244,7 +244,7 @@ export const COMPONENT_CATALOG: ComponentSpec[] = [
   {
     name: 'quote',
     category: 'structure',
-    summary: '引用卡片：带引号装饰、作者与出处。',
+    summary: '引用：大引号 + 正文 + 落款（无外框、无底色 —— 与 card 的「有边界容器」、callout 的「左侧注条」形状分开）。',
     example: `:::quote{author="鲁迅" source="《热风》"}
 愿中国青年都摆脱冷气，只是向上走。
 :::`,

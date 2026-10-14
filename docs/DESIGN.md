@@ -15,7 +15,7 @@
 | [`design/publishing.md`](./design/publishing.md) | §20、§29 | 浏览器登录态发布、可编辑性判据、正文视频、草稿箱纪律 |
 | [`design/platform-widgets.md`](./design/platform-widgets.md) | §26–§28 | 音乐、推荐搜索、以及「平台组件该不该做」的判据 |
 | [`design/brand-pack.md`](./design/brand-pack.md) | §30–§31 | 品牌三方一致性闸门（`brand doctor`）、`.brand` 打包与分发 |
-| [`design/theme-system.md`](./design/theme-system.md) | §32 | 默认 Markdown 样式：默认 block 的取法、代码块内联修正、表格的已知缺口 |
+| [`design/theme-system.md`](./design/theme-system.md) | §32–§33 | 默认 Markdown 样式：默认 block、代码块内联、表格 block；以及 10 套社区样式与它们的取法 |
 | [`design/pitfalls.md`](./design/pitfalls.md) | §22 | **踩过的坑全量**（按症状 → 原因 → 防线） |
 | [`design/manual-scripts.md`](./design/manual-scripts.md) | §23 | 不进 CI 的手动验证脚本清单 |
 

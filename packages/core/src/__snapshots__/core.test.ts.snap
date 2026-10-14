@@ -1,14 +1,14 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`快照测试 > 固定 Markdown + 固定主题 → 固定 HTML 结构 1`] = `
-"<section style="font-family: -apple-system, BlinkMacSystemFont, PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif; font-size: 15px; color: #1f2329; line-height: 1.75;"><h1 style="color: #1f2329; font-size: 1.5em; font-weight: 700; line-height: 1.32; letter-spacing: 0.01em; margin: 0 0 0.85em;">快照标题</h1>
-<p style="color: #1f2329; font-size: 15px; line-height: 1.75; letter-spacing: 0.04em; margin: 0 0 16px;">正文一段，<strong style="color: #1f2329; font-weight: 700;">加粗</strong>。</p>
+"<section style="font-family: IBM Plex Sans, -apple-system, BlinkMacSystemFont, PingFang SC, Microsoft YaHei, sans-serif; font-size: 15px; color: #1e293b; line-height: 1.75;"><h1 style="color: #1e293b; font-size: 1.5em; font-weight: 700; line-height: 1.32; letter-spacing: 0.01em; margin: 0 0 0.85em;">快照标题</h1>
+<p style="color: #1e293b; font-size: 15px; line-height: 1.75; letter-spacing: 0.04em; margin: 0 0 16px;">正文一段，<strong style="color: #1e293b; font-weight: 700;">加粗</strong>。</p>
 <ul style="padding-left: 1.35em; margin: 0 0 16px; list-style: disc;">
 <li style="line-height: 1.75; margin: 0 0 0.35em;">项一</li>
 </ul>
-<blockquote style="border-left: 3px solid #0b6bff; background-color: #f5f9ff; color: #3a4a5a; padding: 0.85em 1.1em; margin: 0 0 16px;">
-<p style="color: #1f2329; font-size: 15px; line-height: 1.75; letter-spacing: 0.04em; margin: 0 0 16px;">引文</p>
+<blockquote style="border-left: 3px solid #047857; background-color: #f8fafc; color: #334155; padding: 0.85em 1.1em; margin: 0 0 16px;">
+<p style="color: #1e293b; font-size: 15px; line-height: 1.75; letter-spacing: 0.04em; margin: 0 0 16px;">引文</p>
 </blockquote>
-<pre style="background-color: #f0f4ff; border: 1px solid #e2e8f0; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 0.86em; line-height: 1.65; font-family: Menlo, Consolas, Courier New, monospace; color: #3b5b9a; margin: 0 0 16px;"><code style="font-family: Menlo, Consolas, Courier New, monospace; color: #3b5b9a; background-color: transparent; border: none; padding: 0; border-radius: 0; font-size: inherit;">code
+<pre style="background-color: #1e293b; border: 1px solid #1e293b; padding: 14px 16px; border-radius: 10px; overflow-x: auto; font-size: 0.86em; line-height: 1.65; font-family: Menlo, Consolas, Courier New, monospace; color: #e2e8f0; margin: 0 0 16px;"><code style="font-family: Menlo, Consolas, Courier New, monospace; background-color: transparent; border: none; padding: 0; border-radius: 0; font-size: inherit; color: inherit;">code
 </code></pre></section>"
 `;
