@@ -5,7 +5,7 @@
 
 新增 `:::music` 音乐占位组件：发布时**自动插入**微信原生播放器（无需人工）。
 
-与 `:::video` 相反 —— 音乐不需要人工点。实测（`docs/DESIGN.md` §26）：把旧草稿
+与 `:::video` 相反 —— 音乐不需要人工点。实测（`docs/design/platform-widgets.md` §26）：把旧草稿
 `draft/get` 里的 `<mp-common-clmusic …>` 标签直接 `insertHTML`，编辑器完整保留；
 保存后再读回仍完整。两条插入路径：`source`（原样标签，首选）/ `clue`（关键词搜索）。
 

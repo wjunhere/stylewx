@@ -6,7 +6,7 @@
 新增 `:::search` 推荐搜索组件（发布时自动插入）+ 三处平台限制防线。
 
 与 `:::music` 同族：数据自包含的 `<mp-common-search>`，可离线合成、零交互插入
-（docs/DESIGN.md §28）。昵称与头像**不写进 Markdown**，发布时调 `getaccountbasicinfo` 现取
+（`docs/design/platform-widgets.md` §28）。昵称与头像**不写进 Markdown**，发布时调 `getaccountbasicinfo` 现取
 —— 昵称不一致就是导流到别人的号，且 `qlogo.cn` 头像直链会随换头像失效。
 
 实测拿到两个反直觉的约束，都做成了防线：
