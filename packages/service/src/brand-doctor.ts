@@ -278,23 +278,27 @@ function deriveComponentPrefix(names: string[]): string | undefined {
 }
 
 /**
- * 游离组件：在全局组件库里，却**不属于任何一个品牌档案**。
+ * 一次「游离组件」扫描的结果。
  *
- * ── 为什么这是问题 ─────────────────────────────────────────────────────
- * `.brand` 包只带 `profile.components` 里列的组件。游离组件不会随任何包走：
- * 本机渲染正常（全局库里有），装到别的环境就退化成普通 Markdown。
- *
- * 实测就是 `hip-quote`：品牌自己的收尾配方里写着它（brand.md的迭代记录），
- * 文章也在用，但它只存在于 `~/.stylewx/components.json`。本机一直看不出来，
- * 直到把包装进干净环境才报「未知组件「hip-quote」」。
- *
- * 分两种报法：
- *  - 名字能对上一个品牌的前缀 → 报在那个品牌名下（最可能是忘了归档案）
- *  - 对不上任何前缀 → 全量体检时汇总报一条（需要人来决定归哪个品牌）
+ * doctor（全量体检）与 packBrand（打包前自包含预检）共用同一套前缀规则：
+ * 两处各写一份「这个名字是不是这个品牌的」，迟早会分叉成两种答案。
  */
-function checkOrphanComponents(brands: string[], opts: BrandDoctorOptions): BrandIssue[] {
-  const issues: BrandIssue[] = []
-  // 归属要看**所有**品牌，不能只看本次要查的那几个 —— 否则被别的品牌拥有的组件会被误判为游离
+export interface OrphanScan {
+  /** 全部游离组件：在全局库里，却不属于任何品牌档案。 */
+  orphans: string[]
+  /** 按品牌分组：前缀推得出来、且组件名以该前缀开头的那些游离组件。 */
+  byBrand: Map<string, { prefix: string; components: string[] }>
+  /** 对不上任何品牌前缀的游离组件（需要人来决定归哪个品牌）。 */
+  unclaimed: string[]
+}
+
+/**
+ * 扫描全局组件库里的游离组件（不写盘）。
+ *
+ * `brands` 只决定「哪些品牌参与前缀归属」；**组件归谁看所有品牌**，
+ * 否则被别的品牌拥有的组件会被误判成游离。
+ */
+export function scanOrphanComponents(brands: string[], opts?: BrandDoctorOptions): OrphanScan {
   const owner = new Map<string, string>()
   const profiles = new Map<string, BrandProfile>()
   for (const name of brandDirNames(opts)) {
@@ -311,17 +315,45 @@ function checkOrphanComponents(brands: string[], opts: BrandDoctorOptions): Bran
   const orphans = listUserComponents(opts)
     .map((c) => c.name)
     .filter((n) => !builtinNames.has(n) && !owner.has(n))
-  if (!orphans.length) return issues
 
+  const byBrand = new Map<string, { prefix: string; components: string[] }>()
   const claimed = new Set<string>()
   for (const name of brands) {
     const profile = profiles.get(name)
     if (!profile) continue
     const prefix = deriveComponentPrefix(profile.components.map((c) => c.name))
     if (!prefix) continue
-    for (const orphan of orphans) {
-      if (!orphan.startsWith(prefix)) continue
-      claimed.add(orphan)
+    const mine = orphans.filter((orphan) => orphan.startsWith(prefix))
+    if (!mine.length) continue
+    for (const orphan of mine) claimed.add(orphan)
+    byBrand.set(name, { prefix, components: mine })
+  }
+
+  return { orphans, byBrand, unclaimed: orphans.filter((n) => !claimed.has(n)) }
+}
+
+/**
+ * 游离组件：在全局组件库里，却**不属于任何一个品牌档案**。
+ *
+ * ── 为什么这是问题 ─────────────────────────────────────────────────────
+ * `.brand` 包只带 `profile.components` 里列的组件。游离组件不会随任何包走：
+ * 本机渲染正常（全局库里有），装到别的环境就退化成普通 Markdown。
+ *
+ * 实测就是 `hip-quote`：品牌自己的收尾配方里写着它（brand.md的迭代记录），
+ * 文章也在用，但它只存在于 `~/.stylewx/components.json`。本机一直看不出来，
+ * 直到把包装进干净环境才报「未知组件「hip-quote」」。
+ *
+ * 分两种报法：
+ *  - 名字能对上一个品牌的前缀 → 报在那个品牌名下（最可能是忘了归档案）
+ *  - 对不上任何前缀 → 全量体检时汇总报一条（需要人来决定归哪个品牌）
+ */
+function checkOrphanComponents(brands: string[], opts: BrandDoctorOptions): BrandIssue[] {
+  const issues: BrandIssue[] = []
+  const scan = scanOrphanComponents(brands, opts)
+  if (!scan.orphans.length) return issues
+
+  for (const [name, { prefix, components }] of scan.byBrand) {
+    for (const orphan of components) {
       issues.push({
         brand: name,
         target: orphan,
@@ -336,14 +368,13 @@ function checkOrphanComponents(brands: string[], opts: BrandDoctorOptions): Bran
   }
 
   // 对不上任何品牌前缀的：只在全量体检时报，且汇总成一条（避免刷屏）。
-  const rest = orphans.filter((n) => !claimed.has(n))
-  if (rest.length && !opts.name) {
+  if (scan.unclaimed.length && !opts.name) {
     issues.push({
       brand: '(未归属)',
       target: 'components.json',
       kind: 'component_orphan',
       severity: 'warning',
-      message: `全局组件库里有 ${rest.length} 个组件不属于任何品牌档案：${rest.join('、')}。它们不会随任何 .brand 包走。`,
+      message: `全局组件库里有 ${scan.unclaimed.length} 个组件不属于任何品牌档案：${scan.unclaimed.join('、')}。它们不会随任何 .brand 包走。`,
       hint: '要么用 brand_save 把它们归到某个品牌，要么删掉（用 delete_component）—— 否则某篇文章换环境后会掉样式。',
     })
   }

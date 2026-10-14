@@ -265,6 +265,8 @@ async function handleEditorApi(
           bytes: bytes.length,
           data: bytes.toString('base64'),
           manifest: packed.manifest,
+          // 自包含预检结果（游离组件）：导出的包要发给别人，必须让人看到「装到别处会坏」
+          warnings: packed.warnings,
         })
       } catch (error) {
         return respondErrorOrSend(res, error)

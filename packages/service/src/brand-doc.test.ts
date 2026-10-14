@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import { colorSchema, themeTokensSchema } from '@stylewx/theme'
 import {
   AUTO_KEYS,
+  PALETTE_TOKENS,
   checkBrandDoc,
   checkHumanSections,
   findUnpairedMarkers,
@@ -53,6 +55,51 @@ describe('renderAutoBlock', () => {
     expect(block).toContain('| 主色 primary | `#1D5C4A` |')
     expect(block).toContain('| 强调 accent | `#C87F4A` |')
     expect(block).not.toContain('undefined')
+  })
+
+  it('palette 覆盖全部色板 token —— 清单与 theme schema 里的颜色 token 一一对应', () => {
+    // 判据是「字段的 schema 就是 colorSchema」：colorSchema 是模块级单例，
+    // 可选 token 只是把它包进 ZodOptional，unwrap 后仍是同一个对象。
+    const inner = (field: unknown): unknown =>
+      typeof (field as { unwrap?: unknown })?.unwrap === 'function'
+        ? (field as { unwrap: () => unknown }).unwrap()
+        : field
+    const colorKeys = Object.entries(themeTokensSchema.shape)
+      .filter(([, field]) => inner(field) === colorSchema)
+      .map(([key]) => key)
+
+    // 先确认探针本身有效：过滤器一旦失效（zod 换了包装方式），下面这行会先红 ——
+    // 否则「两边都变空」也会让 toEqual 通过，测试就成了摆设。
+    expect(colorKeys).toContain('primaryColor')
+    expect(colorKeys.length).toBeGreaterThanOrEqual(9)
+    expect(PALETTE_TOKENS.map((t) => t.key)).toEqual(colorKeys)
+  })
+
+  it('palette 段把每个存在的色板 token 都写成一行（含页底这种不常用色）', () => {
+    const block = renderAutoBlock(
+      'palette',
+      facts({
+        theme: {
+          tokens: {
+            primaryColor: '#1D5C4A',
+            textColor: '#2A2A26',
+            mutedColor: '#5C6675',
+            cardBorderColor: '#E2E5EA',
+            canvasBg: '#FBF9F4',
+            pageBackgroundColor: '#F7F9FC',
+          },
+        },
+      }),
+    )!
+    const rows = block.split('\n').slice(2)
+    expect(rows).toEqual([
+      '| 主色 primary | `#1D5C4A` |',
+      '| 正文 text | `#2A2A26` |',
+      '| 次要 muted | `#5C6675` |',
+      '| 卡片描边 cardBorder | `#E2E5EA` |',
+      '| 画布底 canvasBg | `#FBF9F4` |',
+      '| 页底 pageBg | `#F7F9FC` |',
+    ])
   })
 
   it('typography 把数字型 lineHeight 写成正常文本（旧实现会拼出 undefined）', () => {

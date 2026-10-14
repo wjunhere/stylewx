@@ -107,6 +107,9 @@ saveUserComponent(c)   // 组件 → ~/.stylewx/components.json  ✅
 5. 断言加在品牌生命周期用例里：`list_saved_themes` 必须能看到该品牌主题。
    （已验证这条断言有效——临时把 `saveTheme` 去掉，用例立刻报
    `expected [] to include 'tide-notes'`。）
+6. **编辑器侧还有一条同样的路要接**：导入 `.brand` 成功后也要重新拉一次主题列表。
+   `brandApply` 那条路（点「应用品牌」）拉了，导入那条漏了 —— 表现是导完下拉里看不到，
+   要再点一次「应用品牌」才出现。两处走的是同一个 `loadThemes()`，不另拼选项。
 
 **注意**：这条只解决「人选不到」。品牌主题与预置主题仍是两件事（见 §21.7 边界二），
 主题库里多一个 `origin: saved` 的条目，不改变「品牌色不进 390px 画布」那条边界。

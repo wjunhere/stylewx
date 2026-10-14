@@ -55,6 +55,29 @@ const AUTO_TITLES: Record<AutoKey, string> = {
   learnings: '迭代记录',
 }
 
+/**
+ * 「核心色板」自动段要列的 token，按主题 schema 的声明顺序。
+ *
+ * 为什么是一份完整清单，而不是只挑 5 个常用的：清单短了，人在文档里补的那一行就**没有地方去** ——
+ * 它只能留在自动段外，而「段外」按约定是人写内容，程序既不该删也不会重算。
+ * 实测踩过：stylewx-craft 的 `pageBackgroundColor`（页底）不在清单里，于是色板段外多出一行
+ * 「| 页底 pageBg | `#F7F9FC` |」，段外永远清不干净。
+ *
+ * 约束：这份清单与 `@stylewx/theme` 的 `colorSchema` 类 token **必须一一对应** ——
+ * 由 `brand-doc.test.ts` 直接比对 schema（不是比对另一份手写清单），漏一个就红。
+ */
+export const PALETTE_TOKENS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'primaryColor', label: '主色 primary' },
+  { key: 'textColor', label: '正文 text' },
+  { key: 'accentColor', label: '强调 accent' },
+  { key: 'mutedColor', label: '次要 muted' },
+  { key: 'cardBg', label: '卡片底 cardBg' },
+  { key: 'cardBorderColor', label: '卡片描边 cardBorder' },
+  { key: 'dividerColor', label: '分割线 divider' },
+  { key: 'canvasBg', label: '画布底 canvasBg' },
+  { key: 'pageBackgroundColor', label: '页底 pageBg' },
+]
+
 const OPEN = (key: string): string => `<!-- stylewx:auto ${key} -->`
 const CLOSE = '<!-- /stylewx:auto -->'
 
@@ -95,13 +118,8 @@ export function renderAutoBlock(key: AutoKey, facts: BrandDocFacts): string | un
   const t = facts.theme.tokens
   switch (key) {
     case 'palette': {
-      const rows: Array<[string, string | undefined]> = [
-        ['主色 primary', token(t, 'primaryColor')],
-        ['正文 text', token(t, 'textColor')],
-        ['强调 accent', token(t, 'accentColor')],
-        ['卡片底 cardBg', token(t, 'cardBg')],
-        ['分割线 divider', token(t, 'dividerColor')],
-      ]
+      // 只列真实存在的色值：主题里没设的 token 不占行
+      const rows: Array<[string, string | undefined]> = PALETTE_TOKENS.map(({ key, label }) => [label, token(t, key)])
       const present = rows.filter((r): r is [string, string] => !!r[1])
       if (!present.length) return undefined
       const lines = ['| 用途 | 色值 |', '| --- | --- |']

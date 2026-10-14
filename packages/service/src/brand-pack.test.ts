@@ -114,6 +114,7 @@ describe('品牌包（.brand）', () => {
     seedBrand()
     const packed = packBrand('tide-notes', { out: outDir, version: '1.2.0' })
     expect(packed.path.endsWith('tide-notes-1.2.0.brand')).toBe(true)
+    expect(packed.warnings).toEqual([])
 
     const v = validateBundle(packed.path)
     expect(v.ok).toBe(true)
@@ -219,6 +220,36 @@ describe('品牌包（.brand）', () => {
     const v = validateBundle(withExtra)
     expect(v.ok).toBe(true)
     expect(v.warnings.join(' ')).toContain('notes.txt')
+  })
+
+  it('打包前的自包含预检：游离组件以警告报出，但不拦打包（包里真的没它）', () => {
+    seedBrand()
+    // 直接进全局库、没经过 brand_save —— 正是 hip-quote 的成因
+    saveUserComponent(COMPONENT('tide-letter', 'letter'))
+
+    const packed = packBrand('tide-notes', { out: outDir })
+    expect(packed.warnings).toHaveLength(1)
+    expect(packed.warnings[0]).toContain('tide-letter')
+    expect(packed.warnings[0]).toContain('不会进这个包')
+    // 警告是真的：包里的 brand.json 确实没有它（否则这个警告就是空话）
+    const raw = unzipSync(new Uint8Array(readFileSync(packed.path)))
+    const profile = JSON.parse(strFromU8(raw['brand.json'] as Uint8Array)) as { components: Array<{ name: string }> }
+    expect(profile.components.map((c) => c.name)).not.toContain('tide-letter')
+    // 只报不拦：包照旧能装、能过校验（无法知道哪篇文章用了它，拦下只会让人交不出档案）
+    expect(validateBundle(packed.path).ok).toBe(true)
+  })
+
+  it('组件全部归档案时零警告（不误报）', () => {
+    seedBrand('tide-notes', ['tide-quote', 'tide-end'])
+    saveUserComponent(COMPONENT('tide-quote', 'quote'))
+    const packed = packBrand('tide-notes', { out: outDir })
+    expect(packed.warnings).toEqual([])
+  })
+
+  it('推不出组件前缀（只有一个组件）时不猜、不误报', () => {
+    seedBrand('tide-notes', ['tide-quote'])
+    saveUserComponent(COMPONENT('tide-letter', 'letter'))
+    expect(packBrand('tide-notes', { out: outDir }).warnings).toEqual([])
   })
 
   it('同一输入打两次 → 字节完全一致（zip 内时间戳固定）', () => {

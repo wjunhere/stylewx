@@ -2262,6 +2262,9 @@ $('#brExport').onclick=async()=>{
     const a=document.createElement('a'); a.href=url; a.download=d.fileName; a.click();
     setTimeout(()=>URL.revokeObjectURL(url),4000);
     toast('已导出 '+d.fileName+'（'+Math.round(d.bytes/1024)+'KB）');
+    // 包里不自包含时要说出来：这个文件是要发给别人的，装到别处才发现就晚了
+    if((d.warnings||[]).length){ const n=$('#brNotes'); n.style.display=''; n.textContent='⚠ 这个包不自包含：\n'+d.warnings.join('\n'); }
+    else { $('#brNotes').style.display='none'; }
   }catch(e){ toast('导出失败：'+e.message+(e.hint?'（'+e.hint+'）':''),false); }
   finally{ busy($('#brExport'),false); }
 };
@@ -2297,6 +2300,9 @@ $('#brFile').addEventListener('change',async e=>{
     toast('已安装品牌：'+r.name);
     // 刷新列表并选中新装的那个
     const d=await api('/editor/api/brands'); brBrands=d.brands||[]; $('#brCount').textContent='共 '+brBrands.length+' 个品牌';
+    // 安装已经把品牌主题写进 themes.json（服务端复用 brand_apply），所以重拉一次
+    // 主题列表它就会出现在下拉里。漏了这一步的表现是：导入完看不到，要再点「应用品牌」才有。
+    await loadThemes();
     brRenderList(''); await brSelect(r.name);
   }catch(err){
     notes.textContent='✗ 导入失败：'+err.message+(err.hint?'\n→ '+err.hint:'');

@@ -769,6 +769,8 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
         '把品牌档案打成一个 `.brand` 文件（zip 容器）—— 这是分发给别人的形态。包内含 manifest.json（版本/engine/文件 sha256）、' +
         'brand.json（机器真源）、brand.md（人的文档）、assets/（只有身份位图 logo-*.png / cover.png）。' +
         '**source/ 默认不进包**（分发品牌 ≠ 交接源码）；要交接就传 withSource。' +
+        '打包前会做一次自包含预检：游离组件（在全局库里、却不属于这个品牌档案）出现在返回的 warnings 里 —— ' +
+        '不拦打包，但那些组件不会随包走（本机渲染正常，装到别的环境退化成普通 Markdown）。' +
         '品牌目录 assets/ 为空且 logo 还是外链时会拒绝打包 —— 先跑 `stylewx brand attach <name> --from <目录>` 把图片落进来。',
       inputSchema: {
         name: z.string().describe('品牌档案 ID。'),

@@ -162,6 +162,38 @@ brand_learn{name, note}                 # 把这次学到的记入品牌档案
 `brand_learn` 记什么：用户的反馈（「嫌卡片太花」）、你的修正决策（「h2 加左边框更好」）、踩过的坑。
 这些记录下次 `brand_apply` 时会随品牌宪法一起读到——**品牌档案就是这样越用越准的**。
 
+### 8. 品牌打包与分发（把品牌发给别人 / 换台机器）
+
+品牌档案是一个**目录**（`~/.stylewx/brands/<name>/`：可 diff、可手改、可提交进 git），但它没法直接发给别人。
+`.brand` 就是它的传输形态（一个 zip）。编辑器品牌面板有「导出 / 导入 .brand」，CLI 是同一份实现：
+
+```bash
+stylewx brand pack <name> [--out <目录|文件>] [--with-source]   # 打包（默认不含源码）
+stylewx brand validate <包>                                     # 只校验，不落盘
+stylewx brand install  <包> [--as <名字>] [--new]                # 安装 / 升级
+stylewx brand doctor   [name]                                   # 三方一致性体检，退出码非零 = 不一致
+```
+
+> **品牌组件必须通过 `brand_save` 归档案，否则不会随 `.brand` 包走。**
+>
+> 包只带 `profile.components` 里列的组件。用 `save_component` 单独建的组件只进本机全局库：
+> **本机渲染完全正常，装到别的环境就退化成普通 Markdown** —— 这种缺失在本机永远看不出来。
+
+实测踩过：`hip-quote` 三篇文章都在用、品牌迭代记录里也写着它，却只躺在 `~/.stylewx/components.json`；
+把包装进干净环境才报「未知组件 `hip-quote`，已按普通 Markdown 渲染其正文」。
+所以新建品牌专属组件的正确顺序是：`save_component` 建好 → **`brand_save` 把完整组件清单再写一遍档案**。
+打包前跑一次 `brand doctor`：游离组件（在全局库、却不属于任何品牌档案）会被列为警告。
+
+其余几条行为（都是刻意的）：
+
+- **导入幂等**：同一品牌（`name` + `origin` 一致）再装就是原地升级，不会攒出 `-2`、`-3`。
+- **撞名不覆盖**：对方已有同名组件时，新来的加品牌后缀（`x--<brand>`），原名记进 `renamedFrom`。
+- **拒绝远程 URL 资产**，路径不许 `../`、不许绝对路径；微信素材库的 CDN 链接记 `.published.json`，
+  不回写 profile（否则重新打包会把**上一个账号**的链接发给别人）。
+- `.brand` 后缀只是提示，真判据是包内 manifest 的 `kind` / `formatVersion`。
+
+包结构、判据与代价见 `docs/design/brand-pack.md` §31。
+
 ## 主题设计规则（agent 直出主题时遵守）
 
 ### 色彩推导协议：采样 → 收敛 → 论证
@@ -265,7 +297,8 @@ save_component{
 （**别把颜色写死**）、`{{#if}}` / `{{#each body}}`、`data-swx-slot="title"` 声明可覆盖部位。
 
 保存时自动做微信校验：`script`/`style`/`iframe`、`on*` 事件、`position`/`filter` 直接拒绝。
-品牌专属组件建议以品牌名为前缀（如 `tide-quote`），并更新进品牌档案。
+品牌专属组件必须**以品牌名为前缀**（如 `tide-quote`）命名，**并 `brand_save` 更新进品牌档案** ——
+只 `save_component` 而不归档案的组件不会随 `.brand` 包走，换台机器就掉样式（见「品牌打包与分发」一节）。
 
 ## 组件选择速查
 

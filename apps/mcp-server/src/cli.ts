@@ -145,6 +145,8 @@ function brandCommand(argv: string[], io: CliIo, has: (flag: string) => boolean)
     })
     io.out(`已打包：${result.path}\n  ${result.manifest.files.length} 个文件 / ${Math.round(result.bytes / 1024)}KB / 版本 ${result.manifest.version}\n`)
     io.out(`  文件：${result.manifest.files.map((f) => f.path).join('、')}\n`)
+    // 自包含预检：不拦打包（无法知道哪篇文章用了它），但「换环境就坏」必须说出口
+    for (const w of result.warnings) io.out(`  ! ${w}\n`)
     return 0
   }
 

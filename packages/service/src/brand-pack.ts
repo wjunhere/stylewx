@@ -40,6 +40,7 @@ import { serviceError } from './errors.js'
 import { brandApply, brandDirNames, brandPaths, readBrandProfile } from './brand-store.js'
 import type { BrandAssets, BrandProfile, BrandStoreOptions } from './brand-store.js'
 import { findUnpairedMarkers, syncBrandDoc } from './brand-doc.js'
+import { scanOrphanComponents } from './brand-doctor.js'
 import { listUserComponents } from './component-store.js'
 
 /** 容器格式版本：**破坏性**变更才 +1（加可选字段不算）。 */
@@ -157,6 +158,15 @@ export interface PackResult {
   path: string
   bytes: number
   manifest: BundleManifest
+  /**
+   * 不拦打包、但「装到别处会坏」的信号（目前只有游离组件）。
+   *
+   * `.brand` 包只带 `profile.components` 里列的组件，所以「换个环境能不能跑」等于
+   * 「组件是不是全在档案里」。游离组件本机渲染完全正常，只有换环境才暴露 ——
+   * 那正是这个包要避免的事，所以必须回给调用方（而不是静静打完了事）。
+   * 只报不拦：无法知道哪篇文章用了它，拦下打包只会让人连档案都交不出去。
+   */
+  warnings: string[]
 }
 
 /** 遍历目录 → `相对路径 → 绝对路径`（路径一律用 `/`，保证跨平台一致）。 */
@@ -203,6 +213,20 @@ export function packBrand(name: string, opts: PackOptions = {}): PackResult {
     const unpaired = findUnpairedMarkers(doc)
     if (unpaired.length) {
       throw serviceError('invalid_bundle', `brand.md 的自动段标记不完整：${unpaired.join('；')}`, '先跑 `stylewx brand doctor --fix` 修好再打包。')
+    }
+  }
+
+  // ---- 自包含预检：包里带了什么，别处就只能用上什么 ----
+  // 与 `brand doctor` 同一套前缀规则（scanOrphanComponents），不在这里另写一份。
+  // 推不出前缀（档案里的组件不足 2 个或没有共同前缀）时宁可不查 —— 不猜、不误报。
+  const warnings: string[] = []
+  const orphans = scanOrphanComponents([name], opts).byBrand.get(name)
+  if (orphans) {
+    for (const component of orphans.components) {
+      warnings.push(
+        `组件「${component}」看着是这个品牌的（前缀 ${orphans.prefix}），但它不在档案的 components 里 —— 不会进这个包。` +
+          `本机渲染正常（全局组件库里有），装到别的环境它会退化成普通 Markdown：用 brand_save 把组件补进档案后重新打包。`,
+      )
     }
   }
 
@@ -283,7 +307,7 @@ export function packBrand(name: string, opts: PackOptions = {}): PackResult {
   const outPath = resolve(outDir, outName)
   mkdirSync(dirname(outPath), { recursive: true })
   writeFileSync(outPath, zip)
-  return { path: outPath, bytes: zip.length, manifest }
+  return { path: outPath, bytes: zip.length, manifest, warnings }
 }
 
 /** 默认版本：用 `updatedAt` 的 UTC 日期（`2026.10.12`）。 */
