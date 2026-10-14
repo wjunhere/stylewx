@@ -43,7 +43,9 @@ if (fix) {
     if (repaired.docsSynced.length) console.log('  补写 brand.md 自动段：' + repaired.docsSynced.join('、'))
     if (repaired.themesSynced.length) console.log('  同步主题副本：' + repaired.themesSynced.join('、'))
     if (repaired.componentsSynced.length) console.log('  同步组件副本：' + repaired.componentsSynced.join('、'))
-    if (!repaired.docsSynced.length && !repaired.themesSynced.length && !repaired.componentsSynced.length) {
+    if (repaired.skipped) {
+      console.log('  ⚠ 没有找到任何品牌档案：什么都没修（检查 STYLEWX_BRANDS_PATH / 品牌目录）')
+    } else if (!repaired.docsSynced.length && !repaired.themesSynced.length && !repaired.componentsSynced.length) {
       console.log('  无需修改')
     }
   }
@@ -55,15 +57,19 @@ if (json) {
   console.log(JSON.stringify(report, null, 2))
 } else {
   console.log(`check-brands: ${report.brands.length} 个品牌（${report.brands.join('、') || '无'}）`)
-  if (!report.brands.length) {
-    console.log('  没有品牌档案，跳过。')
-  }
   for (const issue of report.issues) {
     const tag = issue.severity === 'error' ? '✗' : '!'
     console.log(`  ${tag} [${issue.brand}] ${issue.message}`)
     console.log(`      → ${issue.hint}`)
   }
-  if (report.ok) console.log(`  ✓ 三方一致（真源 ↔ 副本 ↔ brand.md 自动段）`)
+  // 一个品牌都没有时**不能说「一致」**：退出码 0 只表达「没东西可检」，不表达「检查通过」。
+  // 这正是环境变量被指错时会发生的假绿（实测踩过）。
+  if (report.skipped) {
+    console.log('  ⚠ 没有找到任何品牌档案：本次什么都没检查。')
+    console.log('    如果不是预期，检查 STYLEWX_BRANDS_PATH 是否被指到了别处。')
+  } else if (report.ok) {
+    console.log(`  ✓ 三方一致（真源 ↔ 副本 ↔ brand.md 自动段）`)
+  }
 }
 
 process.exit(report.ok ? 0 : 1)

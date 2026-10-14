@@ -68,6 +68,15 @@ export interface BrandCheckReport {
   /** 按 severity=error 计数。 */
   errorCount: number
   ok: boolean
+  /**
+   * 一个品牌都没找到 —— 本次**什么都没检查**，`ok` 不代表品牌数据是干净的。
+   *
+   * 为什么单独标出来：闸门类命令的退出码只能表达「非零 = 有问题」，表达不了
+   * 「没东西可检」—— 环境变量被指错、或路径被污染时，一个本该报错的闸门会静默变成 no-op
+   * 并印出「✓ 三方一致」（实测踩过：真的因此报了一次假绿）。
+   * 消费方（CLI / `pnpm check:brands` / agent）看到它就不应该再说「通过」。
+   */
+  skipped: boolean
 }
 
 /**
@@ -368,7 +377,8 @@ function checkOrphanComponents(brands: string[], opts: BrandDoctorOptions): Bran
   }
 
   // 对不上任何品牌前缀的：只在全量体检时报，且汇总成一条（避免刷屏）。
-  if (scan.unclaimed.length && !opts.name) {
+  // 品牌一个都没有时**不报**：那时「所有组件都游离」是废话，真正的信号是「什么都没检」（见 BrandCheckReport.skipped）。
+  if (scan.unclaimed.length && !opts.name && brands.length > 0) {
     issues.push({
       brand: '(未归属)',
       target: 'components.json',
@@ -395,7 +405,7 @@ export function brandDoctor(opts: BrandDoctorOptions = {}): BrandCheckReport {
   }
   const issues = brands.flatMap((n) => checkOne(n, opts)).concat(checkOrphanComponents(brands, opts))
   const errorCount = issues.filter((i) => i.severity === 'error').length
-  return { brands, issues, errorCount, ok: errorCount === 0 }
+  return { brands, issues, errorCount, ok: errorCount === 0, skipped: brands.length === 0 }
 }
 
 export interface BrandFixReport {
@@ -406,6 +416,8 @@ export interface BrandFixReport {
   /** 按真源覆盖回来的组件名。 */
   componentsSynced: string[]  /** 修完之后仍然存在的问题（副本漂移等，需要 brand_apply 或人工处理）。 */
   remaining: BrandIssue[]
+  /** 一个品牌都没找到 —— 同上，`--fix` 也什么都没修。 */
+  skipped: boolean
 }
 
 /**
@@ -447,7 +459,7 @@ export function brandFix(opts: BrandDoctorOptions = {}): BrandFixReport {
   }
 
   const after = brandDoctor(opts)
-  return { docsSynced, themesSynced, componentsSynced, remaining: after.issues }
+  return { docsSynced, themesSynced, componentsSynced, remaining: after.issues, skipped: after.skipped }
 }
 
 // ---------------------------------------------------------------------------

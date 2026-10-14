@@ -114,7 +114,9 @@ function brandCommand(argv: string[], io: CliIo, has: (flag: string) => boolean)
         if (repaired.docsSynced.length) io.out(`补写 brand.md 自动段：${repaired.docsSynced.join('、')}\n`)
         if (repaired.themesSynced.length) io.out(`同步主题副本：${repaired.themesSynced.join('、')}\n`)
         if (repaired.componentsSynced.length) io.out(`同步组件副本：${repaired.componentsSynced.join('、')}\n`)
-        if (!repaired.docsSynced.length && !repaired.themesSynced.length && !repaired.componentsSynced.length) {
+        if (repaired.skipped) {
+          io.out('⚠ 没有找到任何品牌档案：什么都没修（检查 STYLEWX_BRANDS_PATH / 品牌目录）\n')
+        } else if (!repaired.docsSynced.length && !repaired.themesSynced.length && !repaired.componentsSynced.length) {
           io.out('无需修改\n')
         }
       }
@@ -126,7 +128,13 @@ function brandCommand(argv: string[], io: CliIo, has: (flag: string) => boolean)
       for (const issue of report.issues) {
         io.out(`${issue.severity === 'error' ? '✗' : '!'} [${issue.brand}] ${issue.message}\n    → ${issue.hint}\n`)
       }
-      if (report.ok) io.out('✓ 三方一致（真源 ↔ 副本 ↔ brand.md 自动段）\n')
+      // 一个品牌都没有时**不能说「一致」**：那是「没东西可检」，不是「检查通过」（实测踩过假绿）
+      if (report.skipped) {
+        io.out('⚠ 没有找到任何品牌档案：本次什么都没检查（退出码 0 只表示没东西可检）\n')
+        io.out('   如果不是预期，检查 STYLEWX_BRANDS_PATH 是否被指到了别处。\n')
+      } else if (report.ok) {
+        io.out('✓ 三方一致（真源 ↔ 副本 ↔ brand.md 自动段）\n')
+      }
     }
     return report.ok ? 0 : 1
   }

@@ -308,5 +308,21 @@ describe('brand doctor', () => {
       const report = brandDoctor({ name: 'tide-notes' })
       expect(report.issues.filter((i) => i.kind === 'component_orphan')).toEqual([])
     })
+
+    it('一个品牌都没有时标 skipped：既不说「一致」，也不刷「所有组件都游离」', () => {
+      // 有游离组件，但一个品牌档案都没有 —— 这时「所有组件都不属于任何品牌」是废话，
+      // 真正的信号是「本次什么都没检」。踩过：环境变量被指错时，闸门印着「✓ 三方一致」退出 0。
+      saveUserComponent({ ...COMPONENT, name: 'tide-letter' })
+      const report = brandDoctor()
+      expect(report.brands).toEqual([])
+      expect(report.skipped).toBe(true)
+      expect(report.ok).toBe(true) // 退出码仍为 0：CI 机器上没有品牌档案是正常的
+      expect(report.issues.filter((i) => i.kind === 'component_orphan')).toEqual([])
+    })
+
+    it('有品牌时 skipped 为 false（不是「一律跳过」）', () => {
+      saveBrandWith(['tide-quote', 'tide-stat'])
+      expect(brandDoctor().skipped).toBe(false)
+    })
   })
 })
