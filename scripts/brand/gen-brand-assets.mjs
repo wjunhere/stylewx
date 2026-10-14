@@ -15,7 +15,7 @@
  *   GitHub 的 README 渲染 SVG 时对 <style>/@import 有限制，
  *   而且 npm 页面不渲染 SVG。所以真相是 SVG，发布用 PNG 2x。
  */
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
@@ -24,6 +24,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(__dirname, '..', '..')
 const DOCS = resolve(REPO, 'docs/assets')
 const MCP = resolve(REPO, 'apps/mcp-server')
+
+/* ── 「能点数的事实」一律从源头算，不写死在文案里 ──────────────────
+ * 铁律②：banner 上曾写着「22 工具 · 26 主题 · 22 组件」，而实际是 28 工具 / 26 组件 ——
+ * 硬编码的计数必然落后于代码，而且没人会想起来同步它。
+ * 工具数直接数注册次数（tools.ts 是唯一注册处），组件/主题读编译产物。 */
+const TOOL_COUNT = readFileSync(resolve(MCP, 'src/tools.ts'), 'utf8').match(/server\.registerTool\(/g)?.length ?? 0
+const componentCatalog = await import(pathToFileURL(resolve(REPO, 'packages/components/dist/index.js')).href)
+const themeModule = await import(pathToFileURL(resolve(REPO, 'packages/theme/dist/index.js')).href)
+const COMPONENT_COUNT = (componentCatalog.COMPONENT_CATALOG ?? []).length
+const THEME_COUNT = (themeModule.PRESET_THEMES ?? []).length
+if (!TOOL_COUNT || !COMPONENT_COUNT || !THEME_COUNT) {
+  throw new Error('品牌资产：数不出工具/组件/主题数 —— 先跑 `pnpm build`（组件与主题读的是编译产物）。')
+}
 
 /* playwright 是 @stylewx/preview 的依赖，从那个包的位置解析，
    这样脚本不必为了截图而给根 package.json 添依赖。
@@ -129,7 +142,7 @@ const banner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" w
 
   <text x="52" y="204" font-family="Iowan Old Style,Charter,Georgia,Songti SC,serif" font-size="58" font-weight="600" letter-spacing="-1.62" fill="${T.fg}">排版内核，<tspan fill="${T.accent}">可校验</tspan></text>
 
-  <text x="52" y="254" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="19" fill="${T.muted}">23 个 MCP 工具 + REST API，一步成稿或拆成原语分步迭代。</text>
+  <text x="52" y="254" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="19" fill="${T.muted}">${TOOL_COUNT} 个 MCP 工具 + REST API，一步成稿或拆成原语分步迭代。</text>
 
   <text x="52" y="356" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.43" fill="${T.muted}">内核 · MCP · REST · 编辑器</text>
 
@@ -158,7 +171,7 @@ const banner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" w
       })
       .join('')}
 
-    <text x="24" y="292" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="${T.muted}">22 工具 · 26 主题 · 22 组件</text>
+    <text x="24" y="292" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="${T.muted}">${TOOL_COUNT} 工具 · ${THEME_COUNT} 主题 · ${COMPONENT_COUNT} 组件</text>
   </g>
 </svg>
 `
@@ -177,7 +190,7 @@ const bannerMini = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200
 
   <text x="36" y="126" font-family="Iowan Old Style,Charter,Georgia,Songti SC,serif" font-size="40" font-weight="600" letter-spacing="-1.12" fill="${T.fg}">排版内核，<tspan fill="${T.accent}">可校验</tspan></text>
 
-  <text x="36" y="168" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="1.32" fill="${T.muted}">22 工具 · 26 主题 · 22 组件</text>
+  <text x="36" y="168" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="1.32" fill="${T.muted}">${TOOL_COUNT} 工具 · ${THEME_COUNT} 主题 · ${COMPONENT_COUNT} 组件</text>
 </svg>
 `
 
