@@ -9,6 +9,7 @@ import { completeThemeBlocks } from '@stylewx/theme'
 import { brandApply, renderPreview, publishDraft } from '@stylewx/service'
 import { WeChatClient } from '@stylewx/publisher'
 import { closePreviewBrowser } from '@stylewx/preview'
+import { articlesDir, readEnvFile } from '../../assets-src/paths.mjs'
 import { DESIGN } from './design.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -21,7 +22,7 @@ theme.decorations = [
   { target: 'h2', position: 'before', text: '§', style: { color: '{{accentColor}}', 'font-weight': 'bold', 'margin-right': '2px' } },
 ]
 
-const coffee = readFileSync(join(ROOT, 'articles/test-coffee-costing.md'), 'utf8')
+const coffee = readFileSync(join(articlesDir(), 'test-coffee-costing.md'), 'utf8')
 const rich = `:::ink-header{issue="Vol.12 · 成本篇"}
 :::
 
@@ -47,12 +48,8 @@ if (!preview.validation.pass) {
   process.exit(1)
 }
 
-// 微信客户端（凭据从环境变量读取）
-const env = {}
-for (const line of readFileSync(join(ROOT, '.env'), 'utf8').split('\n')) {
-  const m = /^([A-Z_]+)=(.*)$/.exec(line.trim())
-  if (m) env[m[1]] = m[2]
-}
+// 微信客户端（凭据从环境变量读取；.env 在工作区里，不在仓库里）
+const env = readEnvFile()
 // 校园网多出口 NAT 会漂移 IP，微信白名单追不上。
 // 方案：发布期间把 Clash 切到 global + 固定节点，微信 API 流量走节点固定出口，发布后切回 rule。
 const CLASH_API = process.env.CLASH_API ?? 'http://127.0.0.1:9097'

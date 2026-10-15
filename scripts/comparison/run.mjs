@@ -11,6 +11,7 @@ import {
   listThemes,
 } from '@stylewx/service'
 import { closePreviewBrowser } from '@stylewx/preview'
+import { articlesDir } from '../../assets-src/paths.mjs'
 import { DESIGN } from './design.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -21,7 +22,7 @@ const full = (t) => ({ ...t, blocks: completeThemeBlocks(t.blocks) })
 
 const articles = {}
 for (const [k, f] of Object.entries(DESIGN.articles)) {
-  articles[k] = readFileSync(join(ROOT, f), 'utf8')
+  articles[k] = readFileSync(join(articlesDir(), f), 'utf8')
 }
 
 /** 需要时用 canvas 包裹全文（暗色整页主题必须如此，否则 canvasBg 不生效） */

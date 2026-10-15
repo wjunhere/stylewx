@@ -224,7 +224,7 @@ pnpm check:brands:fix    # 只修能从真源重算的东西（自动段与副�
 品牌可以打成一个文件发给别人：
 
 ```bash
-stylewx brand attach hippie-youth --from assets-src/motion   # 先把 logo/封面落进品牌目录
+stylewx brand attach hippie-youth --from <工作区>/brand/motion   # 先把 logo/封面落进品牌目录
 stylewx brand pack hippie-youth --out ./dist                 # 产出 hippie-youth-<版本>.brand
 stylewx brand validate ./dist/hippie-youth-*.brand           # 装之前先看一眼（不落盘）
 stylewx brand install ./dist/hippie-youth-*.brand            # 装到本机品牌库

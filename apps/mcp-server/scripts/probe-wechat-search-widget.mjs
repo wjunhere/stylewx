@@ -17,11 +17,7 @@
  *   node apps/mcp-server/scripts/probe-wechat-search-widget.mjs --stage native
  *   node apps/mcp-server/scripts/probe-wechat-search-widget.mjs --stage synth
  */
-import { readFileSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+import { readEnvFile } from '../../../assets-src/paths.mjs'
 const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
 const S = 'wx-searchprobe'
 
@@ -51,11 +47,7 @@ async function ev(c) {
   try { return JSON.parse(v) } catch { return v }
 }
 
-const env = {}
-const envFile = join(ROOT, '.env')
-if (existsSync(envFile)) for (const l of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
-  const m = l.match(/^\s*([A-Z_0-9]+)\s*=\s*(.*)\s*$/); if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-}
+const env = readEnvFile()
 const apiToken = async () =>
   (await (await fetch(`https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${env.WECHAT_APP_ID}&secret=${env.WECHAT_APP_SECRET}`)).json()).access_token
 

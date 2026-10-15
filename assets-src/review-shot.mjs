@@ -3,17 +3,16 @@
  * 走仓库自己的 service/renderPreview（dist），不用 MCP：MCP 会回一张 base64 大图，白吃上下文。
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { renderPreview } from '../packages/service/dist/index.js'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
+import { articlesDir, brandsDir, outDir } from './paths.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const REVIEW = join(HERE, 'review')
+const REVIEW = outDir('review')
 mkdirSync(REVIEW, { recursive: true })
 
-const md = readFileSync(process.argv[2] ?? join(HERE, '..', 'articles', '关于部分高校寄成绩单的思考-嬉皮青年.md'), 'utf8')
-const theme = JSON.parse(readFileSync(join(process.env.USERPROFILE, '.stylewx/brands/hippie-youth/profile.json'), 'utf8')).theme
+const md = readFileSync(process.argv[2] ?? join(articlesDir(), '关于部分高校寄成绩单的思考-嬉皮青年.md'), 'utf8')
+const theme = JSON.parse(readFileSync(join(brandsDir(), 'hippie-youth', 'profile.json'), 'utf8')).theme
 
 const preview = await renderPreview(md, theme, {})
 writeFileSync(join(REVIEW, 'article.json'), JSON.stringify({ html: preview.html, validation: preview.validation ?? null }, null, 1))

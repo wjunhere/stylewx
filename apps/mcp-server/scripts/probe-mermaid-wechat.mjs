@@ -10,16 +10,10 @@ import { publishDraft, loadConfigFromEnv, WeChatClient } from '@stylewx/publishe
 import { readImageAssetByUrl } from '@stylewx/service'
 import { buildPalette } from '@stylewx/components'
 import { getPresetTheme } from '@stylewx/theme'
-import { readFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readEnvFile } from '../../../assets-src/paths.mjs'
 
-const envPath = resolve('B:/wechat_editer', '.env')
-if (existsSync(envPath)) {
-  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
-    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-  }
-}
+// .env 在工作区里，不在仓库里（见 assets-src/paths.mjs）
+for (const [k, v] of Object.entries(readEnvFile())) if (!(k in process.env)) process.env[k] = v
 
 const NL = String.fromCharCode(10)
 const md = [

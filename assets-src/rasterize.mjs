@@ -1,11 +1,10 @@
 /** 把封面 / logo 的 SVG 栅格化成 PNG（微信封面必须是位图，不接受 SVG）。 */
-import { readFileSync, writeFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
+import { brandMotionDir } from './paths.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const OUT = join(HERE, 'motion')
+const OUT = brandMotionDir()
 const shots = JSON.parse(readFileSync(join(OUT, 'rasterize.json'), 'utf8'))
 
 const browser = await chromium.launch()

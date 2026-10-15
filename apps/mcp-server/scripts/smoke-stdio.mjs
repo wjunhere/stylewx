@@ -54,7 +54,7 @@ async function main() {
   assert(analyzeData.content.type === 'tech', 'analyze 应识别为 tech')
 
   // generate_theme：无 LLM 凭据 → 必须返回清晰错误（不静默失败）；
-  // 若环境里配了 LLM（如本地 `--env-file=.env` 运行），则只要求返回合法主题。
+  // 若环境里配了 LLM（如本地 `--env-file=<工作区>/.env` 运行），则只要求返回合法主题。
   const gen = await client.callTool({ name: 'generate_theme', arguments: { prompt: '科技风' } })
   const genData = JSON.parse(gen.content[0].text)
   if (gen.isError === true) {

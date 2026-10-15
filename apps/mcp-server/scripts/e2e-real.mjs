@@ -1,7 +1,7 @@
 /**
  * 真实端到端冒烟：使用真实 LLM（opencode go）跑通
  * analyze_article → generate_theme → render_preview → validate_article，最终 pass:true。
- * 运行： node --env-file=.env apps/mcp-server/scripts/e2e-real.mjs
+ * 运行： node --env-file=<工作区>/.env apps/mcp-server/scripts/e2e-real.mjs
  */
 import {
   analyzeArticle,

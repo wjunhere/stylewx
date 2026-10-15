@@ -327,7 +327,7 @@ Remotion（4.0.52x）实测可用，3s/640×360 出 25.5KB MP4，产物能通过
 ### 教训（2026-10-12）
 
 按 `brand.md` 里一条旧规矩「同名草稿只留最新一份」，把三篇的初版当重复项删了。
-唯一能救回来的是**删除前抓的快照**（`articles/hippie/originals/`）——
+唯一能救回来的是**删除前抓的快照**（工作区 `articles/hippie/originals/`）——
 `assets-src/restore-originals.mjs` 按快照回灌，**只新建、不删除**。
 
 旧规矩已从 `brand.md` 删除，不要重建。

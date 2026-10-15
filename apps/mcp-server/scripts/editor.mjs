@@ -3,8 +3,11 @@
  * 在浏览器打开 http://localhost:<port>/editor（同时提供 /mcp）。
  *
  * 用法：
- *   node editor.mjs                     # 默认读取仓库根 .env，端口 3777
+ *   node editor.mjs                     # 默认读取**工作区** .env，端口 3777
  *   node editor.mjs [.env路径] [端口]
+ *
+ * .env 在工作区里（`$STYLEWX_WORKSPACE/.env`），不在仓库里 —— 见 assets-src/paths.mjs。
+ * 未设 STYLEWX_WORKSPACE 就直接报错，不猜路径。
  *
  * 说明：编辑器只在 --transport http 模式提供；pi 里配的 stylewx 走 stdio（无编辑器），
  * 所以要用本地编辑器请单独跑这个脚本（可与 pi 的 stdio MCP 共存）。
@@ -12,9 +15,10 @@
 import { readFileSync } from 'node:fs'
 import { resolve, dirname, basename } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { envFilePath } from '../../../assets-src/paths.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const envPath = process.argv[2] ? resolve(process.argv[2]) : resolve(__dirname, '../../../.env')
+const envPath = process.argv[2] ? resolve(process.argv[2]) : envFilePath()
 const port = process.argv[3] ? Number(process.argv[3]) : 3777
 
 // 读取 .env 并注入 process.env（不覆盖已存在的环境变量）

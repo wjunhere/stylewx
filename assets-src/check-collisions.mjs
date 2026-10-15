@@ -26,10 +26,12 @@
  * 退出码：有碰撞 → 1（可直接当发布前闸门）
  */
 import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { renderPreview } from '../packages/service/dist/index.js'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
+import { brandsDir } from './paths.mjs'
 
-const brandPath = 'C:/Users/wjun/.stylewx/brands/hippie-youth/profile.json'
+const brandPath = join(brandsDir(), 'hippie-youth', 'profile.json')
 const brand = JSON.parse(readFileSync(brandPath, 'utf8'))
 const uc = {}
 for (const c of brand.components) uc[c.name] = { template: c.template, defaults: c.defaults ?? {} }

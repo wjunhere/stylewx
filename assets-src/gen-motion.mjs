@@ -12,10 +12,8 @@
  *   2. 父级挂了 <animateTransform transform> 时，子树里的静态 transform 会让整棵子树消失。
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const HERE = dirname(fileURLToPath(import.meta.url))
+import { join } from 'node:path'
+import { brandMotionDir } from './paths.mjs'
 
 // ── 色板：全部位采样自 app 头像，括号内是采样点 ────────────────────────────
 const C = {
@@ -481,7 +479,8 @@ const component = (markup, params = []) => {
   return `<section style="margin:0 0 18px">${out}</section>`
 }
 
-const outDir = join(HERE, 'motion')
+// 品牌图源写进**工作区**，不写回仓库（仓库只放这个生成器）
+const outDir = brandMotionDir()
 mkdirSync(outDir, { recursive: true })
 
 const manifest = []

@@ -239,7 +239,7 @@ hippie-youth-1.2.0.brand          (zip)
 ### 三条资产规则（含安全）
 
 1. **`logo` / `coverImage` 从 URL 改成包内相对路径。** 新增
-   `attachBrandAssets` 把 `assets-src/motion/` 里的图片落进品牌目录 `assets/`，
+   `attachBrandAssets` 把工作区 `brand/motion/` 里的图片落进品牌目录 `assets/`，
    并把 profile 的路径改过来（约定文件名 `logo-a/b/c.png` / `cover.png`）。
 2. **导入时拒绝一切远程 URL 资产**，路径不许出现 `../`、不许绝对路径。
    否则一个包就能让导入方去请求任意地址。实测：改成 `https://evil.example.com/steal.png`

@@ -2,7 +2,7 @@
  * 真实微信端验证：把 examples/component-showcase.md 渲染后发布到草稿箱，
  * 再通过 draft/get 取回，逐项核对「富组件是否在微信侧存活」。
  *
- * 运行：node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs [markdown路径] [主题名]
+ * 运行：node --env-file=<工作区>/.env apps/mcp-server/scripts/verify-wechat-showcase.mjs [markdown路径] [主题名]
  *
  * 会真实写入一条草稿（标题带 [verify] 前缀，可在公众号后台手动删除）。
  */

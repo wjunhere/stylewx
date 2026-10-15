@@ -2,23 +2,21 @@
  *  用法：node assets-src/review-hippie.mjs
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { renderPreview, reviewArticle } from '@stylewx/service'
+import { articlesDir, brandsDir, outDir } from './paths.mjs'
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = join(ROOT, 'docs', 'assets', 'hippie-articles')
+const OUT = outDir('hippie-articles')
 mkdirSync(OUT, { recursive: true })
 
 // 品牌主题：品牌档案里的 theme
-const profile = JSON.parse(readFileSync(join(homedir(), '.stylewx/brands/hippie-youth/profile.json'), 'utf8'))
+const profile = JSON.parse(readFileSync(join(brandsDir(), 'hippie-youth', 'profile.json'), 'utf8'))
 const theme = profile.theme
 
 const articles = ['好好吃饭', '焦虑抑制剂', '我的所有还有意义吗']
 let bad = 0
 for (const name of articles) {
-  const mdPath = join(ROOT, 'articles', 'hippie', `${name}.md`)
+  const mdPath = join(articlesDir(), 'hippie', `${name}.md`)
   const md = readFileSync(mdPath, 'utf8')
   const preview = await renderPreview(md, theme, { includeScreenshot: false })
   const errs = preview.validation.issues.filter((i) => i.severity === 'error')

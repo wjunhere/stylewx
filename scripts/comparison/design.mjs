@@ -11,9 +11,9 @@ const Q = (s) => s // 仅标记字符串方便阅读
 
 export const DESIGN = {
   articles: {
-    vite: 'articles/test-vite-perf.md',
-    noodle: 'articles/test-midnight-noodle.md',
-    coffee: 'articles/test-coffee-costing.md',
+    vite: 'test-vite-perf.md',
+    noodle: 'test-midnight-noodle.md',
+    coffee: 'test-coffee-costing.md',
   },
 
   baseline: {

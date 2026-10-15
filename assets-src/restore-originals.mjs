@@ -2,7 +2,7 @@
  *
  * 背景：这三篇各有一份用户最初的版本，曾被误删（当时按 brand.md 里一条已被推翻的规矩
  * 「同名草稿只留最新一份」执行）。原始 HTML 在删除前已从 draft/get 抓取落盘到
- * articles/hippie/originals/，本脚本用**浏览器通道**把它们重新写回草稿箱。
+ * 工作区 articles/hippie/originals/，本脚本用**浏览器通道**把它们重新写回草稿箱。
  *
  * 为什么不能用 cgi-bin/draft/add：写进去的草稿 leaf=0，后台编辑器不认领、人无法修改。
  * 浏览器通道保存的 leaf>0，整篇可编辑。判据见 docs/DESIGN.md §20.7。
@@ -11,14 +11,12 @@
  * 用法：node assets-src/restore-originals.mjs [--dry-run]
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
+import { articlesDir, outDir, readEnvFile } from './paths.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const ROOT = join(HERE, '..')
-const ORIG_DIR = join(ROOT, 'articles', 'hippie', 'originals')
-const COVER_DIR = join(ROOT, 'articles', 'hippie', 'original-covers')
-const OUT = join(ROOT, 'docs', 'assets', 'hippie-articles', 'originals')
+const ORIG_DIR = join(articlesDir(), 'hippie', 'originals')
+const COVER_DIR = join(articlesDir(), 'hippie', 'original-covers')
+const OUT = outDir('hippie-articles', 'originals')
 mkdirSync(OUT, { recursive: true })
 
 const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
@@ -60,14 +58,7 @@ async function clickByLabel(label, { required = false } = {}) {
 }
 
 // 环境变量（发布后回查用）
-const env = {}
-const envFile = join(ROOT, '.env')
-if (existsSync(envFile)) {
-  for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^\s*([A-Z_0-9]+)\s*=\s*(.*)\s*$/)
-    if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-  }
-}
+const env = readEnvFile()
 
 const items = []
 for (const f of readFileSync(join(ORIG_DIR, 'README.txt'), 'utf8').split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) items.push(f)

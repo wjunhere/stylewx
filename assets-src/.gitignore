@@ -1,3 +1,5 @@
+# 品牌图源（头/尾图、logo）与评审产物都在**工作区**里，不在仓库 —— 见 docs/design/repo-hygiene.md §34
+# 与 assets-src/paths.mjs。这里保留 ignore 只是兜底：万一有人把产物写回仓库，
+# 别让它被提交（scripts/ci/check-private-paths.mjs 会另外拦一次）。
 review/
-motion/shots/
-motion/*.url
+motion/

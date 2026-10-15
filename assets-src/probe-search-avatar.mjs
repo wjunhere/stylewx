@@ -9,6 +9,7 @@
  * 用法：node assets-src/probe-search-avatar.mjs <appmsgid>
  */
 import { writeFileSync } from 'node:fs'
+import { outDir } from './paths.mjs'
 
 const DAEMON = 'http://127.0.0.1:10086/command'
 const SESSION = 'wx-verify'
@@ -87,6 +88,6 @@ console.log(JSON.stringify(info, null, 2))
 const shot = await wb('cdp', { method: 'Page.captureScreenshot', params: { format: 'png' } })
 const b64 = shot?.data || shot?.result?.data
 if (b64) {
-  writeFileSync('.ui-shots/search-avatar.png', Buffer.from(b64, 'base64'))
-  console.log('✓ .ui-shots/search-avatar.png')
+  writeFileSync(outDir('shots', 'search-avatar.png'), Buffer.from(b64, 'base64'))
+  console.log('✓', outDir('shots', 'search-avatar.png'))
 }

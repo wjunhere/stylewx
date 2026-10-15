@@ -1,12 +1,16 @@
 """重建 Hippie 青年 品牌档案（颜色全部采样自公众号真实头像）。
 
 跑法：node -e "..." 太容易在引号上翻车，所以写成 .py 文件再执行。
+品牌图源（头/尾图、logo）在**工作区**里，不在仓库里 —— 见 assets-src/paths.mjs。
 """
 import json
 import os
 
 SX = os.path.join(os.environ['USERPROFILE'], '.stylewx')
-ROOT = r'B:\wechat_editer'
+WS = os.environ.get('STYLEWX_WORKSPACE')
+if not WS:
+    raise SystemExit('未设置 STYLEWX_WORKSPACE：品牌图源在工作区里（默认 B:/stylewx-workspace），不在仓库里。')
+MOTION = os.environ.get('STYLEWX_BRAND_ASSETS_DIR') or os.path.join(WS, 'brand', 'motion')
 
 theme = {
     "name": "hippie-youth",
@@ -62,9 +66,9 @@ theme = {
 
 # ── 组件：三套头/尾图 + 信封插图 ─────────────────────────────────────────
 comps = []
-for plan in json.load(open(os.path.join(ROOT, 'assets-src/motion/components.json'), encoding='utf-8')):
+for plan in json.load(open(os.path.join(MOTION, 'components.json'), encoding='utf-8')):
     comps.extend(plan['components'])
-comps.extend(json.load(open(os.path.join(ROOT, 'assets-src/motion/extras.json'), encoding='utf-8')))
+comps.extend(json.load(open(os.path.join(MOTION, 'extras.json'), encoding='utf-8')))
 comps = [{"name": c['name'], "description": c['description'], "template": c['template'],
           "defaults": c.get('defaults', {}), "slots": []} for c in comps]
 
@@ -102,7 +106,7 @@ profile = {
     "coverImage": None,
     "headerComponent": "hip-head-a",
     "learnings": [
-        {"date": "2026-09-25", "note": "动效资产落定三套：A「归途」线描生长 / B「灯下」光圈点亮 / C「行囊」暮色剪影。全部为内联 SVG + SMIL（微信唯一真能动且实测存活的通道）。源文件 assets-src/motion/，生成器 assets-src/gen-motion.mjs。"},
+        {"date": "2026-09-25", "note": "动效资产落定三套：A「归途」线描生长 / B「灯下」光圈点亮 / C「行囊」暮色剪影。全部为内联 SVG + SMIL（微信唯一真能动且实测存活的通道）。源文件在工作区 brand/motion/（不随仓库分发），生成器 assets-src/gen-motion.mjs。"},
         {"date": "2026-09-25", "note": "踩坑一：缩放元素时不能把绝对坐标乘 s，必须用 transform 先搬原点再 scale，否则灯头与灯柱脱开（越放大偏得越厉害）。"},
         {"date": "2026-09-25", "note": "踩坑二：父级 <g> 挂了 <animateTransform transform> 时，子树里的静态 transform 会让整棵子树消失 —— 不是动画失效，是图形整个不见。剪影坐标要烘成绝对值。"},
         {"date": "2026-09-25", "note": "踩坑三：深色底上「大面积 + 低透明」的暖色会调出脏灰（实测变芥末灰）。要么缩小面积并提高不透明度，要么直接用实心色块 / 纯色描边。"},
@@ -110,15 +114,15 @@ profile = {
         {"date": "2026-09-25", "note": "微信封面只接受位图，动效拍不进去；封面给与头图同源的静帧版式（940×400，2.35:1）作为呼应。"},
     ],
     "assets": {
-        "motionSource": "assets-src/motion/",
+        "motionSource": "工作区 brand/motion/（不随仓库分发；可用 STYLEWX_BRAND_ASSETS_DIR 指定）",
         "generator": "assets-src/gen-motion.mjs",
         "plans": [
             {"key": "A · 归途", "syntax": "地平线与灯柱描边生长，灯亮后呼吸；最安静", "components": ["hip-head-a", "hip-end-a"]},
             {"key": "B · 灯下", "syntax": "光圈层层推开，字被照亮；适合读书/思考类", "components": ["hip-head-b", "hip-end-b"]},
             {"key": "C · 行囊", "syntax": "暮色三层压下 + 剪影走入画面；叙事最强", "components": ["hip-head-c", "hip-end-c"]},
         ],
-        "logo": "assets-src/motion/logo-a.png（另有 logo-b.png / logo-c.png 备选）",
-        "cover": "assets-src/motion/cover.png（940×400）",
+        "logo": "工作区 brand/motion/logo-a.png（另有 logo-b.png / logo-c.png 备选）",
+        "cover": "工作区 brand/motion/cover.png（940×400）",
         "illustration": "hip-letter（信封线稿插图）",
     },
     "updatedAt": "2026-09-25T00:00:00.000Z",

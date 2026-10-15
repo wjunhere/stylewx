@@ -127,7 +127,7 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 `Cannot find package '@modelcontextprotocol/sdk' imported from /tmp/.../probe.mjs`。
 原因是探针自己也要 import SDK，而 ESM 从**脚本所在目录**向上找 `node_modules`：
 探针放在临时目录根部，向上会走到 `%TEMP%` → 用户目录 → 盘根，于是 Windows 上**盘根恰好有
-`C:\Users\wjun\node_modules`（意外残留）而侥幸通过**，Linux 一路到 `/` 都没有就失败。
+`<用户目录>\node_modules`（意外残留）而侥幸通过**，Linux 一路到 `/` 都没有就失败。
 这不是"CI 环境有问题"，是代码依赖了机器上碰巧存在的东西 —— 把探针放进被测包目录（命中 junction）即可。
 
 验证方法：`mv ~/node_modules ~/node_modules.bak && pnpm check:artifact && mv ~/node_modules.bak ~/node_modules`。
@@ -225,7 +225,7 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 腿画**髖→膝→脚两段式**（细三角缩小后直接消失）。
 另外还加了山脊、道路、基座石三样**环境物**——没有它们，人在空白底色上仍然显得单薄。
 
-> 动效资产的可复用产物在 `docs/assets/brand-motion/`（SVG 源 + 组件模板 + 静帧），
+> 动效资产的可复用产物在工作区 `brand/motion-shipped/`、图源在 `brand/motion/`（**都不在仓库里**，见 §34），
 > 生成器是 `assets-src/gen-motion.mjs`，品牌档案 `~/.stylewx/brands/hippie-youth/`。
 > 三套方案 **A「归途」/ B「灯下」/ C「行囊」全部可用**（不是只有 A 定稿），
 > 区分靠画面主导色，选哪套看文章气质（报名 `brand.md`）。

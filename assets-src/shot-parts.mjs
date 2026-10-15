@@ -1,11 +1,10 @@
 /** 逐个组件的真实尺寸截图（1x），审细节用。 */
 import { readFileSync, mkdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
+import { outDir } from './paths.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const OUT = join(HERE, 'review')
+const OUT = outDir('review')
 mkdirSync(OUT, { recursive: true })
 const html = readFileSync(join(OUT, 'phone.html'), 'utf8')
 

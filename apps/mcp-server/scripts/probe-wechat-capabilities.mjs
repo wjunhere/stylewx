@@ -2,7 +2,7 @@
  * 微信草稿 API 能力探针：实测「哪些 HTML/CSS/交互特性在 draft/add → draft/get 之后被保留」。
  *
  * 用途：为 stylewx 的组件库设计提供证据，而不是依赖社区传闻。
- * 运行：node --env-file=.env apps/mcp-server/scripts/probe-wechat-capabilities.mjs
+ * 运行：node --env-file=<工作区>/.env apps/mcp-server/scripts/probe-wechat-capabilities.mjs
  *
  * 注意：会真实写入一条测试草稿到公众号草稿箱（标题带 [probe] 前缀，可手动删除）。
  */

@@ -21,11 +21,7 @@
  * 前置：kimi-webbridge 守护进程 + 浏览器已登录公众号后台。
  * `--stage survive` 会创建一条标题含「[探针]音乐组件存活验证」的草稿并在读回后**自动删除**。
  */
-import { readFileSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+import { readEnvFile } from '../../../assets-src/paths.mjs'
 const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
 const SESSION = 'wx-music-probe'
 
@@ -69,14 +65,7 @@ async function evalJson(code) {
 }
 
 // 环境变量（survive 阶段回查用）
-const env = {}
-const envFile = join(ROOT, '.env')
-if (existsSync(envFile)) {
-  for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^\s*([A-Z_0-9]+)\s*=\s*(.*)\s*$/)
-    if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-  }
-}
+const env = readEnvFile()
 
 /** 打开后台 + 新建图文，返回 token。 */
 async function openEditor() {

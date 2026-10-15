@@ -1,26 +1,25 @@
 // 三篇最终稿渲染成整页截图，供整体评审（含新的 A/B/C 头尾图 + 160 标题图）
 import { readFileSync, mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { renderPreview } from '../packages/service/dist/index.js'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
+import { articlesDir, brandsDir, outDir } from './paths.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const ROOT = dirname(HERE)
-const brand = JSON.parse(readFileSync('C:/Users/wjun/.stylewx/brands/hippie-youth/profile.json', 'utf8'))
+const brand = JSON.parse(readFileSync(join(brandsDir(), 'hippie-youth', 'profile.json'), 'utf8'))
 const uc = {}
 for (const c of brand.components) uc[c.name] = { template: c.template, defaults: c.defaults ?? {} }
 
-mkdirSync('docs/assets/hippie-articles', { recursive: true })
+const OUT = outDir('hippie-articles')
+mkdirSync(OUT, { recursive: true })
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 390, height: 1200 }, deviceScaleFactor: 2 })
 
 for (const n of ['好好吃饭', '焦虑抑制剂', '我的所有还有意义吗']) {
-  const md = readFileSync(join(ROOT, `articles/hippie/${n}.md`), 'utf8')
+  const md = readFileSync(join(articlesDir(), 'hippie', `${n}.md`), 'utf8')
   const r = await renderPreview(md, brand.theme, { includeScreenshot: false, userComponents: uc })
   await page.setContent(`<html><body style="margin:0">${r.html}</body></html>`)
   await page.waitForTimeout(8000) // 等 SMIL 播完（拍终态）
-  await page.screenshot({ path: `docs/assets/hippie-articles/final-${n}.png`, fullPage: true })
+  await page.screenshot({ path: join(OUT, `final-${n}.png`), fullPage: true })
   // 顺便量高度占比
   const m = await page.evaluate(() => {
     const all = [...document.querySelectorAll('*')]

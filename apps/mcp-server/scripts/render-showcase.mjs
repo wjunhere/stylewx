@@ -2,7 +2,7 @@
  * 组件库展示：渲染 examples/component-showcase.md → HTML + 390px 截图 + 校验报告。
  *
  * 用法：
- *   node --env-file=.env apps/mcp-server/scripts/render-showcase.mjs [markdown路径] [主题名] [输出目录]
+ *   node --env-file=<工作区>/.env apps/mcp-server/scripts/render-showcase.mjs [markdown路径] [主题名] [输出目录]
  *
  * 不依赖 MCP Server / LLM，直接调用 @stylewx/service，便于快速验证组件渲染效果。
  */

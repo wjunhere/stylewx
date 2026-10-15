@@ -1,14 +1,11 @@
 // 把品牌 A/B/C 三套头尾图 + hip-letter 各拍一张，用于肉眼判断差异是否足够
 import { readFileSync, mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { renderPreview } from '../packages/service/dist/index.js'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
+import { brandsDir, outDir } from './paths.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const ROOT = dirname(HERE)
-
-const brand = JSON.parse(readFileSync('C:/Users/wjun/.stylewx/brands/hippie-youth/profile.json', 'utf8'));
+const brand = JSON.parse(readFileSync(join(brandsDir(), 'hippie-youth', 'profile.json'), 'utf8'));
 const uc = {};
 for (const c of brand.components) uc[c.name] = { template: c.template, defaults: c.defaults ?? {} };
 
@@ -18,7 +15,8 @@ const variants = [
   ['C 行囊', 'hip-head-c', 'hip-end-c'],
 ];
 
-mkdirSync('.ui-shots/abc', { recursive: true });
+const ABC = outDir('shots', 'abc');
+mkdirSync(ABC, { recursive: true });
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 390, height: 900 }, deviceScaleFactor: 2 });
 
@@ -27,7 +25,7 @@ for (const [label, head, end] of variants) {
   const r = await renderPreview(md, brand.theme, { includeScreenshot: false, userComponents: uc });
   await page.setContent(`<html><body style="margin:0">${r.html}</body></html>`);
   await page.waitForTimeout(7000); // 等 SMIL 动画播完再拍，否则抓到中间帧
-  const file = `.ui-shots/abc/${label.replace(' ', '-')}.png`;
+  const file = join(ABC, `${label.replace(' ', '-')}.png`);
   await page.screenshot({ path: file, fullPage: true });
   console.log(label, '->', file);
 }
@@ -37,7 +35,7 @@ const md = `::::canvas{tone="paper" padding="16px"}\n\n:::hip-letter\n:::\n\n:::
 const r = await renderPreview(md, brand.theme, { includeScreenshot: false, userComponents: uc });
 await page.setContent(`<html><body style="margin:0">${r.html}</body></html>`);
 await page.waitForTimeout(7000); // 等 SMIL 动画播完再拍，否则抓到中间帧
-await page.screenshot({ path: '.ui-shots/abc/letter.png', fullPage: true });
-console.log('letter -> .ui-shots/abc/letter.png');
+await page.screenshot({ path: join(ABC, 'letter.png'), fullPage: true });
+console.log('letter ->', join(ABC, 'letter.png'));
 
 await browser.close();

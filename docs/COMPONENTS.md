@@ -124,10 +124,10 @@
 
 ```bash
 # HTML + 390px 截图 + 校验报告
-node --env-file=.env apps/mcp-server/scripts/render-showcase.mjs
+node --env-file=<工作区>/.env apps/mcp-server/scripts/render-showcase.mjs
 
 # 真实发布到草稿箱并逐项核对微信侧存活
-node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
+node --env-file=<工作区>/.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
 ```
 
 ---
@@ -201,10 +201,10 @@ const { markdown, title, components, warnings } = htmlToMarkdown(html)
 
 ```bash
 # 本地往返：渲染 → 回导 → 再渲染，比对组件标记与纯文本
-node --env-file=.env apps/mcp-server/scripts/verify-html-roundtrip.mjs
+node --env-file=<工作区>/.env apps/mcp-server/scripts/verify-html-roundtrip.mjs
 
 # 真实微信往返：发布 → 取回 → 回导，检查组件是否全部还原
-node --env-file=.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
+node --env-file=<工作区>/.env apps/mcp-server/scripts/verify-wechat-showcase.mjs
 ```
 
 `examples/component-showcase.md` 的实测结果：**21/21 组件标记一致、纯文本一致**；

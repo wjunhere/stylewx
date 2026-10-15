@@ -1,6 +1,6 @@
 /**
  * 交接闭环验证：save_article 落盘 → 用返回的 editorUrl 从编辑器端点读回。
- * 运行：node --env-file=.env apps/mcp-server/scripts/verify-handoff.mjs
+ * 运行：node --env-file=<工作区>/.env apps/mcp-server/scripts/verify-handoff.mjs
  *
  * 需要本地编辑器服务已在跑（node apps/mcp-server/scripts/editor.mjs .env 3777）。
  */

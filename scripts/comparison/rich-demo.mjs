@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { completeThemeBlocks, validateTheme } from '@stylewx/theme'
 import { renderPreview, reviewArticle, brandDelete, brandSave, brandApply, listThemes } from '@stylewx/service'
 import { closePreviewBrowser } from '@stylewx/preview'
+import { articlesDir } from '../../assets-src/paths.mjs'
 import { DESIGN } from './design.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -56,7 +57,7 @@ theme.decorations = [
   { target: 'h2', position: 'before', text: '§', style: { color: '{{accentColor}}', 'font-weight': 'bold', 'margin-right': '2px' } },
 ]
 
-const coffee = readFileSync(join(ROOT, 'articles/test-coffee-costing.md'), 'utf8')
+const coffee = readFileSync(join(articlesDir(), 'test-coffee-costing.md'), 'utf8')
 const rich = `:::ink-header{issue="Vol.12 · 成本篇"}
 :::
 

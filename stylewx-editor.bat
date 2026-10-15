@@ -2,7 +2,7 @@
 chcp 65001 >nul
 rem =====================================================================
 rem  stylewx local web editor launcher (Windows)
-rem    - loads .env from the repo root
+rem    - loads .env from the workspace (NOT from the repo)
 rem    - starts the MCP server in HTTP mode on port 3777
 rem    - serves the editor at http://localhost:3777/editor
 rem    - the same process also exposes http://localhost:3777/mcp
@@ -20,9 +20,11 @@ rem =====================================================================
 setlocal
 cd /d "%~dp0"
 title stylewx local editor
-rem articles live in <repo>\articles; keep them out of the repo root.
-rem This only sets a default -- an externally defined STYLEWX_ARTICLES_DIR wins.
-if not defined STYLEWX_ARTICLES_DIR set "STYLEWX_ARTICLES_DIR=%~dp0articles"
+rem Private artifacts (articles / brand assets / outputs) and .env live in a workspace
+rem NEXT TO the repo, never inside it -- see assets-src/paths.mjs.
+rem These only set defaults -- externally defined vars win.
+if not defined STYLEWX_WORKSPACE set "STYLEWX_WORKSPACE=%~dp0..\stylewx-workspace"
+if not defined STYLEWX_ARTICLES_DIR set "STYLEWX_ARTICLES_DIR=%STYLEWX_WORKSPACE%\articles"
 
 echo.
 echo [stylewx] starting local web editor ...

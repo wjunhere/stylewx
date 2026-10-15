@@ -43,15 +43,20 @@ examples/handoff-out/
 pack-out/
 
 # 本机文章工作区：原文、排版成品、封面图。都是本机产生的而不是库的一部分。
-# 启动器（stylewx-editor.bat）会把 STYLEWX_ARTICLES_DIR 指到这个目录，
-# 所以文章一律放 articles/，别再散落在仓根。
+# ⚠️ 现在文章一律在工作区（STYLEWX_WORKSPACE，默认 ../stylewx-workspace/articles），
+# 这条只是兜底：万一有人把文章写回仓库，也别让它被提交（闸门会另外拦一次，见 §34）。
 articles/
 
-# Hippie 文章的渲染产物（2.5MB 的 390px 截图 + HTML），本机复现：
-#   node assets-src/review-hippie.mjs        （整篇校验 + 截图）
-#   node assets-src/review-shot.mjs <文章>    （单篇终态截图）
-# 生成器入仓（assets-src/gen-hippie-covers.mjs），产物不入仓。
-# ⚠️ articles/hippie/originals/ 是**人的初版快照**，在已被忽略的 articles/ 里 ——
+# 品牌图源（头/尾图、logo）与它们的定稿副本：在工作区 brand/ 下，不进仓库（§34）
+docs/assets/brand-motion/
+
+# 品牌包与已发布 CDN 链接（账号数据）
+*.brand
+.published.json
+
+# Hippie 文章的渲染产物（2.5MB 的 390px 截图 + HTML），现在输出到工作区 out/hippie-articles/
+# （本机复现：node assets-src/review-hippie.mjs / review-shot.mjs）。生成器入仓，产物不入仓。
+# ⚠️ articles/hippie/originals/ 是**人的初版快照**，在工作区 articles/ 里 ——
 #    换机器时必须手动拷贝，否则踩 AGENTS.md 铁律⑧（误删后无处回灌）。
 docs/assets/hippie-articles/
 
@@ -65,4 +70,5 @@ scripts/comparison/output/
 recoverycode.txt
 
 # 界面截图基线（本机对比用，node packages/preview/scripts/ui-shots.mjs 生成）
+# 品牌评审截图现在输出到工作区 out/shots/（assets-src/shot-abc.mjs 等）
 .ui-shots/

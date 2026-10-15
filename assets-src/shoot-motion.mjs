@@ -1,14 +1,13 @@
 /** 三套方案：终态静帧 + 时间轴分帧（看中间态有没有露馅）。 */
 import { mkdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
+import { brandMotionDir } from './paths.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const OUT = join(HERE, 'motion', 'shots')
+const OUT = join(brandMotionDir(), 'shots')
 mkdirSync(OUT, { recursive: true })
 
-const url = 'file:///' + join(HERE, 'motion', 'preview.html').replace(String.fromCharCode(92), '/')
+const url = 'file:///' + join(brandMotionDir(), 'preview.html').replace(String.fromCharCode(92), '/')
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1240, height: 1000 }, deviceScaleFactor: 2 })
 await page.goto(url)

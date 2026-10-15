@@ -832,7 +832,7 @@ export function registerMcpTools(server: McpServer, deps: ToolDeps): void {
         '这是打包前的必经一步：品牌包拒绝远程 URL 资产。',
       inputSchema: {
         name: z.string().describe('品牌档案 ID。'),
-        from: z.string().describe('放着 logo-a.png / cover.png 等文件的目录（如 assets-src/motion）。'),
+        from: z.string().describe('放着 logo-a.png / cover.png 等文件的目录（如 <工作区>/brand/motion）。'),
       },
     },
     wrap(async ({ name, from }) => textResult(attachBrandAssets(name, from))),

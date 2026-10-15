@@ -1,14 +1,13 @@
 /** 为三篇 Hippie 文章生成封面 + 品牌尾卡位图（微信封面只收位图）。
- *  版式沿用 docs/assets/brand-motion/cover.svg（2026-09-25 定稿），只换标题/副题/作者。
+ *  版式沿用工作区 brand/motion-shipped/cover.svg（2026-09-25 定稿），只换标题/副题/作者。
  *  用法：node assets-src/gen-hippie-covers.mjs
  */
 import { writeFileSync, mkdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
+import { outDir } from './paths.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const OUT = join(HERE, '..', 'docs', 'assets', 'hippie-articles')
+const OUT = outDir('hippie-articles')
 mkdirSync(OUT, { recursive: true })
 
 const SERIF = "Georgia, 'Times New Roman', 'Songti SC', serif"
@@ -72,4 +71,4 @@ for (const s of shots) {
   console.log('✓', s.out)
 }
 await browser.close()
-writeFileSync(join(OUT, 'README.md'), `# Hippie 文章位图资产\n\n由 \`assets-src/gen-hippie-covers.mjs\` 生成，版式沿用 \`docs/assets/brand-motion/cover.svg\`。\n改文案后重跑：\`node assets-src/gen-hippie-covers.mjs\`\n`)
+writeFileSync(join(OUT, 'README.md'), `# Hippie 文章位图资产\n\n由 \`assets-src/gen-hippie-covers.mjs\` 生成，版式沿用工作区 \`brand/motion-shipped/cover.svg\`。\n改文案后重跑：\`node assets-src/gen-hippie-covers.mjs\`\n`)

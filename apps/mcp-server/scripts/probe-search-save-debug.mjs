@@ -4,12 +4,11 @@
  *  只诊断，不保存、不发布（除非能保存成功，那时也只为观察）。
  */
 import { readFileSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { getPresetTheme, validateTheme, completeThemeBlocks } from '@stylewx/theme'
 import { renderPreview } from '@stylewx/service'
+import { articlesDir, brandsDir, readEnvFile } from '../../../assets-src/paths.mjs'
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const DAEMON = 'http://127.0.0.1:10086/command'
 const S = 'wx-savedbg'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -27,15 +26,12 @@ async function ev(c) {
   try { return JSON.parse(v) } catch { return v }
 }
 
-const env = {}
-for (const l of readFileSync(join(ROOT, '.env'), 'utf8').split(/\r?\n/)) {
-  const m = l.match(/^\s*([A-Z_0-9]+)\s*=\s*(.*)\s*$/); if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-}
+const env = readEnvFile()
 const tok = (await (await fetch(`https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${env.WECHAT_APP_ID}&secret=${env.WECHAT_APP_SECRET}`)).json()).access_token
 const acct = await (await fetch(`https://api.weixin.qq.com/cgi-bin/account/getaccountbasicinfo?access_token=${tok}`)).json()
 
-const md = readFileSync(join(ROOT, 'articles/hippie/好好吃饭.md'), 'utf8')
-const theme = JSON.parse(readFileSync(join(process.env.USERPROFILE, '.stylewx/brands/hippie-youth/profile.json'), 'utf8')).theme
+const md = readFileSync(join(articlesDir(), 'hippie', '好好吃饭.md'), 'utf8')
+const theme = JSON.parse(readFileSync(join(brandsDir(), 'hippie-youth', 'profile.json'), 'utf8')).theme
 const preview = await renderPreview(md, theme, { includeScreenshot: false })
 
 await wb('navigate', { url: 'https://mp.weixin.qq.com/', newTab: true, group_title: 'savedbg' })

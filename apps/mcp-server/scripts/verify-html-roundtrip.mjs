@@ -1,6 +1,6 @@
 /**
  * 往返验证：Markdown → HTML → Markdown → HTML，检查组件指令是否被完整还原。
- * 运行：node --env-file=.env apps/mcp-server/scripts/verify-html-roundtrip.mjs [markdown路径] [主题名]
+ * 运行：node --env-file=<工作区>/.env apps/mcp-server/scripts/verify-html-roundtrip.mjs [markdown路径] [主题名]
  */
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'

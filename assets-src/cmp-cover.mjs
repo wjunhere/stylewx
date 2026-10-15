@@ -1,13 +1,15 @@
 // 标题图（:::cover）高度对照 —— 拍出来选，别拍脑袋定
 import { readFileSync, mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { renderPreview } from '../packages/service/dist/index.js'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
+import { brandsDir, outDir } from './paths.mjs'
 
-const brand = JSON.parse(readFileSync('C:/Users/wjun/.stylewx/brands/hippie-youth/profile.json', 'utf8'))
+const brand = JSON.parse(readFileSync(join(brandsDir(), 'hippie-youth', 'profile.json'), 'utf8'))
 const uc = {}
 for (const c of brand.components) uc[c.name] = { template: c.template, defaults: c.defaults ?? {} }
 
-mkdirSync('.ui-shots/cover', { recursive: true })
+mkdirSync(outDir('shots', 'cover'), { recursive: true })
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1700, height: 820 }, deviceScaleFactor: 2 })
 
@@ -28,6 +30,6 @@ ${htmls.map((x) => `<div style="width:390px;background:#fff;border:1px solid #99
   <div style="font-size:12px;padding:6px 9px;border-top:1px solid #ddd">height=${x.h}</div></div>`).join('')}
 </div></body></html>`)
 await page.waitForTimeout(7000)
-await page.screenshot({ path: '.ui-shots/cover/compare.png', fullPage: true })
-console.log('✓ .ui-shots/cover/compare.png')
+await page.screenshot({ path: join(outDir('shots', 'cover'), 'compare.png'), fullPage: true })
+console.log('✓', join(outDir('shots', 'cover'), 'compare.png'))
 await browser.close()

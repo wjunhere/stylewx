@@ -800,7 +800,7 @@ export interface AttachAssetsResult {
  * 从 URL 改成**包内相对路径**。
  *
  * 为什么必须落成文件：§3 规则 1/2 —— 包内资产只允许相对路径，导入时拒绝一切远程 URL。
- * 示例：`stylewx brand attach hippie-youth --from assets-src/motion`
+ * 示例：`stylewx brand attach hippie-youth --from <工作区>/brand/motion`
  */
 export function attachBrandAssets(name: string, fromDir: string, opts: AttachAssetsOptions = {}): AttachAssetsResult {
   const profile = readBrandProfile(name, opts)

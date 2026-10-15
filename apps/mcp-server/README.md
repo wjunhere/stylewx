@@ -88,8 +88,9 @@ npx @stylewx/mcp-server --transport http --port 3777
 凭据一律从环境变量注入，不会写进代码或配置文件。文章读写被限制在
 `STYLEWX_ARTICLES_DIR` 内，防目录穿越。
 
-> 启动器 `stylewx-editor.bat` 会把 `STYLEWX_ARTICLES_DIR` 默认设为 `<repo>/articles`
-> （外部已定义的值优先），所以文章请放 `articles/`，不要再散落在仓根。
+> 启动器 `stylewx-editor.bat` 会把 `STYLEWX_WORKSPACE` 默认设为与仓库同级的
+> `../stylewx-workspace`，文章就放那里的 `articles/`（外部已定义的值优先）。
+> **文章、品牌图源、`.env` 都不进仓库** —— 见 docs/design/repo-hygiene.md §34。
 
 ---
 

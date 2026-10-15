@@ -59,6 +59,11 @@ pnpm workspace monorepo，9 个可发布包（`packages/{core,theme,validator,co
 `<!-- stylewx:auto -->` 的小节由程序生成，手改会被覆盖。改完跑 `pnpm check:brands`。
 比较副本不要用 `JSON.stringify`（zod 会按 schema 顺序重建键序，被误判成漂移）。→ §30
 
+**⑫ 仓库只放代码，私人产物一律在工作区。** 文章、品牌图源（头/尾图、logo 的 SVG 源）、
+`.env`、本机产物都在 `STYLEWX_WORKSPACE`（默认与仓库同级 `../stylewx-workspace`）里，
+路径从 `assets-src/paths.mjs` 取（未设变量就地报错，不猜默认目录）。
+推送前跑 `node scripts/ci/check-private-paths.mjs` 并逐提交过一遍内容。→ §34
+
 ## 3. 发布
 
 常规通道是 **Changesets**：开发时 `pnpm changeset` 记录变更并提交进 PR，合到 main 后
@@ -94,6 +99,7 @@ Publishing 登记、provenance 与回查办法 → 见 `.github/workflows/releas
 | Mermaid 图 | `editor.md §24`；组件 `components/mermaid.ts`、出图 `packages/preview/src/mermaid.ts` |
 | 编辑器另存为 / 写入白名单 | `editor.md §25`；闸门 `writeRoots()`（save-article.ts），`STYLEWX_WRITE_ROOTS` |
 | 踩过的坑（全量） | `pitfalls.md §22` |
+| 私人产物 / 工作区 / 推前脱敏 | `repo-hygiene.md §34`；闸门 `scripts/ci/check-private-paths.mjs` |
 | 手动验证脚本（不进 CI） | `manual-scripts.md §23` |
 | 发布流程细节 | `.github/workflows/release.yml`（两条通道与版本判定写在其头部注释） |
 
@@ -110,7 +116,7 @@ pnpm brand:assets                       # 重生成 logo 与 banner（SVG 源 �
 pnpm check:brands                       # 三方一致性（真源 ↔ 副本 ↔ brand.md 自动段）
 pnpm check:brands:fix                   # 只修自动段与派生副本，绝不碰 profile.json
 
-# 头/尾图（改 assets-src/gen-motion.mjs 后必跑）
+# 头/尾图（改 assets-src/gen-motion.mjs 后必跑；需 STYLEWX_WORKSPACE，图源在工作区不在仓库）
 python assets-src/build-brand.py && node assets-src/check-collisions.mjs  # 装饰不得压文字，退出码非零
 node assets-src/shot-abc.mjs && node assets-src/zoom-abc.mjs              # 并排图 + 4x 放大（两个必须一起跑）
 

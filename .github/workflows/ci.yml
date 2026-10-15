@@ -85,6 +85,11 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Private paths / credentials
+        # 仓库只放代码（§34）：私人产物（文章 / 品牌图源 / .env / 本机产物）与凭据
+        # 不许被跟踪。路径级闸门 —— 0.7.0 那次推送就是靠人眼漏掉的。
+        run: pnpm check:private
+
       - name: Verify release metadata
         # 版本是否一致、包元数据（license/repository/files/access）是否齐全
         run: node scripts/ci/verify-release.mjs

@@ -63,13 +63,12 @@
  */
 import { spawn } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
-import { join, dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { getPresetTheme, validateTheme, completeThemeBlocks } from '@stylewx/theme'
 import { renderPreview } from '@stylewx/service'
+import { envFilePath, readEnvFile } from '../../../assets-src/paths.mjs'
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
 const WEBBRIDGE_BIN = join(homedir(), '.kimi-webbridge', 'bin', 'kimi-webbridge.exe')
 
@@ -943,13 +942,10 @@ async function fetchAccountInfo() {
   } catch (e) {
     log('search', `⚠️ 页面取账号信息失败（${String(e.message).slice(0, 60)}），退回 API`)
   }
-  const envPath = join(ROOT, '.env')
-  if (!existsSync(envPath)) throw new Error('找不到 .env（缺 WECHAT_APP_ID / WECHAT_APP_SECRET）')
-  const e = {}
-  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^\s*([A-Z_0-9]+)\s*=\s*(.*)\s*$/)
-    if (m) e[m[1]] = m[2].replace(/^["']|["']$/g, '')
-  }
+  // .env 在工作区里，不在仓库里（见 assets-src/paths.mjs）
+  const envPath = envFilePath()
+  if (!existsSync(envPath)) throw new Error(`找不到 .env（缺 WECHAT_APP_ID / WECHAT_APP_SECRET）：${envPath}`)
+  const e = readEnvFile(envPath)
   if (!e.WECHAT_APP_ID || !e.WECHAT_APP_SECRET) throw new Error('.env 缺 WECHAT_APP_ID / WECHAT_APP_SECRET')
   const t = await (await fetch('https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=' + e.WECHAT_APP_ID + '&secret=' + e.WECHAT_APP_SECRET)).json()
   if (!t.access_token) throw new Error('取 access_token 失败：' + (t.errmsg ?? t.errcode))

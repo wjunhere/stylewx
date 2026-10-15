@@ -8,11 +8,7 @@
  * ⚠️ 会创建一条标题含「[探针]平台组件存活验证」的草稿，读回后自动删除。
  * 用法：node apps/mcp-server/scripts/probe-wechat-widget-survival.mjs
  */
-import { readFileSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+import { readEnvFile } from '../../../assets-src/paths.mjs'
 const DAEMON = 'http://127.0.0.1:10086/command'
 const S = 'wx-widgetsurv'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -29,11 +25,7 @@ async function ev(c) {
   if (typeof v !== 'string') return v
   try { return JSON.parse(v) } catch { return v }
 }
-const env = {}
-const envFile = join(ROOT, '.env')
-if (existsSync(envFile)) for (const l of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
-  const m = l.match(/^\s*([A-Z_0-9]+)\s*=\s*(.*)\s*$/); if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-}
+const env = readEnvFile()
 
 // 待验证：各平台组件的落地标签（原样，含真实快照里拿到的属性）
 const CANDIDATES = [
