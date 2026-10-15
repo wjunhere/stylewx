@@ -10,14 +10,14 @@
  *
  * 真组件标签长这样（`data-keywords` 是 URL 编码的 JSON 数组）：
  * ```html
- * <mp-common-search data-pluginname="insertsearch" data-nickname="Hippie 青年"
+ * <mp-common-search data-pluginname="insertsearch" data-nickname="示例 青年"
  *   data-headimg="http://wx.qlogo.cn/mmhead/…"
  *   data-keywords="%5B%7B%22label%22%3A%22…%22%7D%5D"></mp-common-search>
  * ```
  *
  * 两个必须发布时现场取的字段（不能写死在 Markdown 里）：
  *   1. **昵称** —— 必须与当前账号一致（不一致就是导流到别人的号）。
- *      实测写朴素名（`Hippie 青年`）即可，微信保存时自己规范化成 `Hippie&nbsp;青年`。
+ *      实测写朴素名（`示例 青年`）即可，微信保存时自己规范化成 `示例&nbsp;青年`。
  *   2. **头像** —— `qlogo.cn` 直链会随换头像失效，且必须与账号匹配。
  *
  * 所以本组件**不落任何真实昵称/头像**，只落关键词与占位标记；昵称/头像由发布脚本

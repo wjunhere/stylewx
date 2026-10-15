@@ -55,7 +55,7 @@
  * 与音乐同族（数据自包含），落地 `<mp-common-search>`；同样见到 `data-swx-search` 就处理。
  * **但昵称与头像必须发布时调 API 现取**（`getaccountbasicinfo`），不能从 Markdown 里读：
  * ① 昵称不一致就是导流到别人的号；② `qlogo.cn` 头像直链会随换头像失效。
- * 实测写朴素昵称即可，微信保存时自己规范化成 `Hippie&nbsp;青年`。
+ * 实测写朴素昵称即可，微信保存时自己规范化成 `示例&nbsp;青年`。
  * 它是读者端**唯一带点击交互**的组件（外层 `custom_select_card`），应放文末。
  * **实现上是「注入前预替换」（见 substituteSearch）：** 占位块后面紧邻 `hip-end-a`（含内联 svg），
  * 实测所有二次插入策略都会把它塞进 svg 内部，尾图会被破坏。
@@ -812,7 +812,7 @@ await insertMusic()
 //
 // 昵称与头像必须发布时现取：
 //   ① 昵称不一致就是导流到别人的号；② qlogo.cn 头像直链会随换头像失效。
-// 实测写朴素昵称即可，微信保存时自己规范化成 Hippie&nbsp;青年。
+// 实测写朴素昵称即可，微信保存时自己规范化成 示例&nbsp;青年。
 //
 // ⚠️ 取值的**首选来源是已登录的后台页面**，不是 API。
 // API（getaccountbasicinfo）要 access_token，而 client_credential 取 token 要求调用方 IP

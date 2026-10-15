@@ -37,13 +37,15 @@ const PRIVATE_PATHS = [
   [/\.published\.json$/, '已发布 CDN 链接属于账号数据，不进仓库'],
 ]
 
-/** B 凭据：只匹配「看起来是真值」的形态，避免把键名与空模板判成泄漏。 */
+/** B 凭据与账号数据：只匹配「看起来是真值」的形态，避免把键名与空模板判成泄漏。 */
 const SECRETS = [
   [/\b(?:WECHAT_APP_SECRET|WECHAT_APP_ID|LLM_API_KEY|NPM_TOKEN|GITHUB_TOKEN|CLASH_SECRET|WB_TOKEN)\s*[=:]\s*["']?[A-Za-z0-9_-]{12,}/, '看起来是真实凭据值（应只放工作区 .env）'],
   [/\bsk-[A-Za-z0-9_-]{20,}/, 'OpenAI 风格密钥'],
   [/\bghp_[A-Za-z0-9]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}/, 'GitHub token'],
   [/\bAKIA[0-9A-Z]{16}\b/, 'AWS access key'],
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, '私钥'],
+  [/wx\.qlogo\.cn\/(?:mmopen|mmhead|n)\/[A-Za-z0-9_-]{20,}/, '账号头像直链（账号数据）——从工作区 .env 注入'],
+  [/v2_[A-Za-z0-9]{20,}@finder/, '视频号 id（账号数据）——从工作区 .env 注入'],
 ]
 
 /** C 本机绝对路径。泛用名（CI 的 runner、模板里的占位符）不算泄漏。 */

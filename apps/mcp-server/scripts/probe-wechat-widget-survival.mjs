@@ -27,17 +27,39 @@ async function ev(c) {
 }
 const env = readEnvFile()
 
-// 待验证：各平台组件的落地标签（原样，含真实快照里拿到的属性）
+/** 夹具里的**账号与内容字段**一律从环境读（工作区 .env），不写进仓库 —— 见 §34。
+ *  探针要的是**真实**标签（昵称/头像/视频号 id 都得是真号自己的），猜一个假的等于白跑，
+ *  所以缺任何一个就硬失败，不做默认值。字段清单见 .env.example。 */
+const REQUIRED = [
+  'STYLEWX_ACCOUNT_NICKNAME',
+  'STYLEWX_ACCOUNT_HEADIMG',
+  'STYLEWX_ACCOUNT_FINDER',
+  'STYLEWX_PROBE_MUSIC_NAME',
+]
+const missing = REQUIRED.filter((k) => !env[k])
+if (missing.length) {
+  console.error(`✖ 缺少夹具字段：${missing.join(', ')}`)
+  console.error('  这些是账号/内容数据，不进仓库：请写进工作区 .env（字段说明见 .env.example）。')
+  process.exit(2)
+}
+
+// 微信保存时会把昵称里的空格规范化成 `&nbsp;`（见 docs/design/platform-widgets.md §27），
+// 所以标签里用规范化后的形式，搜索关键词用朴素名。
+const NICK = env.STYLEWX_ACCOUNT_NICKNAME
+const NICK_STORED = NICK.replace(/ /g, '&nbsp;')
+const KEYWORDS = encodeURIComponent(JSON.stringify([{ label: NICK }]))
+
+// 待验证：各平台组件的落地标签（结构照实，账号/内容字段来自环境）
 const CANDIDATES = [
   {
     name: 'mp-common-search（推荐搜索）',
-    html: `<section class="mp_search_iframe_wrp custom_select_card_wrp" nodeleaf=""><mp-common-search class="js_mpsearch appmsg_search_iframe js_uneditable custom_select_card mp_common_widget" data-pluginname="insertsearch" data-nickname="Hippie&amp;nbsp;青年" data-headimg="https://wx.qlogo.cn/mmopen/KydxAIB52xmoQBQSueToo250Blp9q9htMicreTbicuJfLQTSZic200ym3xlJm2r4SECa4TibTMUXyNBsZkExkmncDQnIyvDJLMLxDZsjJTvicSSNXYWC107DMqFOLDhxYIzLM/64" data-keywords="%5B%7B%22label%22%3A%22HIPPIE%20%E9%9D%92%E5%B9%B4%22%7D%5D" contenteditable="false"></mp-common-search></section>`,
+    html: `<section class="mp_search_iframe_wrp custom_select_card_wrp" nodeleaf=""><mp-common-search class="js_mpsearch appmsg_search_iframe js_uneditable custom_select_card mp_common_widget" data-pluginname="insertsearch" data-nickname="${NICK_STORED}" data-headimg="${env.STYLEWX_ACCOUNT_HEADIMG}" data-keywords="${KEYWORDS}" contenteditable="false"></mp-common-search></section>`,
     marker: 'mp-common-search',
     sourceMarker: 'data-nickname',
   },
   {
     name: 'mp-common-clmusic（音乐，对照组）',
-    html: `<section><mp-common-clmusic class="res_iframe clmusic_iframe js_uneditable custom_select_card mp_common_widget" data-pluginname="insertaudio" username="v2_060000231003b20faec8c7e3801fc5d6cd06ee3db077a88162d5015d767f26e3f233a3926794@finder" type="1" music_name="焦虑抑制剂" albumurl="http://wx.y.gtimg.cn/music/photo_new/T002R500x500M000001QOKKW2qnaFA_1.jpg" singer="惘闻" count="0" is_vip="0" duration="530000" music_source="1" listenid="78221540362775072"></mp-common-clmusic></section>`,
+    html: `<section><mp-common-clmusic class="res_iframe clmusic_iframe js_uneditable custom_select_card mp_common_widget" data-pluginname="insertaudio" username="${env.STYLEWX_ACCOUNT_FINDER}" type="1" music_name="${env.STYLEWX_PROBE_MUSIC_NAME}" albumurl="http://wx.y.gtimg.cn/music/photo_new/T002R500x500M000001QOKKW2qnaFA_1.jpg" singer="惘闻" count="0" is_vip="0" duration="530000" music_source="1" listenid="78221540362775072"></mp-common-clmusic></section>`,
     marker: 'mp-common-clmusic',
     sourceMarker: 'music_name',
   },

@@ -176,7 +176,7 @@ export const COMPONENT_CATALOG: ComponentSpec[] = [
       '与 music 同族：**数据自包含**，可离线合成标签、零交互插入。实测（2026-10-12）：用 API 权威数据离线合成 → 保存 → draft/get 读回完整存活。' +
       '昵称与头像**必须发布时现取**（`getaccountbasicinfo` 的 `nickname` / `head_image_info.head_image_url`），所以本组件不落这两个字段：' +
       '① 昵称不一致就是导流到别人的号，必须校验；② qlogo.cn 头像直链会随换头像失效。' +
-      '实测写朴素昵称（`Hippie 青年`）即可，微信保存时自己规范化成 `Hippie&nbsp;青年`——不需要自己转。' +
+      '实测写朴素昵称（`示例 青年`）即可，微信保存时自己规范化成 `示例&nbsp;青年`——不需要自己转。' +
       '位置提醒：它是读者端**唯一带点击交互**的组件（外层 `custom_select_card`），应放**文末**。' +
       '平台上限 4 个搜索词，超出会被截断。',
   },

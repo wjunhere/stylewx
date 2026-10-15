@@ -26,14 +26,24 @@ const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
 const SESSION = 'wx-music-probe'
 
 // 原稿里原样拿到的音乐节点（来自旧草稿的 draft/get）。标签即数据，属性在播放器就在。
-const CLMUSIC =
-  `<mp-common-clmusic class="res_iframe clmusic_iframe js_uneditable custom_select_card mp_common_widget" ` +
-  `data-pluginname="insertaudio" ` +
-  `username="v2_060000231003b20faec8c7e3801fc5d6cd06ee3db077a88162d5015d767f26e3f233a3926794@finder" ` +
-  `type="1" music_name="焦虑抑制剂" ` +
-  `albumurl="http://wx.y.gtimg.cn/music/photo_new/T002R500x500M000001QOKKW2qnaFA_1.jpg" ` +
-  `singer="惘闻" count="0" is_vip="0" duration="530000" music_source="1" ` +
-  `listenid="78221540362775072"></mp-common-clmusic>`
+// 账号/内容字段从环境读（工作区 .env），不写进仓库 —— 见 §34。用到夹具的阶段才要求它们。
+function musicFixture() {
+  const e = readEnvFile()
+  const missing = ['STYLEWX_ACCOUNT_FINDER', 'STYLEWX_PROBE_MUSIC_NAME'].filter((k) => !e[k])
+  if (missing.length) {
+    console.error(`✖ 缺少夹具字段：${missing.join(', ')}（写进工作区 .env，字段说明见 .env.example）`)
+    process.exit(2)
+  }
+  return (
+    `<mp-common-clmusic class="res_iframe clmusic_iframe js_uneditable custom_select_card mp_common_widget" ` +
+    `data-pluginname="insertaudio" ` +
+    `username="${e.STYLEWX_ACCOUNT_FINDER}" ` +
+    `type="1" music_name="${e.STYLEWX_PROBE_MUSIC_NAME}" ` +
+    `albumurl="http://wx.y.gtimg.cn/music/photo_new/T002R500x500M000001QOKKW2qnaFA_1.jpg" ` +
+    `singer="惘闻" count="0" is_vip="0" duration="530000" music_source="1" ` +
+    `listenid="78221540362775072"></mp-common-clmusic>`
+  )
+}
 
 const argv = process.argv.slice(2)
 const stageIdx = argv.indexOf('--stage')
@@ -145,7 +155,7 @@ if (STAGE === 'inject' || STAGE === 'survive') {
   const title = STAGE === 'survive' ? '【探针】音乐组件存活验证' : ''
   const body =
     `<section><span leaf="">【探针】音乐组件存活验证 —— 请忽略。</span></section>` +
-    `<section>${CLMUSIC}</section>` +
+    `<section>${musicFixture()}</section>` +
     `<section><span leaf="">探针结束。</span></section>`
 
   const injected = await evalJson(`(() => {
