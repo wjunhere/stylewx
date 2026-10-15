@@ -90,7 +90,7 @@ Publishing 登记、provenance 与回查办法 → 见 `.github/workflows/releas
 | MCP 工具 | `README.md`「MCP 工具」+ `apps/mcp-server/src/tools.ts` |
 | 文章主题 | `packages/theme/src/presets.ts`（原创 6 套）、`wemd-presets.ts`（移植 20 套） |
 | 默认 Markdown 样式（默认 block / 代码块内联 / 表格） | `theme-system.md §32–§33` |
-| 品牌动效资产（头图/尾图/logo） | `pitfalls.md §22.8`（①~⑩）+ `assets-src/gen-motion.mjs` |
+| 品牌动效资产（头图/尾图/logo） | `pitfalls.md §22.8`（①~⑩）+ 工作区 `brand/tools/gen-motion.mjs`（不进仓库，§34） |
 | 标题图太大 / 头尾图发灰 | `pitfalls.md §22.8` ①/⑧（深色底暖色填充必脏，只能描边）+ `assets-src/cmp-cover.mjs` |
 | 发布通道 / 浏览器自动化 / 正文嵌视频 | `publishing.md §20` |
 | 草稿箱里人的初版 | `publishing.md §29`（**不许删**）；回灌 `assets-src/restore-originals.mjs` |
@@ -116,8 +116,8 @@ pnpm brand:assets                       # 重生成 logo 与 banner（SVG 源 �
 pnpm check:brands                       # 三方一致性（真源 ↔ 副本 ↔ brand.md 自动段）
 pnpm check:brands:fix                   # 只修自动段与派生副本，绝不碰 profile.json
 
-# 头/尾图（改 assets-src/gen-motion.mjs 后必跑；需 STYLEWX_WORKSPACE，图源在工作区不在仓库）
-python assets-src/build-brand.py && node assets-src/check-collisions.mjs  # 装饰不得压文字，退出码非零
+# 头/尾图：生成器与图源都在工作区（brand/tools/gen-motion.mjs → brand/motion/），不进仓库（§34）
+python "$STYLEWX_WORKSPACE/brand/tools/build-brand.py" && node assets-src/check-collisions.mjs  # 装饰不得压文字，退出码非零
 node assets-src/shot-abc.mjs && node assets-src/zoom-abc.mjs              # 并排图 + 4x 放大（两个必须一起跑）
 
 # 发到草稿箱后**必须**读回体检（脚本报「已保存」≠ 稿子是对的）

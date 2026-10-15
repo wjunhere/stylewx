@@ -37,10 +37,10 @@ import type { ComponentNode, RenderContext } from '../types.js'
  *
  * | 关键词 | 字数 | 结果 |
  * | --- | --- | --- |
- * | 好好吃饭 | 4 汉字 | ✅ |
- * | 焦虑抑制剂 | 5 汉字 | ✅ |
+ * | 示例文章 | 4 汉字 | ✅ |
+ * | 示例关键词 | 5 汉字 | ✅ |
  * | 我的所有还有意义 | 8 汉字（=16 单位） | ✅ |
- * | 我的所有还有意义吗 | 9 汉字（=18 单位） | ❌ |
+ * | 示例关键词共九个字 | 9 汉字（=18 单位） | ❌ |
  * | abcdefghijklmnop | 16 ASCII | ✅ |
  * | abcdefghijklmnopq | 17 ASCII | ❌ |
  *

@@ -1,4 +1,4 @@
-/** 三篇 Hippie 文章的渲染 + 评审 + 390px 截图（写文档前的人工检查用）。
+/** 文章渲染 + 评审 + 390px 截图（写文档前的人工检查用）。文章名由命令行给，仓库里不留具体文章名。
  *  用法：node assets-src/review-hippie.mjs
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
@@ -13,7 +13,12 @@ mkdirSync(OUT, { recursive: true })
 const profile = JSON.parse(readFileSync(join(brandsDir(), 'hippie-youth', 'profile.json'), 'utf8'))
 const theme = profile.theme
 
-const articles = ['好好吃饭', '焦虑抑制剂', '我的所有还有意义吗']
+// 文章名由调用方给：仓库里不留具体文章名（§34）
+const articles = process.argv.slice(2)
+if (articles.length === 0) {
+  console.error('用法：node assets-src/review-hippie.mjs <文章名…>（相对工作区 articles/hippie/）')
+  process.exit(2)
+}
 let bad = 0
 for (const name of articles) {
   const mdPath = join(articlesDir(), 'hippie', `${name}.md`)

@@ -14,7 +14,14 @@ mkdirSync(OUT, { recursive: true })
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 390, height: 1200 }, deviceScaleFactor: 2 })
 
-for (const n of ['好好吃饭', '焦虑抑制剂', '我的所有还有意义吗']) {
+// 文章名由调用方给：仓库里不留具体文章名（§34）
+const names = process.argv.slice(2)
+if (names.length === 0) {
+  console.error('用法：node assets-src/final-shots.mjs <文章名…>（相对工作区 articles/hippie/）')
+  process.exit(2)
+}
+
+for (const n of names) {
   const md = readFileSync(join(articlesDir(), 'hippie', `${n}.md`), 'utf8')
   const r = await renderPreview(md, brand.theme, { includeScreenshot: false, userComponents: uc })
   await page.setContent(`<html><body style="margin:0">${r.html}</body></html>`)

@@ -16,7 +16,7 @@
  * 用法：
  *   node apps/mcp-server/scripts/probe-wechat-music.mjs --stage picker
  *   node apps/mcp-server/scripts/probe-wechat-music.mjs --stage survive
- *   node apps/mcp-server/scripts/probe-wechat-music.mjs --stage search "惘闻 焦虑抑制剂"
+ *   node apps/mcp-server/scripts/probe-wechat-music.mjs --stage search "<歌手> <曲名>"
  *
  * 前置：kimi-webbridge 守护进程 + 浏览器已登录公众号后台。
  * `--stage survive` 会创建一条标题含「[探针]音乐组件存活验证」的草稿并在读回后**自动删除**。
@@ -40,7 +40,7 @@ function musicFixture() {
     `username="${e.STYLEWX_ACCOUNT_FINDER}" ` +
     `type="1" music_name="${e.STYLEWX_PROBE_MUSIC_NAME}" ` +
     `albumurl="http://wx.y.gtimg.cn/music/photo_new/T002R500x500M000001QOKKW2qnaFA_1.jpg" ` +
-    `singer="惘闻" count="0" is_vip="0" duration="530000" music_source="1" ` +
+    `singer="示例歌手" count="0" is_vip="0" duration="530000" music_source="1" ` +
     `listenid="78221540362775072"></mp-common-clmusic>`
   )
 }
@@ -48,7 +48,12 @@ function musicFixture() {
 const argv = process.argv.slice(2)
 const stageIdx = argv.indexOf('--stage')
 const STAGE = stageIdx >= 0 ? argv[stageIdx + 1] : 'picker'
-const QUERY = argv.filter((a, i) => !a.startsWith('--') && i !== stageIdx + 1)[0] ?? '惘闻 焦虑抑制剂'
+// search 阶段要的搜索词由调用方给（仓库里不留具体曲名，§34）
+const QUERY = argv.filter((a, i) => !a.startsWith('--') && i !== stageIdx + 1)[0]
+if (STAGE === 'search' && !QUERY) {
+  console.error('✖ search 阶段需要搜索词：node <本脚本> --stage search "<歌手> <曲名>"')
+  process.exit(2)
+}
 if (!['picker', 'inject', 'survive', 'search'].includes(STAGE)) {
   console.error(`✖  未知阶段「${STAGE}」。可选：picker / inject / survive / search`)
   process.exit(1)

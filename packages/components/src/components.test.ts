@@ -388,15 +388,15 @@ describe('music 占位组件', () => {
   // ① 标记必须写出去（发布脚本靠它定位插入点）；② source 标签可原样携带；
   // ③ **属性值里含 `>` 时不能把开标签切断**（铁律⑨ —— 这是它的第一个真实受害者）。
   it('写出 data-swx-music 标记与歌名/歌手/关键词', () => {
-    const html = render(':::music{song="焦虑抑制剂" singer="惘闻" clue="惘闻 焦虑抑制剂"}\n:::')
+    const html = render(':::music{song="示例曲目" singer="示例歌手" clue="示例歌手 示例曲目"}\n:::')
     expect(html).toContain('data-swx-music="1"')
-    expect(html).toContain('data-swx-music-song="焦虑抑制剂"')
-    expect(html).toContain('data-swx-music-singer="惘闻"')
-    expect(html).toContain('data-swx-music-clue="惘闻 焦虑抑制剂"')
+    expect(html).toContain('data-swx-music-song="示例曲目"')
+    expect(html).toContain('data-swx-music-singer="示例歌手"')
+    expect(html).toContain('data-swx-music-clue="示例歌手 示例曲目"')
   })
 
   it('渲染成虚线占位框，不假装是能播的播放器', () => {
-    const html = render(':::music{song="焦虑抑制剂" singer="惘闻"}\n:::')
+    const html = render(':::music{song="示例曲目" singer="示例歌手"}\n:::')
     expect(html).toContain('dashed')
     expect(html).toContain('音乐将在发布时由编辑器插入')
     expect(html).not.toContain('<audio')
@@ -407,8 +407,8 @@ describe('music 占位组件', () => {
     // 这段标签里的 `>` 是真实的坑：escapeAttr 不转义 `>`，早期 injectMarker 用
     // indexOf('>') 找开标签结尾，会在属性值中间截断，把后续属性写进那个属性的值里，
     // 渲染产物于是多出一段可见的垃圾文本。
-    const tag = '<mp-common-clmusic data-pluginname="insertaudio" singer="惘闻" music_name="焦虑抑制剂"></mp-common-clmusic>'
-    const html = render(`:::music{song="焦虑抑制剂" source='${tag}'}\n:::`)
+    const tag = '<mp-common-clmusic data-pluginname="insertaudio" singer="示例歌手" music_name="示例曲目"></mp-common-clmusic>'
+    const html = render(`:::music{song="示例曲目" source='${tag}'}\n:::`)
     expect(html).toContain('data-swx-music-source=')
     // 开标签必须干净闭合：source 属性值之后紧跟 style，中间不能多出裸 `>`
     expect(html).toMatch(/data-swx-music-source="[^"]*"\s+style=/)
@@ -417,7 +417,7 @@ describe('music 占位组件', () => {
   })
 
   it('能往返回导为 :::music', () => {
-    const html = render(':::music{song="焦虑抑制剂" singer="惘闻"}\n:::')
+    const html = render(':::music{song="示例曲目" singer="示例歌手"}\n:::')
     expect(htmlToMarkdown(html).markdown).toContain(':::music')
   })
 })
@@ -426,9 +426,9 @@ describe('search 推荐搜索占位组件', () => {
   // 与 music 同族：数据自包含，可离线合成标签、零交互插入（docs/DESIGN.md §27）。
   // 关键约束：**昵称/头像绝不写进 HTML** —— 发布时按当前账号现取（不一致就是导流到别人的号）。
   it('写出 data-swx-search 与关键词标记', () => {
-    const html = render(':::search{title="推荐搜索"}\n焦虑抑制剂\n好好吃饭\n:::')
+    const html = render(':::search{title="推荐搜索"}\n示例关键词\n示例文章\n:::')
     expect(html).toContain('data-swx-search="1"')
-    expect(html).toContain('data-swx-search-keywords="焦虑抑制剂|好好吃饭"')
+    expect(html).toContain('data-swx-search-keywords="示例关键词|示例文章"')
   })
 
   it('keywords 参数优先于正文，且最多保留 4 个', () => {
@@ -448,11 +448,11 @@ describe('search 推荐搜索占位组件', () => {
   })
 
   it('渲染成虚线占位框 + 关键词胶囊，不假装是真搜索卡', () => {
-    const html = render(':::search{title="推荐搜索"}\n焦虑抑制剂\n:::')
+    const html = render(':::search{title="推荐搜索"}\n示例关键词\n:::')
     expect(html).toContain('dashed')
     expect(html).toContain('搜索组件将在发布时插入')
     expect(html).toContain('推荐搜索')
-    expect(html).toContain('焦虑抑制剂')
+    expect(html).toContain('示例关键词')
     expect(html).toContain('<svg')
   })
 
@@ -463,7 +463,7 @@ describe('search 推荐搜索占位组件', () => {
   })
 
   it('能往返回导为 :::search', () => {
-    const html = render(':::search{title="推荐搜索"}\n焦虑抑制剂\n:::')
+    const html = render(':::search{title="推荐搜索"}\n示例关键词\n:::')
     expect(htmlToMarkdown(html).markdown).toContain(':::search')
   })
 })

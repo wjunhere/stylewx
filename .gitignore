@@ -54,7 +54,7 @@ docs/assets/brand-motion/
 *.brand
 .published.json
 
-# Hippie 文章的渲染产物（2.5MB 的 390px 截图 + HTML），现在输出到工作区 out/hippie-articles/
+# 文章的渲染产物（2.5MB 的 390px 截图 + HTML），现在输出到工作区 out/hippie-articles/
 # （本机复现：node assets-src/review-hippie.mjs / review-shot.mjs）。生成器入仓，产物不入仓。
 # ⚠️ articles/hippie/originals/ 是**人的初版快照**，在工作区 articles/ 里 ——
 #    换机器时必须手动拷贝，否则踩 AGENTS.md 铁律⑧（误删后无处回灌）。

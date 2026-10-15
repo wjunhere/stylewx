@@ -161,7 +161,7 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 ### 22.8 内联 SVG + SMIL 写动效资产会碰到的七件事
 
 微信正文禁 JS、禁外链动画，**内联 SVG + SMIL 是唯一真能动且实测存活的通道**。写
-`assets-src/gen-motion.mjs`（Hippie 青年的头/尾图与 logo）时这些坑各踩了一遍。
+`brand/tools/gen-motion.mjs`（品牌头/尾图与 logo，住工作区、不进仓库）时这些坑各踩了一遍。
 
 **① 缩放不能用「绝对坐标 × s」。** 给灯头写 `g(v) = v * s` 会把灯心搬到 `(x·s, y·s)`，
 和灯柱的弧头脱开，`s` 越大偏得越远。要用 `transform="translate(x y) scale(s)"`
@@ -226,9 +226,9 @@ execFileSync('tar', ['-xzf', basename(tarball), '-C', 'unpacked'], { cwd: work }
 另外还加了山脊、道路、基座石三样**环境物**——没有它们，人在空白底色上仍然显得单薄。
 
 > 动效资产的可复用产物在工作区 `brand/motion-shipped/`、图源在 `brand/motion/`（**都不在仓库里**，见 §34），
-> 生成器是 `assets-src/gen-motion.mjs`，品牌档案 `~/.stylewx/brands/hippie-youth/`。
+> 生成器是工作区 `brand/tools/gen-motion.mjs`，品牌档案 `~/.stylewx/brands/hippie-youth/`。
 > 三套方案 **A「归途」/ B「灯下」/ C「行囊」全部可用**（不是只有 A 定稿），
 > 区分靠画面主导色，选哪套看文章气质（报名 `brand.md`）。
-> 重生成链路：`gen-motion.mjs` → `build-brand.py`（写品牌档案与组件库）→ `rasterize.mjs`（logo/封面位图）。
+> 重生成链路（都在工作区）：`brand/tools/gen-motion.mjs` → `brand/tools/build-brand.py`（写品牌档案与组件库）→ `assets-src/rasterize.mjs`（logo/封面位图）。
 > 视觉验证：`shot-abc.mjs`（三套并排）/ `cmp-cover.mjs`（标题图高度对照）/ `final-shots.mjs`（三篇整页）。
 

@@ -139,7 +139,7 @@ export const COMPONENT_CATALOG: ComponentSpec[] = [
     name: 'music',
     category: 'image',
     summary: '音乐占位块：标出「此处该有音乐」，发布时由脚本自动插入微信原生播放器（无需人工）。',
-    example: `:::music{song="焦虑抑制剂" singer="惘闻" clue="惘闻 焦虑抑制剂"}
+    example: `:::music{song="示例曲目" singer="示例歌手" clue="示例歌手 示例曲目"}
 :::`,
     props: [
       { name: 'song', type: 'text', description: '歌名（占位块上显示，也写进标记供发布脚本核对）' },
@@ -163,8 +163,8 @@ export const COMPONENT_CATALOG: ComponentSpec[] = [
     category: 'image',
     summary: '推荐搜索：引导读者搜号内其他文章（读者端可点击，唤起搜一搜），发布时由脚本自动插入。',
     example: `:::search{title="推荐搜索"}
-焦虑抑制剂
-好好吃饭
+示例关键词
+示例文章
 :::`,
     props: [
       { name: 'title', type: 'text', description: '占位块标题', default: '推荐搜索' },

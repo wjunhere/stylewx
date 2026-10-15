@@ -59,7 +59,7 @@ const CANDIDATES = [
   },
   {
     name: 'mp-common-clmusic（音乐，对照组）',
-    html: `<section><mp-common-clmusic class="res_iframe clmusic_iframe js_uneditable custom_select_card mp_common_widget" data-pluginname="insertaudio" username="${env.STYLEWX_ACCOUNT_FINDER}" type="1" music_name="${env.STYLEWX_PROBE_MUSIC_NAME}" albumurl="http://wx.y.gtimg.cn/music/photo_new/T002R500x500M000001QOKKW2qnaFA_1.jpg" singer="惘闻" count="0" is_vip="0" duration="530000" music_source="1" listenid="78221540362775072"></mp-common-clmusic></section>`,
+    html: `<section><mp-common-clmusic class="res_iframe clmusic_iframe js_uneditable custom_select_card mp_common_widget" data-pluginname="insertaudio" username="${env.STYLEWX_ACCOUNT_FINDER}" type="1" music_name="${env.STYLEWX_PROBE_MUSIC_NAME}" albumurl="http://wx.y.gtimg.cn/music/photo_new/T002R500x500M000001QOKKW2qnaFA_1.jpg" singer="示例歌手" count="0" is_vip="0" duration="530000" music_source="1" listenid="78221540362775072"></mp-common-clmusic></section>`,
     marker: 'mp-common-clmusic',
     sourceMarker: 'music_name',
   },

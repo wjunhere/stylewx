@@ -6,12 +6,18 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { renderPreview } from '../packages/service/dist/index.js'
 import { chromium } from '../packages/preview/node_modules/playwright/index.mjs'
-import { articlesDir, brandsDir, outDir } from './paths.mjs'
+import { brandsDir, outDir } from './paths.mjs'
 
 const REVIEW = outDir('review')
 mkdirSync(REVIEW, { recursive: true })
 
-const md = readFileSync(process.argv[2] ?? join(articlesDir(), '关于部分高校寄成绩单的思考-嬉皮青年.md'), 'utf8')
+// 文章路径由调用方给：仓库里不留具体文章名（§34）
+const mdPath = process.argv[2]
+if (!mdPath) {
+  console.error('用法：node assets-src/review-shot.mjs <markdown 文章路径>')
+  process.exit(2)
+}
+const md = readFileSync(mdPath, 'utf8')
 const theme = JSON.parse(readFileSync(join(brandsDir(), 'hippie-youth', 'profile.json'), 'utf8')).theme
 
 const preview = await renderPreview(md, theme, {})

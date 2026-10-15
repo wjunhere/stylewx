@@ -16,7 +16,7 @@ const page = await browser.newPage({ viewport: { width: 1700, height: 820 }, dev
 const htmls = []
 for (const h of [150, 165, 180, 220]) {
   const r = await renderPreview(
-    `::::canvas{tone="paper" padding="16px"}\n\n:::hip-head-a\n:::\n\n:::cover{title="好好吃饭" subtitle="—— 问候能越过屏幕吗" author="独脚大盗" date="HIPPIE 青年" height="${h}"}\n:::\n\n最近"新三学"爆火，许多名"梗"出了圈，其中就有"吃什么"。\n\n::::`,
+    `::::canvas{tone="paper" padding="16px"}\n\n:::hip-head-a\n:::\n\n:::cover{title="示例文章标题" subtitle="—— 示例副标题" author="示例作者" date="示例署名" height="${h}"}\n:::\n\n示例正文一段，用来量标题图在整篇里的高度占比。\n\n::::`,
     brand.theme,
     { includeScreenshot: false, userComponents: uc },
   )

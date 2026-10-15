@@ -12,13 +12,13 @@
  *
  * 播放器标签长这样（微信给自己维度的白名单，属性即数据，无需额外接口）：
  * ```html
- * <mp-common-clmusic data-pluginname="insertaudio" singer="惘闻" music_name="焦虑抑制剂"
+ * <mp-common-clmusic data-pluginname="insertaudio" singer="示例歌手" music_name="示例曲目"
  *   duration="530000" listenid="78221540362775072" albumurl="…" …></mp-common-clmusic>
  * ```
  *
  * 因为「有现成标签 → 照抄」比「驱动搜索器选曲」稳得多，本组件两条路都留：
  *   1. `:::music{source="<原样标签>"}` —— 直接把标签落进占位块，脚本零交互复刻（**首选**）
- *   2. `:::music{clue="惘闻 焦虑抑制剂"}` —— 脚本去编辑器音乐弹窗搜索并按文本选中（新曲目用）
+ *   2. `:::music{clue="示例歌手 示例曲目"}` —— 脚本去编辑器音乐弹窗搜索并按文本选中（新曲目用）
  *
  * 不写 `position` / `filter`（白名单 BANNED 档，会被裁掉并报 error）；
  * 图标用内联 SVG 画，不用 emoji 字体（跨端字形不稳）。

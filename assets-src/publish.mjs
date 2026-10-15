@@ -30,12 +30,19 @@ const brand = JSON.parse(readFileSync(join(brandsDir(), BRAND, 'profile.json'), 
 const coverUrl = brand.coverImage
 if (!coverUrl) throw new Error('品牌档案里没有 coverImage，先跑 `stylewx brand attach`')
 
+// 标题/作者/摘要由调用方给：仓库里不留具体文章内容（§34）
+const [title, author, digest] = process.argv.slice(2)
+if (!title || !author || !digest) {
+  console.error('用法：node assets-src/publish.mjs <标题> <作者> <摘要>')
+  process.exit(2)
+}
+
 const result = await publishDraft(client, {
   content,
-  title: '关于部分高校寄成绩单的思考——知情权之外，问题还在原地',
-  author: '独夫之心',
+  title,
+  author,
   coverImage: coverUrl,
-  digest: '成绩单寄到家里，焦虑传到了父母手上，可问题并没有解决。',
+  digest,
   relocate: true,
   resolveLocal: (src) => resolveLocalImage(src, { brand: BRAND }),
 })

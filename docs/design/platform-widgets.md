@@ -23,7 +23,7 @@
 微信原生音乐播放器就是一个自定义元素，所有信息都在属性上，不需要额外接口：
 
 ```html
-<mp-common-clmusic data-pluginname="insertaudio" singer="惘闻" music_name="焦虑抑制剂"
+<mp-common-clmusic data-pluginname="insertaudio" singer="示例歌手" music_name="示例曲目"
   duration="530000" listenid="78221540362775072" albumurl="…" …></mp-common-clmusic>
 ```
 
@@ -109,7 +109,7 @@
 `<mp-common-search>` 已验证存活（`probe-wechat-widget-survival.mjs`），数据自包含：
 
 ```html
-<mp-common-search data-pluginname="insertsearch" data-nickname="Hippie 青年"
+<mp-common-search data-pluginname="insertsearch" data-nickname="示例 青年"
   data-headimg="https://wx.qlogo.cn/…" data-keywords="%5B%7B%22label%22%3A%22…%22%7D%5D"></mp-common-search>
 ```
 
@@ -140,7 +140,7 @@
 ### 数据全在属性上，可离线合成
 
 ```html
-<mp-common-search data-pluginname="insertsearch" data-nickname="Hippie 青年"
+<mp-common-search data-pluginname="insertsearch" data-nickname="示例 青年"
   data-headimg="http://wx.qlogo.cn/mmhead/…"
   data-keywords="%5B%7B%22label%22%3A%22…%22%7D%5D"></mp-common-search>
 ```
@@ -162,9 +162,9 @@
 
 | 关键词 | 字数 | 结果 |
 | --- | --- | --- |
-| 好好吃饭 | 4 汉字 | ✅ |
+| 示例文章 | 4 汉字 | ✅ |
 | 我的所有还有意义 | 8 汉字（16 单位） | ✅ |
-| 我的所有还有意义吗 | 9 汉字（18 单位） | ❌ |
+| 示例关键词共九个字 | 9 汉字（18 单位） | ❌ |
 | abcdefghijklmnop | 16 ASCII | ✅ |
 | abcdefghijklmnopq | 17 ASCII | ❌ |
 

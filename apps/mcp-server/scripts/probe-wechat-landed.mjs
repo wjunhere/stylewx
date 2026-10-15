@@ -112,7 +112,7 @@ for (const id of TARGETS) {
       const d = [...document.querySelectorAll('.weui-desktop-dialog')].filter(x => x.getBoundingClientRect().width > 200).pop();
       const inputs = [...d.querySelectorAll('input')].filter(i => i.type !== 'hidden' && i.getBoundingClientRect().width > 0);
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-      const kws = ['焦虑抑制剂', '我的所有还有意义吗', '好好吃饭', 'HIPPIE'];
+      const kws = ['示例关键词一', '示例关键词二', '示例关键词三', '示例'];
       inputs.slice(0, kws.length).forEach((input, i) => {
         setter.call(input, kws[i]);
         input.dispatchEvent(new Event('input', { bubbles: true }));

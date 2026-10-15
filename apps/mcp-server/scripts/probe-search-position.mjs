@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { renderPreview } from '@stylewx/service'
-import { articlesDir, brandsDir, readEnvFile } from '../../../assets-src/paths.mjs'
+import { brandsDir, readEnvFile } from '../../../assets-src/paths.mjs'
 const DAEMON = 'http://127.0.0.1:10086/command'
 const S = 'wx-searchpos'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -35,7 +35,13 @@ const acct = await (await fetch(`https://api.weixin.qq.com/cgi-bin/account/getac
 const NICK = acct.nickname
 const HEAD = acct.head_image_info.head_image_url
 
-const md = readFileSync(join(articlesDir(), 'hippie', '好好吃饭.md'), 'utf8')
+// 文章由调用方指定：仓库里不留具体文章名（§34）
+const mdPath = process.argv[2]
+if (!mdPath) {
+  console.error('用法：node <本脚本> <markdown 文章路径>（文章放在工作区 articles/ 里）')
+  process.exit(2)
+}
+const md = readFileSync(mdPath, 'utf8')
 const theme = JSON.parse(readFileSync(join(brandsDir(), 'hippie-youth', 'profile.json'), 'utf8')).theme
 const preview = await renderPreview(md, theme, { includeScreenshot: false })
 

@@ -30,7 +30,7 @@ if (!['native', 'synth'].includes(STAGE)) {
 }
 
 // 关键词：与文章实际内容相关（推荐搜索的价值就在于把读者引到号内其他文章）
-const KEYWORDS = ['焦虑抑制剂', '好好吃饭']
+const KEYWORDS = ['示例关键词', '示例文章']
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const log = (t, m) => console.log(`[${t}]`, typeof m === 'string' ? m : JSON.stringify(m, null, 1))

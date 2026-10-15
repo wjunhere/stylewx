@@ -6,7 +6,7 @@
 
 ### 症状
 
-一次普通的 `git push`（16 个本地提交）把 **Hippie 青年的头/尾图源**推上了公开仓库。
+一次普通的 `git push`（16 个本地提交）把 **个人品牌的头/尾图源**推上了公开仓库。
 推送者没有识别出来：`git status` 里 `assets-src/motion/*.svg` 与 `packages/core/src/*.ts`
 长得一样，都是「被跟踪的文件」；`git log --oneline` 也只看得到「B 头图：两只鸟左移」。
 
@@ -43,7 +43,7 @@
 - 脚本要改：凡是引用 `assets-src/motion/`、`articles/`、`docs/assets/hippie-articles/`、
   `.ui-shots/`、`.env` 的地方都改成从 `paths.mjs` 取，且必须有 `STYLEWX_WORKSPACE` 才能跑。
 - 文档里的示例图如果引用私人资产，会 404 —— 项目配图（banner、theme-library）留在仓库里，
-  私人那套（Hippie 三套头/尾图）只留在工作区。
+  私人那套（品牌三套头/尾图）只留在工作区。
 - 历史里已有的私人资产**不会因为搬家而消失**：搬家只保证「从现在起不再进仓库」。
   要从历史里清除得重写历史（force push，所有 commit SHA 变、tag 与 Release 指到的提交被孤立），
   与搬家是两件独立的事。

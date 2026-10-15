@@ -1,9 +1,10 @@
 ---
 '@stylewx/mcp-server': patch
+'@stylewx/components': patch
 ---
 
 `brand_attach_assets` 的 `from` 参数说明改为指向工作区（`<工作区>/brand/motion`）；
-`search` 组件的工具文案里的昵称示例改为中性示例（不再写真实号名）。
+`search` / `music` 组件的工具文案与注释里的示例换成中性示例（不再写真实号名 / 文章名 / 曲名）。
 
 品牌图源（头/尾图、logo）不再住在仓库里：私人产物（文章 / 品牌图源 / `.env` / 本机产物 /
 探针夹具里的账号数据）一律放 `STYLEWX_WORKSPACE`（默认与仓库同级 `../stylewx-workspace`），
