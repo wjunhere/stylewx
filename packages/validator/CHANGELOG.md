@@ -1,5 +1,11 @@
 # @stylewx/validator
 
+## 0.7.1
+
+### Patch Changes
+
+- @stylewx/theme@0.7.1
+
 ## 0.7.0
 
 ### Patch Changes

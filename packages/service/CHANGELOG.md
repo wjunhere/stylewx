@@ -1,5 +1,17 @@
 # @stylewx/service
 
+## 0.7.1
+
+### Patch Changes
+
+- Updated dependencies [8ab8a0c]
+  - @stylewx/components@0.7.1
+  - @stylewx/core@0.7.1
+  - @stylewx/preview@0.7.1
+  - @stylewx/publisher@0.7.1
+  - @stylewx/theme@0.7.1
+  - @stylewx/validator@0.7.1
+
 ## 0.7.0
 
 ### Minor Changes

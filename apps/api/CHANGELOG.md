@@ -1,5 +1,13 @@
 # @stylewx/api
 
+## 0.7.1
+
+### Patch Changes
+
+- @stylewx/service@0.7.1
+  - @stylewx/publisher@0.7.1
+  - @stylewx/theme@0.7.1
+
 ## 0.7.0
 
 ### Minor Changes

@@ -1,5 +1,13 @@
 # @stylewx/preview
 
+## 0.7.1
+
+### Patch Changes
+
+- Updated dependencies [8ab8a0c]
+  - @stylewx/components@0.7.1
+  - @stylewx/theme@0.7.1
+
 ## 0.7.0
 
 ### Patch Changes
