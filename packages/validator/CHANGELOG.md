@@ -1,5 +1,13 @@
 # @stylewx/validator
 
+## 0.7.0
+
+### Patch Changes
+
+- Updated dependencies [5a626d6]
+- Updated dependencies [3f68b60]
+  - @stylewx/theme@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes

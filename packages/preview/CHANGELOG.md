@@ -1,5 +1,16 @@
 # @stylewx/preview
 
+## 0.7.0
+
+### Patch Changes
+
+- Updated dependencies [5a626d6]
+- Updated dependencies [3f68b60]
+- Updated dependencies [41bda5c]
+- Updated dependencies [bd3e695]
+  - @stylewx/theme@0.7.0
+  - @stylewx/components@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes
