@@ -183,6 +183,9 @@ stylewx brand doctor   [name]                                   # 三方一致�
 把包装进干净环境才报「未知组件 `hip-quote`，已按普通 Markdown 渲染其正文」。
 所以新建品牌专属组件的正确顺序是：`save_component` 建好 → **`brand_save` 把完整组件清单再写一遍档案**。
 打包前跑一次 `brand doctor`：游离组件（在全局库、却不属于任何品牌档案）会被列为警告。
+**打包后再跑一次** `node apps/mcp-server/scripts/verify-brand-pack.mjs <包> --articles <该品牌文章目录>`：
+它把包装进干净环境逐个渲染，缺件/退化就退出码非零。两者不可互相替代 ——
+doctor 查的是「本机有没有游离组件」，它查的是「**这个包本身**缺不缺」。
 
 其余几条行为（都是刻意的）：
 

@@ -22,6 +22,7 @@
 | `apps/mcp-server/scripts/publish-via-browser.mjs` | 浏览器登录态发布（免 IP 白名单，含封面上传、推荐搜索预替换、音乐注入） |
 | `apps/mcp-server/scripts/browser-use.mjs` | 用 browser-use（交互式/探查）接上**同一个**自动化浏览器：`node … 'print(page_info())'` |
 | `apps/mcp-server/scripts/probe-file-chooser.mjs` | **上传入口能不能自动化**的判据：点下去有无 `fileChooserOpened`、带不带 `backendNodeId`（带=能塞文件，不带=FSA 只能人工） |
+| `apps/mcp-server/scripts/verify-brand-pack.mjs` | **`.brand` 包自包含验证**（干净环境装包 + 逐个渲染）：缺件（品牌档案/文章里在用的组件没随包走）或渲染退化 → 退出码非零。参照物一律在包外——拿包内 brand.md 当参照等于自己证自己 |
 | `assets-src/publish-hippie.mjs` | **hippie 系列一键发草稿箱**：标题/作者/封面读工作区 `brand/covers.json`，主题读品牌档案（唯一真源）；发布前拦「正文标题图与 covers.json 不一致 / 头尾不同字母 / 封面文件缺失」，发完自动接着跑 `verify-drafts.mjs`。用法 `node assets-src/publish-hippie.mjs <文章名>` |
 | `apps/mcp-server/scripts/verify-drafts.mjs` | **读回已保存草稿体检**（浏览器通道）：头尾同字母 / SVG·animate 存活 / 搜索真标签在尾图之前且昵称·头像·关键词齐全 / 音乐标签 / 封面。发完必跑 —— 脚本报「✅ 已保存」不等于稿子是对的（§28 ④） |
 | `assets-src/probe-search-avatar.mjs` | 草稿里推荐搜索组件的**实际渲染**（shadow DOM 里头像 `naturalWidth` 是否为真加载值）+ 截图。换账号信息来源时必跑 |
