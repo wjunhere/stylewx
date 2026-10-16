@@ -134,6 +134,10 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm run release
 
+      - name: Verify versions are live on npm
+        # pnpm 退出码 0 不代表包真上了 registry（0.7.2 漏过 @stylewx/validator）；这里会轮询等 npm 的异步处理
+        run: node scripts/ci/verify-release.mjs --check-registry
+
       - name: Tag and create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
