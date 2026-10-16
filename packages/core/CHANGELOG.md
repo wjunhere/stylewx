@@ -1,5 +1,12 @@
 # @stylewx/core
 
+## 0.7.2
+
+### Patch Changes
+
+- @stylewx/components@0.7.2
+  - @stylewx/theme@0.7.2
+
 ## 0.7.1
 
 ### Patch Changes
