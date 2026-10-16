@@ -1,5 +1,31 @@
 # @stylewx/mcp-server
 
+## 0.7.2
+
+### Patch Changes
+
+- c89f39f: 新增 `scripts/verify-brand-pack.mjs`：验证一个 `.brand` 包是否**自包含** —— 装进干净环境（空品牌目录 + 空组件库）再逐个渲染它声明的组件，缺件或渲染退化就退出码非零。
+  
+  为什么需要它：组件只做了 `save_component`（进全局库 `~/.stylewx/components.json`）、没再 `brand_save` 把完整清单写进档案时，`.brand` 包不带它 —— 而**本机渲染永远正常**（全局库里有），只有装到干净环境才报「未知组件」。实测踩过 `hip-quote`。
+  
+  判据 A（缺件）的参照物一律在包外：`--expect` 显式清单 / 本机同品牌档案 / `--articles <该品牌文章目录>`。拿包内的 `brand.md` 当参照等于自己证明自己（缺件时两边一起缺）。
+- c89f39f: 发布通道从 kimi-webbridge（闭源 daemon + 浏览器扩展）换成 CDP：
+  
+  - `scripts/lib/chrome.mjs` 管浏览器生命周期。必须用专用 `--user-data-dir` —— Chrome 136+ 拒绝在默认 profile 上开调试端口
+  - `scripts/lib/cdp-socket.mjs` 是极小原生 CDP 客户端，`Runtime.evaluate` 的语义与旧通道一致
+  - `scripts/lib/bridge.mjs` 用 Playwright 的 `connectOverCDP` 实现同一套动作名，13 个脚本几乎不用改
+  - 上传本地文件不再依赖扩展的「允许访问文件网址」权限（`setInputFiles` / `DOM.setFileInputFiles`）
+  - 新增 `browser-use.mjs`（交互式探查，接同一个浏览器）与 `probe-file-chooser.mjs`（判定某个上传入口能否自动化：事件带 `backendNodeId` 就能塞文件，不带则只能人工）
+  
+  `upload_video` 的描述按实测更正：10MB 是 `add_material` 接口的限制，不是上传通道的限制；`editor.html` 的视频说明与 tooltip 同步更新。完整实测记录见 `docs/design/publishing.md` §20。
+- @stylewx/components@0.7.2
+  - @stylewx/core@0.7.2
+  - @stylewx/preview@0.7.2
+  - @stylewx/publisher@0.7.2
+  - @stylewx/service@0.7.2
+  - @stylewx/theme@0.7.2
+  - @stylewx/validator@0.7.2
+
 ## 0.7.1
 
 ### Patch Changes

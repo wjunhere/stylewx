@@ -1,5 +1,16 @@
 # @stylewx/service
 
+## 0.7.2
+
+### Patch Changes
+
+- @stylewx/components@0.7.2
+  - @stylewx/core@0.7.2
+  - @stylewx/preview@0.7.2
+  - @stylewx/publisher@0.7.2
+  - @stylewx/theme@0.7.2
+  - @stylewx/validator@0.7.2
+
 ## 0.7.1
 
 ### Patch Changes
