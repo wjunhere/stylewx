@@ -11,31 +11,51 @@
 （实测一天内见到 `153.3.21.105` / `153.3.21.153` / `36.152.24.135`），逐个加白名单追不上；
 用代理固定出口又会让日常上网受影响，且 Clash 的 `GEOIP,CN → 直连` 规则还会让微信域名绕过代理。
 
-### 20.2 方案：复用浏览器登录态
+### 20.2 方案：专用 profile 的 Chrome + CDP
 
-`apps/mcp-server/scripts/publish-via-browser.mjs` 通过 kimi-webbridge 桥接操控**已登录的浏览器**，
-在公众号编辑器页里写正文、传封面、点「保存为草稿」——走后台自己的保存接口，无 IP 白名单约束。
+`apps/mcp-server/scripts/publish-via-browser.mjs` 通过 **CDP** 驱动一个**专用的 Chrome 实例**
+（`--user-data-dir=<工作区>/out/chrome-profile` + `--remote-debugging-port=9222`），
+在里面写正文、传封面、点「保存为草稿」——走后台自己的保存接口，无 IP 白名单约束。
 
-### 20.3 选型：为什么最终用 kimi-webbridge 而不是 opencli
+为什么必须是**专用 profile**：Chrome 136+ 起拒绝在默认 user-data-dir 上开调试端口，
+实测报错原文就是
 
-两条路都试过，关键差异在**能否上传本地文件**：
+```
+DevTools remote debugging requires a non-default data directory. Specify this using --user-data-dir.
+```
 
-| 能力 | opencli | kimi-webbridge |
-| --- | --- | --- |
-| 复用登录态 | ✅ 扩展桥接 | ✅ 扩展桥接 |
-| 页面内 evaluate / CDP | ✅ | ✅（含原始 `cdp` 透传） |
-| 上传本地文件 | ⚠️ `upload` 需自行唤起并接收文件选择器，隐藏 input 场景必失败 | ✅ `upload` 工具，需扩展开「允许访问文件网址」 |
-| 元素定位 | CSS / 语义（**语义可退化模糊匹配**） | snapshot 的 `@e` ref（精确） |
+代价是「第一次要在这个 profile 里扫码登录」；换来的是爆炸半径只剩这一个 profile（碰不到日常 cookie），
+以及一条**可审计**的通道（见 §20.3）。
 
-`DOM.setFileInputFiles` 在 `chrome.debugger` 沙箱下返回 `Not allowed`（协议层硬限制），
-所以真正的出路是扩展自带的 `upload` + 文件访问权限。
+### 20.3 选型：为什么最后是 CDP，而不是某个浏览器扩展
+
+候选都实测过。判据按重要性排序：**能不能上传本地文件** → **定位是否精确** → **是否可审计** → 前置成本。
+
+| 路径 | 复用登录态 | 上传本地文件 | 元素定位 | 可审计 | 前置成本 |
+| --- | --- | --- | --- | --- | --- |
+| **CDP + Playwright**（现用） | ✅ 专用 profile 登录一次 | ✅ `setInputFiles` / `DOM.setFileInputFiles` | role+name / selector，**精确** | ✅ Playwright 开源、协议开放 | 要用 `--user-data-dir` 起浏览器 |
+| kimi-webbridge（闭源，已弃用） | ✅ 扩展注入，浏览器照常用 | ✅ 扩展 `upload`（要开「允许访问文件网址」） | snapshot 的 `@e` ref（较精确） | ❌ 闭源 daemon（实测往 `gator.volces.com` 上报命令名） | 装扩展 |
+| opencli | ✅ 扩展桥接 | ⚠️ 隐藏 input 必失败 | CSS / 语义（**会退化模糊匹配**，实测误点过「退出登录」） | ❌ 闭源 | 装扩展 |
+| cua-driver | ✅ 走 Chrome CDP | ⚠️ 原生对话框只能填路径、确认得人按 | UIA/CDP 元素，精确 | ❌ 闭源 | 要 `--grant existing-profile` |
+| browser-use | ✅ 接同一层 CDP | ✅ 同 CDP | AX 树 + `backendNodeId`，精确 | ✅ 引擎开源（本机 CLI 有遥测） | 装 Python CLI |
+
+两条**旧的错误结论**在这里更正（都是取证边界写错了，细节见 §20.10）：
+
+1. 曾写「`DOM.setFileInputFiles` 在 `chrome.debugger` 沙箱下返回 `Not allowed`（协议层硬限制）」——
+   那只是**扩展沙箱**的限制，不是 CDP 协议本身的。裸 CDP 三条路（直连节点 / 静态 input 拦截 /
+   动态创建 input 拦截）2026-10-16 全部实测通过。
+2. 曾据此推出「上传本地文件只能靠扩展的 upload」——不成立。
+
+**为什么确定性流程不直接用 browser-use**：它是 Python CLI，每步一次进程往返，一个发布流程
+几十步会让链路变脆；而 Playwright 本来就在仓库依赖里（`packages/preview`），
+同源、可测、可调试。两者接的是**同一个浏览器**，分工见 §20.11。
 
 ### 20.4 技术要点（实测得出）
 
 | 环节 | 结论 |
 | --- | --- |
 | 正文编辑器 | `.rich_media_content .ProseMirror`。页面上有 **两个** `.ProseMirror`：`[0]` 是标题编辑器（高 30px），`[1]` 才是正文（高 366px）——按所属容器选择最稳 |
-| 写入方式 | `execCommand('insertHTML')` 有效，section/span + 内联样式完整保留。合成 `ClipboardEvent('paste')` 无效（ProseMirror 校验事件可信度）；后台窗口 `document.hasFocus()` 为 false，系统剪贴板与 `navigator.clipboard` 都不可用 |
+| 写入方式 | `execCommand('insertHTML')` 有效，section/span + 内联样式完整保留。合成 `ClipboardEvent('paste')` 无效（ProseMirror 校验事件可信度） |
 | 外链图片 | 编辑器自动上传到素材库，`src` 变 `mmbiz.qpic.cn` |
 | 内联 SVG + SMIL | 完整保留 |
 | 封面入口 | hover 才显示的 `pop-opr` 组，需先 DOM 显形；入口有「从正文选择 / 从图片库选择 / 微信扫码上传 / AI 配图」 |
@@ -50,7 +70,8 @@
 
 因此 `publish-via-browser.mjs` 定下硬约束：
 
-1. **只用 snapshot 的 `@e` ref 点击**，不做文本模糊匹配
+1. **只用精确身份点击**：现在是 role + name 全等（或文本全等），**绝不做模糊/包含匹配**。
+   旧通道用的是 snapshot 的 `@e` ref；两者等价的目的：定位方式必须精确且唯一。
 2. **ALLOW / DENY 双名单**：只允许 `保存为草稿 / 保存 / 下一步 / 确认 / 确定 / 完成`；
    命中 `退出登录 / 删除 / 取消 / 关闭 / 群发 / 发表` 立即中止
 
@@ -59,12 +80,28 @@
 
 ### 20.6 调用方式
 
-脚本通过 HTTP 调 kimi-webbridge 守护进程（`http://127.0.0.1:10086/command`），
-请求体一律用**文件**传递（Windows shell 会破坏内联 JSON 的非 ASCII 与转义）。
+**客户端只有一份**：`apps/mcp-server/scripts/lib/bridge.mjs`。它用 Playwright 的
+`connectOverCDP` 接上自动化 Chrome，对脚本暴露的动作名与旧通道**保持一致**
+（`navigate` / `evaluate` / `snapshot` / `click` / `upload` / `list_tabs` / `close_tab` / `cdp`），
+所以换通道时 13 个脚本几乎不用改。三个文件分工固定：
 
-前置：浏览器扩展已登录公众号，且已开启「允许访问文件网址」
-（`edge://extensions` → Kimi → 详细信息 → 允许访问文件网址），否则上传封面报
-`upload needs Chrome's per-extension file access`。
+| 文件 | 管什么 |
+| --- | --- |
+| `lib/chrome.mjs` | 浏览器生命周期：专用 profile、调试点、拉起、**窗口恢复**、`browser-use` 接法 |
+| `lib/cdp-socket.mjs` | 极小的原生 CDP 客户端（`Runtime.evaluate` 语义与旧通道一致，供 eval 与透传用） |
+| `lib/bridge.mjs` | 会话/标签页、动作封装、`evalJson`、`clickByLabel` + ALLOW·DENY 双名单 |
+
+**不要在各脚本里再复制一份 `wb()`** —— 通道仍可能再换，复制粘贴会把成本抬回 14 处。
+
+前置：
+
+```bash
+# 起浏览器（没起的话，脚本自己也会拉起）
+STYLEWX_WORKSPACE=B:/stylewx-workspace node apps/mcp-server/scripts/lib/chrome.mjs
+```
+
+第一次要在这个专用 profile 里扫码登录公众号后台（之后长期有效）。
+环境变量：`STYLEWX_CHROME_PROFILE`（profile 目录）、`STYLEWX_CDP_PORT`（调试点，默认 9222）、`CHROME_BIN`。
 
 ### 20.7 可编辑性：选通道的第一判据
 
@@ -267,6 +304,33 @@ Remotion（4.0.52x）实测可用，3s/640×360 出 25.5KB MP4，产物能通过
 （这仍是有价值的工具，但描述里不能说「用于正文」）。正文嵌视频只剩这些路：
 人在编辑器点「本地上传」传本地 MP4 —— 因为**本地上传**走的是另一条通道。
 
+#### 本地上传：2026-10-16 实测更正（原结论只对「无 input 的原生对话框」成立）
+
+⚠️ **下面那节是 2026-09-25 的观测，对「微信本地上传」的定性已被 2026-10-16 推翻。**
+保留它是因为 UIA 那套技巧（填路径、人按回车）在真遇到**无 input 的原生对话框**时仍然成立，
+但它不该被用来说明微信这条路的可行性。
+
+实测（Chrome 155 + 当天的微信编辑器）：
+
+| 步骤 | 结果 |
+| --- | --- |
+| 图文编辑器「视频」→「本地上传」 | **不是原地弹选择器**，而是把当前标签页**导航到独立页面** `t=media/videomsg_edit&type=15`（视频消息编辑页） |
+| 那个页面的上传入口 | `<input type=file accept="video/*" name="vid" class="weui-desktop-upload-input">`，**可见**，而且**压在「上传视频」按钮上**（点按钮会被它拦住 pointer 事件而超时——这本身就是「有 input」的强信号） |
+| 塞文件 | 三种都成：裸 CDP `DOM.setFileInputFiles` ／ `Page.fileChooserOpened` 带 `backendNodeId` ／ Playwright `setInputFiles` → 页面报「**视频上传成功**」 |
+| 体积 | **18.13MB 传成功** → 10MB 是 `add_material` **API** 的限制，**不是 UI 的**（UI 只限「时长 < 1 小时」） |
+| 进素材库 | 需在视频消息编辑页点「保存」（先要选/编辑封面）→ `material/get_materialcount` 的 `video_count` +1，素材库里可被 API 看到 |
+| 插进图文正文 | 「视频 → 素材库」里**可选（未 disabled）**→ 确定 → 正文里是 `iframe.video_iframe` + `data-mpvid` + `vid`，编辑器内 **578×325**（不是 0×0） |
+| 保存后读回 | `draft/get` 里是读者侧的 `data-src="…video_player_tmpl&action=mpvideo&vid=…"`，结构存活 |
+
+**要区分两件事**：①「上传视频材料」②「把视频插进图文正文」。上面证明的是①可全自动、
+②的结构是微信自己生成的合法结构；**读者侧能不能真的播还没验**（当天视频状态是「审核中」，
+且窗口被遮挡时预览按钮无响应）—— 不要把它写成结论。
+
+复跑判据：`node apps/mcp-server/scripts/probe-file-chooser.mjs --text "上传视频"`
+（带 `backendNodeId` = 可塞文件；不带 = File System Access，只能人工）。
+
+<details><summary>2026-09-25 的原始观测（保留，勿当现状）</summary>
+
 #### 本地上传：kimi-webbridge 不行，cua-driver 只能做一半
 
 **kimi-webbridge 完全不行**：点「本地上传」后页面里**不出现任何 `video` 类型的 `<input type=file>`**
@@ -295,6 +359,8 @@ Remotion（4.0.52x）实测可用，3s/640×360 出 25.5KB MP4，产物能通过
 （当时窗口恰在前台才蒙对）。一个「有时能用」的自动化比没有更糟：
 它会半途停下，留下一个开着对话框的编辑器。
 
+</details>
+
 **两个实测踩到的坑**：
 
 1. **幽灵窗口**：浏览器进程被杀后，它的「打开」对话框会**残留在系统窗口列表**里，
@@ -314,6 +380,39 @@ Remotion（4.0.52x）实测可用，3s/640×360 出 25.5KB MP4，产物能通过
 
 **`--video` 参数的代码保留**：逻辑正确、安全约束完整，一旦视频进了素材库的「可正文使用」
 状态（例如人先用本地上传传过一个），它就能工作。但当前**没有可用的自动化数据源**。
+
+### 20.11 两轨分工：确定性用 bridge，交互式用 browser-use
+
+同一个自动化浏览器（CDP）上有两个客户端，**分工是刻意的**：
+
+| | 用什么 | 干什么 |
+| --- | --- | --- |
+| 确定性流程 | `lib/bridge.mjs`（Node + Playwright） | 发布、读回体检、探针：动作可复现、能进测试、能 diff |
+| 交互式/探查 | `apps/mcp-server/scripts/browser-use.mjs`（包一层 browser-use） | 页面长什么样、按钮在哪、要边看边试；LLM 驱动更顺手 |
+
+browser-use 是 Python CLI，**每步一次进程往返**；把几十步的发布流程交给它只会让链路变脆。
+两者接的是同一个浏览器实例，所以看得见同一份登录态、同一批标签页：
+
+```bash
+node apps/mcp-server/scripts/browser-use.mjs 'print(page_info())'
+node apps/mcp-server/scripts/browser-use.mjs <<'PY'
+new_tab("https://mp.weixin.qq.com/")
+print(page_info())
+PY
+```
+
+它自己也能接（不用这个包）：`BU_CDP_URL=http://127.0.0.1:9222 browser-use`。
+
+#### 坑：标签页被节流时，编辑器会「点击命中却毫无反应」
+
+Chrome 对**最小化/被其它窗口完全遮挡**的窗口会把标签页判成 `visibilityState: 'hidden'` 并节流。
+症状很迷惑人：`elementFromPoint` 在正确元素上、`hasFocus` 甚至是 `true`，但**点下去什么都不发生**，
+DOM 里还会留一堆「查得到、画面上没有」的残留（弹窗、toast、「请设置封面」提示）。
+
+> 2026-10-16 为此查了很久，误以为是页面坏了。判据就一条：`document.visibilityState`。
+
+防线：`lib/chrome.mjs` 的 `ensureBrowser()` 拉起后会**把最小化的窗口恢复**，
+`wb('navigate')` 也会在页面 hidden 时往 stderr 打提醒。真被遮挡就把窗口放到可见处再跑。
 
 ## 29. 草稿箱纪律（人的初版不能删）
 

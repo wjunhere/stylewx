@@ -404,15 +404,24 @@ node apps/mcp-server/scripts/publish-via-browser.mjs 文章.md --theme business 
 #   --dry-run         只填写不保存
 ```
 
-前置：浏览器装 [Kimi WebBridge](https://www.kimi.com/zh-cn/features/webbridge) 扩展并登录公众号后台，
-且**开启「允许访问文件网址」**（否则上传封面会报 `upload needs Chrome's per-extension file access`）。
+前置：**Chrome + 一个专用 profile**（第一次在里面扫码登录公众号后台，之后长期有效）：
+
+```bash
+STYLEWX_WORKSPACE=B:/stylewx-workspace node apps/mcp-server/scripts/lib/chrome.mjs
+```
+
+脚本会自己拉起浏览器：`--user-data-dir=<工作区>/out/chrome-profile --remote-debugging-port=9222`。
+为什么必须专用 profile：Chrome 136+ 会拒绝在默认 user-data-dir 上开调试端口
+（`DevTools remote debugging requires a non-default data directory`）；换来的是
+一条**可审计**的通道（Playwright/CDP，不再依赖浏览器扩展）和更小的爆炸半径。
+环境变量：`STYLEWX_CHROME_PROFILE` / `STYLEWX_CDP_PORT` / `CHROME_BIN`。
 
 实测：正文写入用 `execCommand('insertHTML')`，section/span + 内联样式完整保留；正文编辑器选择器是
 `.rich_media_content .ProseMirror`（页面上有两个 ProseMirror，另一个是标题框）；外链图片会被自动上传到
 素材库；内联 SVG + SMIL 动画完整保留；封面自动上传可行（hover 显形封面操作组 → 图片库 → 上传文件 → 下一步 → 确认）。
 
-> ⚠️ 该脚本**只用 snapshot 返回的元素 ref 点击，绝不用文本模糊匹配**：曾用 `--text "下一步"`，
-> 该参数在精确匹配失败时会退化匹配，结果点到「退出登录」导致账号登出。脚本内置双名单兜底
+> ⚠️ 该脚本**只按精确身份点击**（role + name 全等，或文本全等），**绝不做模糊/包含匹配**：
+> 曾用旧的 `--text "下一步"`，它在精确匹配失败时会退化匹配，结果点到「退出登录」导致账号登出。脚本内置双名单兜底
 > （只允许 `保存为草稿 / 保存 / 下一步 / 确认 / 确定 / 完成`，命中 `退出登录 / 删除 / 取消 / 关闭 / 群发 / 发表` 立即中止）。
 > 写类似自动化时请沿用这个约束。
 

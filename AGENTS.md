@@ -92,7 +92,7 @@ Publishing 登记、provenance 与回查办法 → 见 `.github/workflows/releas
 | 默认 Markdown 样式（默认 block / 代码块内联 / 表格） | `theme-system.md §32–§33` |
 | 品牌动效资产（头图/尾图/logo） | `pitfalls.md §22.8`（①~⑩）+ 工作区 `brand/tools/gen-motion.mjs`（不进仓库，§34） |
 | 标题图太大 / 头尾图发灰 | `pitfalls.md §22.8` ①/⑧（深色底暖色填充必脏，只能描边）+ `assets-src/cmp-cover.mjs` |
-| 发布通道 / 浏览器自动化 / 正文嵌视频 | `publishing.md §20` |
+| 发布通道 / 浏览器自动化 / 正文嵌视频 | `publishing.md §20`（浏览器通道 = 专用 profile 的 Chrome + CDP，客户端在 `apps/mcp-server/scripts/lib/{chrome,cdp-socket,bridge}.mjs`） |
 | 草稿箱里人的初版 | `publishing.md §29`（**不许删**）；回灌 `assets-src/restore-originals.mjs` |
 | 平台组件（音乐 / 推荐搜索 / 该不该做） | `platform-widgets.md §26–§28`；探针 `probe-wechat-toolbar.mjs` |
 | 品牌档案 / 一致性 / 打包分发 | `brand-pack.md §30–§31`；闸门 `pnpm check:brands`、CLI `stylewx brand doctor` |

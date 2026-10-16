@@ -7,6 +7,12 @@
 
 改动相关模块时按需跑。这些脚本不进 CI，所以**本地坏了不会有人发现** —— 跑之前先确认它还能用。
 
+> 用到浏览器通道的脚本共用同一个客户端，三个文件分工固定：
+> `lib/chrome.mjs`（浏览器生命周期：专用 profile / 调试点 / 拉起 / 窗口恢复）、
+> `lib/cdp-socket.mjs`（原生 CDP 客户端，供 eval 与透传）、
+> `lib/bridge.mjs`（会话/动作/evalJson/精确点击 + ALLOW·DENY 双名单）。
+> **改通道行为只改这三个文件**；新脚本 import 它们，不要再复制一份 `wb()`（参见 §20.6）。
+
 | 脚本 | 验证什么 |
 |---|---|
 | `apps/mcp-server/scripts/verify-agent-workflow.mjs` | 模拟 agent 分步工作流（真实 MCP stdio）：微调主题 → 逐段 → 整篇 → 落盘 → editorUrl 读回 |
@@ -14,6 +20,9 @@
 | `apps/mcp-server/scripts/verify-html-roundtrip.mjs` | 本地往返：渲染 → HTML 回导 → 再渲染，比对组件标记与纯文本 |
 | `apps/mcp-server/scripts/verify-wechat-showcase.mjs` | 真实微信端到端：发布 → 取回 → 核对组件存活 + 回导还原 |
 | `apps/mcp-server/scripts/publish-via-browser.mjs` | 浏览器登录态发布（免 IP 白名单，含封面上传、推荐搜索预替换、音乐注入） |
+| `apps/mcp-server/scripts/browser-use.mjs` | 用 browser-use（交互式/探查）接上**同一个**自动化浏览器：`node … 'print(page_info())'` |
+| `apps/mcp-server/scripts/probe-file-chooser.mjs` | **上传入口能不能自动化**的判据：点下去有无 `fileChooserOpened`、带不带 `backendNodeId`（带=能塞文件，不带=FSA 只能人工） |
+| `assets-src/publish-hippie.mjs` | **hippie 系列一键发草稿箱**：标题/作者/封面读工作区 `brand/covers.json`，主题读品牌档案（唯一真源）；发布前拦「正文标题图与 covers.json 不一致 / 头尾不同字母 / 封面文件缺失」，发完自动接着跑 `verify-drafts.mjs`。用法 `node assets-src/publish-hippie.mjs <文章名>` |
 | `apps/mcp-server/scripts/verify-drafts.mjs` | **读回已保存草稿体检**（浏览器通道）：头尾同字母 / SVG·animate 存活 / 搜索真标签在尾图之前且昵称·头像·关键词齐全 / 音乐标签 / 封面。发完必跑 —— 脚本报「✅ 已保存」不等于稿子是对的（§28 ④） |
 | `assets-src/probe-search-avatar.mjs` | 草稿里推荐搜索组件的**实际渲染**（shadow DOM 里头像 `naturalWidth` 是否为真加载值）+ 截图。换账号信息来源时必跑 |
 | `scripts/comparison/run.mjs` | 品牌记忆 + 多组排版策略对比（4 篇 × 4 组），输出截图与量化指标 |

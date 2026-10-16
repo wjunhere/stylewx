@@ -61,7 +61,7 @@ MCP 与 REST 的错误统一为：
 > 1. **草稿 API**（`draft/add → draft/get`，这是我们发布草稿走的唯一路径）：
 >    保留 `float/transform/animation/box-shadow/display:flex/opacity/top/z-index/gap/!important` 等；
 >    **裁掉 `position`、`filter`**，以及 `<style>`、`<script>`、`on*` 事件、`javascript:` 链接。
-> 2. **真实图文编辑器**（kimi-webbridge 驱动 Edge 里的公众号，往 ProseMirror 正文粘贴含 `position:absolute`/`filter`/
+> 2. **真实图文编辑器**（CDP 驱动专用 profile 的 Chrome，往 ProseMirror 正文粘贴含 `position:absolute`/`filter`/
 >    `transform`/`box-shadow` 的 HTML）——**编辑器本身极宽容**：DOM 完整保留**全部**内联样式（含 `position`、`filter`），
 >    且计算样式真实生效（`position=absolute`、`transform=matrix(...)`、`box-shadow=red 0 0 10px`、`opacity=0.5` 均读出）。
 >    **即：真正的清洗发生在草稿 API 层，不在编辑器。**
