@@ -8,23 +8,10 @@ import { join } from 'node:path'
 import { getPresetTheme, validateTheme, completeThemeBlocks } from '@stylewx/theme'
 import { renderPreview } from '@stylewx/service'
 import { brandsDir, readEnvFile } from '../../../assets-src/paths.mjs'
+import { useSession, wb, evalJson as ev, sleep } from './lib/bridge.mjs'
 
-const DAEMON = 'http://127.0.0.1:10086/command'
-const S = 'wx-savedbg'
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+useSession('wx-savedbg')
 const log = (t, m) => console.log(`[${t}]`, typeof m === 'string' ? m : JSON.stringify(m, null, 1))
-async function wb(a, args = {}) {
-  const r = await fetch(DAEMON, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: a, args, session: S }) })
-  const j = await r.json()
-  if (!j.ok) throw new Error(j.error?.message)
-  return j.data
-}
-async function ev(c) {
-  const r = await wb('evaluate', { code: c })
-  const v = r?.value
-  if (typeof v !== 'string') return v
-  try { return JSON.parse(v) } catch { return v }
-}
 
 const env = readEnvFile()
 const tok = (await (await fetch(`https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${env.WECHAT_APP_ID}&secret=${env.WECHAT_APP_SECRET}`)).json()).access_token

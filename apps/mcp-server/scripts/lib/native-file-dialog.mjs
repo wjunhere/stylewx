@@ -2,11 +2,15 @@
  * 操作 Windows 原生「打开/保存」文件对话框 —— **填好路径，人按回车**。
  *
  * 为什么需要它（实测背景，见 docs/DESIGN.md §20.10）：
- * 微信编辑器里「视频 → 本地上传」唤起的是**原生文件选择器**，页面 DOM 里
- * **不存在** `video` 类型的 `<input type=file>`，所以：
- *   - 扩展桥（kimi-webbridge `upload`）无目标可指 → **驱动不了**
- *   - CDP 的 `DOM.setFileInputFiles` 同样需要 DOM input → **也驱动不了**
+ * 当某个上传入口唤起的是**原生文件选择器**、且页面 DOM 里找不到对应的 `<input type=file>` 时：
+ *   - `setInputFiles` / `DOM.setFileInputFiles` 无目标可指 → **驱动不了**
+ *   - CDP 的 `Page.setInterceptFileChooserDialog` 能拦住对话框，但拿不到 `backendNodeId` 就塞不进文件
  *   - 但「打开」对话框是标准 Shell 窗口，有完整 UIA 树，**写路径那一步可以自动化**
+ *
+ * ⚠️ 适用边界（2026-10-16 更正）：微信的「视频 → 本地上传」**不属于**这种情况 ——
+ * 它会导航到一个独立页面，那里有可见的 `input[accept="video/*"]`，直接 setInputFiles 即可
+ * （见 §20.10）。本模块保留给**真的没有 input** 的入口；先跑
+ * `probe-file-chooser.mjs` 判一下到底是哪一种，别默认用这条重路。
  *
  * 边界（重要，别越过）：
  *   - ✅ **可以做**：找到真对话框（滤掉幽灵窗口）、命中「文件名」输入框、`set_value` 写路径、核对写入结果

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 音乐组件（`:::music`）链路探针 —— 真实微信编辑器，通过 kimi-webbridge 驱动已登录浏览器。
+ * 音乐组件（`:::music`）链路探针 —— 真实微信编辑器，经 CDP 驱动专用 profile 的 Chrome。
  *
  * 为什么要有这个探针：音乐能不能「全自动插入」是实测出来的结论，不是查文档查到的。
  * 早先按视频的经验以为音频也得人工点（视频确实只能人工，见 docs/DESIGN.md §20.10），
@@ -18,12 +18,13 @@
  *   node apps/mcp-server/scripts/probe-wechat-music.mjs --stage survive
  *   node apps/mcp-server/scripts/probe-wechat-music.mjs --stage search "<歌手> <曲名>"
  *
- * 前置：kimi-webbridge 守护进程 + 浏览器已登录公众号后台。
+ * 前置：自动化 Chrome 已登录公众号后台（`node apps/mcp-server/scripts/lib/chrome.mjs` 起它）。
  * `--stage survive` 会创建一条标题含「[探针]音乐组件存活验证」的草稿并在读回后**自动删除**。
  */
 import { readEnvFile } from '../../../assets-src/paths.mjs'
-const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
-const SESSION = 'wx-music-probe'
+import { useSession, wb, evalJson, sleep } from './lib/bridge.mjs'
+
+useSession('wx-music-probe')
 
 // 原稿里原样拿到的音乐节点（来自旧草稿的 draft/get）。标签即数据，属性在播放器就在。
 // 账号/内容字段从环境读（工作区 .env），不写进仓库 —— 见 §34。用到夹具的阶段才要求它们。
@@ -59,25 +60,7 @@ if (!['picker', 'inject', 'survive', 'search'].includes(STAGE)) {
   process.exit(1)
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const log = (t, m) => console.log(`[${t}] ${m}`)
-
-async function wb(action, args = {}) {
-  const res = await fetch(DAEMON, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, args, session: SESSION }),
-  })
-  const json = await res.json()
-  if (!json.ok) throw new Error(`${json.error?.code}: ${json.error?.message}`)
-  return json.data
-}
-async function evalJson(code) {
-  const r = await wb('evaluate', { code })
-  const v = r?.value
-  if (typeof v !== 'string') return v
-  try { return JSON.parse(v) } catch { return v }
-}
 
 // 环境变量（survive 阶段回查用）
 const env = readEnvFile()

@@ -11,55 +11,22 @@
  * 检查项：头尾同字母、SVG/animate 存活、推荐搜索已预替换（关键词在、占位块已消失）、
  *         音乐标签存活、封面已设。
  */
-import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
-import { homedir } from 'node:os'
+import { useSession, wb, evalJson, sleep, ensureBrowser, chromeVersion } from './lib/bridge.mjs'
 
-const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
-const WEBBRIDGE_BIN = join(homedir(), '.kimi-webbridge', 'bin', 'kimi-webbridge.exe')
-const SESSION = 'wx-verify'
+useSession('wx-verify')
 const ids = process.argv.slice(2).filter((a) => /^\d+$/.test(a))
 if (!ids.length) {
   console.error('用法：node apps/mcp-server/scripts/verify-drafts.mjs <appmsgid> [appmsgid...]')
   process.exit(2)
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-async function wb(action, args = {}, { retries = 1 } = {}) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(DAEMON, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, args, session: SESSION }),
-      })
-      const json = await res.json()
-      if (!json.ok) throw new Error(`${json.error?.code}: ${json.error?.message}`)
-      return json.data
-    } catch (e) {
-      if (attempt === retries) throw e
-      await sleep(1500)
-    }
-  }
-}
-
-const evalJson = async (code) => {
-  const r = await wb('evaluate', { code })
-  return typeof r?.value === 'string' ? JSON.parse(r.value) : r?.value
-}
-
 try {
-  await wb('list_tabs', {}, { retries: 0 })
-} catch {
-  if (!existsSync(WEBBRIDGE_BIN)) {
-    console.error(`找不到 kimi-webbridge：${WEBBRIDGE_BIN}`)
-    process.exit(2)
-  }
-  spawn(WEBBRIDGE_BIN, ['start'], { detached: true, stdio: 'ignore' }).unref()
-  await sleep(3000)
+  await ensureBrowser({ onStart: () => console.error(`Chrome ${chromeVersion() ?? '(版本未知)'} 未在跑，正在拉起…`) })
+} catch (e) {
+  console.error(`✖  ${e.message}`)
+  process.exit(2)
 }
+
 
 // 取 token（草稿页 URL 必须带 token，否则跳登录）
 await wb('navigate', { url: 'https://mp.weixin.qq.com/' })

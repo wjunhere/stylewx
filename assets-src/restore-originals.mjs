@@ -13,49 +13,21 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { articlesDir, outDir, readEnvFile } from './paths.mjs'
+import { useSession, wb, evalJson, sleep, clickByLabel as bridgeClick } from '../apps/mcp-server/scripts/lib/bridge.mjs'
+
+useSession('wx-restore')
 
 const ORIG_DIR = join(articlesDir(), 'hippie', 'originals')
 const COVER_DIR = join(articlesDir(), 'hippie', 'original-covers')
 const OUT = outDir('hippie-articles', 'originals')
+const DRY = process.argv.includes('--dry-run')
 mkdirSync(OUT, { recursive: true })
 
-const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
-const SESSION = 'wx-restore'
-const DRY = process.argv.includes('--dry-run')
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const log = (t, m) => console.log(`[${t}] ${m}`)
 
-async function wb(action, args = {}) {
-  const res = await fetch(DAEMON, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, args, session: SESSION }),
-  })
-  const json = await res.json()
-  if (!json.ok) throw new Error(`${json.error?.code}: ${json.error?.message}`)
-  return json.data
-}
-async function evalJson(code) {
-  const r = await wb('evaluate', { code })
-  const v = r?.value
-  if (typeof v !== 'string') return v
-  try { return JSON.parse(v) } catch { return v }
-}
-async function clickByLabel(label, { required = false } = {}) {
-  const snap = await wb('snapshot', {})
-  const tree = JSON.stringify(snap ?? {})
-  const re = /"(@e\d+)"([\s\S]{0,400}?)"(?:name|text)"\s*:\s*"([^"]{0,24})"/g
-  const btns = []
-  let m
-  while ((m = re.exec(tree))) btns.push({ ref: m[1], label: m[3].trim() })
-  const hit = btns.find((b) => b.label === label)
-  if (!hit) {
-    if (required) throw new Error(`找不到「${label}」（可选：${[...new Set(btns.map((b) => b.label))].join(' / ')}）`)
-    return false
-  }
-  log('click', `「${label}」ref=${hit.ref}`)
-  await wb('click', { selector: hit.ref })
-  return true
-}
+/** 点按钮：ref 精确点击 + ALLOW/DENY 双名单由 bridge 保证（本脚本只新建草稿，点的是「下一步/确认/保存为草稿」）。 */
+const clickByLabel = (label, o = {}) =>
+  bridgeClick(label, { onLog: (h) => log('click', `「${h.label}」ref=${h.ref}`), ...o })
 
 // 环境变量（发布后回查用）
 const env = readEnvFile()

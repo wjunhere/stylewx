@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 公众号草稿发布（浏览器登录态）+ 封面上传 —— 通过 kimi-webbridge 操控你已登录的浏览器。
+ * 公众号草稿发布（浏览器登录态）+ 封面上传 —— 用 Playwright 经 **CDP** 驱动一个**专用 profile 的 Chrome**。
  *
  * 为什么不用微信 API：`draft/add` 要求调用方 IP 在白名单内，而校园网/多出口 NAT 的出口 IP
  * 会漂移，逐个加白名单追不上。走浏览器后台自己的保存接口则完全不受此限制。
@@ -14,7 +14,7 @@
  *   --title <标题>          文章标题（缺省取 markdown 首个 H1）
  *   --author <作者>         作者（缺省不改）
  *   --cover <图片路径>      封面图（自动上传到素材库并设为封面）
- *   --session <名>          webbridge 会话名（缺省 wx-publish）
+ *   --session <名>          会话名（决定用哪个标签页，缺省 wx-publish）
  *   --dry-run               只填写不保存（便于先看效果）
  *   --keep-open             结束后不关闭标签页
  *   --no-cover              跳过封面处理
@@ -22,11 +22,11 @@
  *   --video-max <N>         单篇最多插几个视频（缺省 1）
  *
  * 前置：
- *   1. kimi-webbridge 守护进程运行中（未运行则本脚本会自动启动）
- *   2. 浏览器已登录公众号后台，且 Kimi 扩展已开启「允许访问文件网址」
- *      （edge://extensions → Kimi → 详细信息 → 允许访问文件网址）
+ *   1. 自动化 Chrome 在跑（不在的话本脚本会自己拉起，专用 profile：工作区 out/chrome-profile）
+ *   2. 那个 profile 已登录公众号后台（第一次扫一次码，之后长期有效）
+ *   起浏览器：STYLEWX_WORKSPACE=… node apps/mcp-server/scripts/lib/chrome.mjs
  *
- * ⚠️ 安全设计：本脚本**只用 snapshot 返回的元素 ref 点击**，绝不用文本模糊匹配
+ * ⚠️ 安全设计：本脚本**只按精确身份点击**（role + name 全等，或文本全等），绝不做模糊/包含匹配
  * （曾因 `--text "下一步"` 退化匹配误点「退出登录」，导致账号登出）。
  * 并且维护 ALLOW/DENY 双名单，命中 DENY 立即中止。
  *
@@ -61,16 +61,20 @@
  * 实测所有二次插入策略都会把它塞进 svg 内部，尾图会被破坏。
  * 验证：`probe-wechat-search-widget.mjs --stage synth`、`probe-search-presubstitute.mjs`。
  */
-import { spawn } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { homedir } from 'node:os'
 import { getPresetTheme, validateTheme, completeThemeBlocks } from '@stylewx/theme'
 import { renderPreview } from '@stylewx/service'
 import { envFilePath, readEnvFile } from '../../../assets-src/paths.mjs'
-
-const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
-const WEBBRIDGE_BIN = join(homedir(), '.kimi-webbridge', 'bin', 'kimi-webbridge.exe')
+import {
+  useSession,
+  wb,
+  evalJson,
+  sleep,
+  ensureBrowser,
+  chromeVersion,
+  clickByLabel as bridgeClick,
+} from './lib/bridge.mjs'
 
 // ---------------------------------------------------------------------------
 // 参数
@@ -101,95 +105,20 @@ function fail(msg, code = 1) {
   process.exit(code)
 }
 const log = (step, msg) => console.log(`[${step}] ${msg}`)
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // ---------------------------------------------------------------------------
-// kimi-webbridge 客户端
+// 浏览器通道：客户端在 scripts/lib/bridge.mjs
+// （闭源 daemon 的唯一出入口 —— 别在本文件里再复制一份，否则以后换通道要改到处）
 // ---------------------------------------------------------------------------
-async function wb(action, args = {}, { retries = 1 } = {}) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(DAEMON, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, args, session: opts.session }),
-      })
-      const json = await res.json()
-      if (!json.ok) throw new Error(`${json.error?.code}: ${json.error?.message}`)
-      return json.data
-    } catch (e) {
-      if (attempt === retries) throw e
-      await sleep(1500)
-    }
-  }
-}
+useSession(opts.session)
 
-/** 在页面里执行 JS 并把 JSON 字符串解析回对象。 */
-async function evalJson(code) {
-  const r = await wb('evaluate', { code })
-  const v = r?.value
-  if (typeof v !== 'string') return v
+/** 点按钮：ref 精确点击 + ALLOW/DENY 双名单由 bridge 保证，这里只接回本脚本的日志与失败方式。 */
+const clickByLabel = async (label, o = {}) => {
   try {
-    return JSON.parse(v)
-  } catch {
-    return v
-  }
-}
-
-const cdp = (method, params = {}) => wb('cdp', { method, params })
-
-/** 确保守护进程在跑（失败则尝试自启一次）。 */
-async function ensureDaemon() {
-  try {
-    await wb('list_tabs', {}, { retries: 0 })
-    return
+    return await bridgeClick(label, { onLog: (h) => log('click', `「${h.label}」ref=${h.ref}`), ...o })
   } catch (e) {
-    log('bridge', `守护进程未响应（${String(e.message).slice(0, 60)}），尝试启动…`)
-    if (!existsSync(WEBBRIDGE_BIN)) fail(`找不到 kimi-webbridge：${WEBBRIDGE_BIN}\n   请先安装 Kimi WebBridge 扩展与 CLI。`)
-    spawn(WEBBRIDGE_BIN, ['start'], { detached: true, stdio: 'ignore' }).unref()
-    for (let i = 0; i < 10; i++) {
-      await sleep(2000)
-      try {
-        await wb('list_tabs', {}, { retries: 0 })
-        log('bridge', '守护进程已启动')
-        return
-      } catch {}
-    }
-    fail('守护进程启动失败。请确认浏览器已装 Kimi WebBridge 扩展并处于启用状态。')
+    fail(e.message)
   }
-}
-
-// ---------------------------------------------------------------------------
-// 安全点击：只用 snapshot 的 ref，且过 ALLOW/DENY 双名单
-// ---------------------------------------------------------------------------
-const ALLOW_LABELS = ['保存为草稿', '保存', '下一步', '确认', '确定', '完成']
-const DENY_LABELS = ['退出登录', '删除', '取消', '关闭', '群发', '发表', '发送', '重置', '清空']
-
-/** 从 snapshot 里提取可见按钮的 { ref, label }。 */
-async function snapshotButtons() {
-  const snap = await wb('snapshot', {})
-  const tree = JSON.stringify(snap ?? {})
-  const out = []
-  // 形如 "@e25" ... "name"/"text": "下一步"
-  const re = /"(@e\d+)"([\s\S]{0,400}?)"(?:name|text)"\s*:\s*"([^"]{0,24})"/g
-  let m
-  while ((m = re.exec(tree))) out.push({ ref: m[1], label: m[3].trim() })
-  return out
-}
-
-/** 按标签精确点击（ref 定位）。返回是否点中。 */
-async function clickByLabel(label, { required = false } = {}) {
-  if (DENY_LABELS.includes(label)) fail(`安全中止：拒绝点击「${label}」（危险操作黑名单）`)
-  if (!ALLOW_LABELS.includes(label)) fail(`安全中止：只允许点击 ${ALLOW_LABELS.join(' / ')}，收到「${label}」`)
-  const btns = await snapshotButtons()
-  const hit = btns.find((b) => b.label === label)
-  if (!hit) {
-    if (required) fail(`找不到「${label}」按钮（快照里的按钮：${[...new Set(btns.map((b) => b.label))].join(' / ')}）`)
-    return false
-  }
-  log('click', `「${label}」ref=${hit.ref}`)
-  await wb('click', { selector: hit.ref })
-  return true
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +198,15 @@ log('html', `正文 ${html.length} 字符 · 标题「${title}」`)
 // 注：真正的替换在 2.1 取到登录态、后台页面已打开之后做（账号昵称/头像优先从页面读）。
 const needsSearch = html.includes('data-swx-search=')
 
-await ensureDaemon()
+log('bridge', `Chrome ${chromeVersion() ?? '(版本未知)'} · 检查自动化浏览器…`)
+try {
+  await ensureBrowser({
+    onStart: () => log('bridge', '没在跑，正在拉起专用 profile 的 Chrome（首次可能要 30s）…'),
+    onWarn: (m) => log('bridge', m),
+  })
+} catch (e) {
+  fail(e.message)
+}
 
 // 2.1 打开后台取 token
 log('bridge', '打开公众号后台…')
@@ -427,10 +364,10 @@ async function setCover(coverPath) {
   })()`)
   if (!inputId?.ok) { log('cover', `⚠️ ${inputId?.err ?? '找不到封面输入框'}，跳过封面`); return false }
 
-  // 上传（依赖扩展的「允许访问文件网址」权限）
+  // 上传（Playwright 的 setInputFiles：不再需要扩展的「允许访问文件网址」权限）
   log('cover', `上传 ${abs}`)
   const up = await wb('upload', { selector: '#swx_cover_input', files: [abs.replace(/\\/g, '/')] })
-  if (!up?.success) { log('cover', `⚠️ 上传失败：${JSON.stringify(up).slice(0, 120)}，跳过封面`); return false }
+  if (!up?.ok) { log('cover', `⚠️ 上传失败：${JSON.stringify(up).slice(0, 120)}，跳过封面`); return false }
   await sleep(9000)
 
   const after = await evalJson(`(() => {

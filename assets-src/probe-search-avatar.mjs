@@ -10,33 +10,9 @@
  */
 import { writeFileSync } from 'node:fs'
 import { outDir } from './paths.mjs'
+import { useSession, wb, evalJson as ev, sleep } from '../apps/mcp-server/scripts/lib/bridge.mjs'
 
-const DAEMON = 'http://127.0.0.1:10086/command'
-const SESSION = 'wx-verify'
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-async function wb(action, args = {}, { retries = 1 } = {}) {
-  for (let i = 0; i <= retries; i += 1) {
-    try {
-      const res = await fetch(DAEMON, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, args, session: SESSION }),
-      })
-      const j = await res.json()
-      if (!j.ok) throw new Error(`${j.error?.code}: ${j.error?.message}`)
-      return j.data
-    } catch (e) {
-      if (i === retries) throw e
-      await sleep(1500)
-    }
-  }
-}
-
-async function ev(code) {
-  const r = await wb('evaluate', { code })
-  return typeof r?.value === 'string' ? JSON.parse(r.value) : r?.value
-}
+useSession('wx-verify')
 
 const id = process.argv[2]
 if (!id) {

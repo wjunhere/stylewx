@@ -18,8 +18,9 @@
  *   node apps/mcp-server/scripts/probe-wechat-search-widget.mjs --stage synth
  */
 import { readEnvFile } from '../../../assets-src/paths.mjs'
-const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
-const S = 'wx-searchprobe'
+import { useSession, wb, evalJson as ev, sleep } from './lib/bridge.mjs'
+
+useSession('wx-searchprobe')
 
 const argv = process.argv.slice(2)
 const si = argv.indexOf('--stage')
@@ -32,20 +33,7 @@ if (!['native', 'synth'].includes(STAGE)) {
 // 关键词：与文章实际内容相关（推荐搜索的价值就在于把读者引到号内其他文章）
 const KEYWORDS = ['示例关键词', '示例文章']
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const log = (t, m) => console.log(`[${t}]`, typeof m === 'string' ? m : JSON.stringify(m, null, 1))
-async function wb(a, args = {}) {
-  const r = await fetch(DAEMON, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: a, args, session: S }) })
-  const j = await r.json()
-  if (!j.ok) throw new Error(j.error?.message)
-  return j.data
-}
-async function ev(c) {
-  const r = await wb('evaluate', { code: c })
-  const v = r?.value
-  if (typeof v !== 'string') return v
-  try { return JSON.parse(v) } catch { return v }
-}
 
 const env = readEnvFile()
 const apiToken = async () =>

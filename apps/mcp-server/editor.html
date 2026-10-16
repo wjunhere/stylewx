@@ -815,7 +815,7 @@
           <button class="tb-btn" data-a="img" title="插入图片（可上传本地图或填 URL）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button>
           <button class="tb-btn" data-a="imgupload" title="上传本地图到正文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
           <input type="file" id="bodyImgFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" />
-          <button class="tb-btn" data-a="video" title="插入视频占位块（真视频需发布后在公众号编辑器插入）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg></button>
+          <button class="tb-btn" data-a="video" title="插入视频占位块（发布脚本按标题从微信素材库选真视频插入；没有匹配的就只是占位）"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg></button>
           <button class="tb-btn" data-a="table" title="表格"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/></svg></button>
           <!-- Mermaid 图：下拉里是十种图型的模板，选一个插入 :::mermaid 源码块。
                渲染在服务端出图（见 docs/DESIGN.md §24），读者端拿到的是图片，微信稳定可显。 -->
@@ -850,7 +850,7 @@
     <div class="modal-head"><div><b>插入视频</b><span class="sub">微信正文写不进真视频，这里放占位块</span></div><button class="modal-close" data-close-video aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="modal-body">
       <div class="set-row">
-        <div class="s-txt"><b>真视频发布后在公众号插入：</b><small>① 光标放在占位块上 → ② 工具栏「视频」→「本地上传」选 MP4 → ③ 删掉占位块</small></div>
+        <div class="s-txt"><b>真视频在发布时自动插入：</b><small>发布脚本用 <code>--video "&lt;标题&gt;"</code> 从微信素材库按名选中插入（校验精确相等，不会选错）；视频需先在「视频消息」编辑页上传并保存进素材库。手动做法：工具栏「视频」→「素材库」选 → 删掉占位块。</small></div>
       </div>
       <div class="set-row">
         <div class="s-txt"><b>封面图</b><small>可留空。</small></div>

@@ -4,23 +4,10 @@
  *  ⚠️ 会创建多条草稿；每条读回后自动删除。
  */
 import { readEnvFile } from '../../../assets-src/paths.mjs'
+import { useSession, wb, evalJson as ev, sleep } from './lib/bridge.mjs'
 
-const DAEMON = 'http://127.0.0.1:10086/command'
-const S = 'wx-kwmatrix'
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+useSession('wx-kwmatrix')
 const log = (t, m) => console.log(`[${t}]`, typeof m === 'string' ? m : JSON.stringify(m))
-async function wb(a, args = {}) {
-  const r = await fetch(DAEMON, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: a, args, session: S }) })
-  const j = await r.json()
-  if (!j.ok) throw new Error(j.error?.message)
-  return j.data
-}
-async function ev(c) {
-  const r = await wb('evaluate', { code: c })
-  const v = r?.value
-  if (typeof v !== 'string') return v
-  try { return JSON.parse(v) } catch { return v }
-}
 
 const env = readEnvFile()
 const apiTok = async () => (await (await fetch(`https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${env.WECHAT_APP_ID}&secret=${env.WECHAT_APP_SECRET}`)).json()).access_token

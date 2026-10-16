@@ -10,28 +10,12 @@
  * 只探查，**不保存**。用法：
  *   node apps/mcp-server/scripts/probe-wechat-landed.mjs [id1,id2,...]
  */
-const DAEMON = process.env.WEBBRIDGE_URL ?? 'http://127.0.0.1:10086/command'
-const SESSION = 'wx-landed-probe'
+import { useSession, wb, evalJson, sleep } from './lib/bridge.mjs'
+
+useSession('wx-landed-probe')
 const TARGETS = (process.argv[2] ?? 'js_editor_insertsearch').split(',')
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const log = (t, m) => console.log(`[${t}] ${m}`)
-
-async function wb(action, args = {}) {
-  const res = await fetch(DAEMON, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, args, session: SESSION }),
-  })
-  const json = await res.json()
-  if (!json.ok) throw new Error(`${json.error?.code}: ${json.error?.message}`)
-  return json.data
-}
-async function evalJson(code) {
-  const r = await wb('evaluate', { code })
-  const v = r?.value
-  if (typeof v !== 'string') return v
-  try { return JSON.parse(v) } catch { return v }
-}
 
 await wb('navigate', { url: 'https://mp.weixin.qq.com/', newTab: true, group_title: 'stylewx 探针' })
 await sleep(4000)

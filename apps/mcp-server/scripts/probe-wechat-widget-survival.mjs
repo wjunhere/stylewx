@@ -9,22 +9,11 @@
  * 用法：node apps/mcp-server/scripts/probe-wechat-widget-survival.mjs
  */
 import { readEnvFile } from '../../../assets-src/paths.mjs'
-const DAEMON = 'http://127.0.0.1:10086/command'
-const S = 'wx-widgetsurv'
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+import { useSession, wb, evalJson as ev, sleep } from './lib/bridge.mjs'
+
+useSession('wx-widgetsurv')
 const log = (t, m) => console.log(`[${t}] ${m}`)
-async function wb(a, args = {}) {
-  const r = await fetch(DAEMON, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: a, args, session: S }) })
-  const j = await r.json()
-  if (!j.ok) throw new Error(j.error?.message)
-  return j.data
-}
-async function ev(c) {
-  const r = await wb('evaluate', { code: c })
-  const v = r?.value
-  if (typeof v !== 'string') return v
-  try { return JSON.parse(v) } catch { return v }
-}
+
 const env = readEnvFile()
 
 /** 夹具里的**账号与内容字段**一律从环境读（工作区 .env），不写进仓库 —— 见 §34。
