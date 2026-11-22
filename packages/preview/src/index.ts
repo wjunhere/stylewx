@@ -217,12 +217,12 @@ export interface PrepareImageResult {
   height: number
   /** 是否真的重编过（用于提示）。 */
   changed: boolean
-  /** 超体积预算、但压不出比原图更小的结果 → 已回退到原图（称呼方要提醒使用者）。 */
-  fellBack?: boolean
-  /** 试到底仍然超过 `maxBytes` → 返回的是「能压到的最小结果」，**不代表已达标**（不得静默）。 */
-  overBudget?: boolean
   /** 实际用的 JPEG 质量（0–1）；没走 JPEG 编码则为空。 */
   jpegQuality?: number
+  /** 超过 `maxBytes` 仍未达标（试到最底仍超）。永远显式布尔值，不让调用方去猜 `undefined`。 */
+  overBudget: boolean
+  /** 压缩无收益、已原样退回原图。 */
+  fellBack: boolean
 }
 
 /** 在浏览器里重编图片：drawImage 缩放后 toDataURL。 */
@@ -263,7 +263,15 @@ export async function prepareImage(input: Uint8Array, mime: string, options: Pre
   // 不超预算（或 GIF）就不开浏览器，宽高从文件头读。
   if (sourceMime === 'image/gif' || buf.length <= maxBytes) {
     const size = readImageSize(buf)
-    return { bytes: buf, mimeType: sourceMime, width: size?.width ?? 0, height: size?.height ?? 0, changed: false }
+    return {
+      bytes: buf,
+      mimeType: sourceMime,
+      width: size?.width ?? 0,
+      height: size?.height ?? 0,
+      changed: false,
+      overBudget: false,
+      fellBack: false,
+    }
   }
 
   const browser = await getBrowser()
@@ -301,7 +309,7 @@ export async function prepareImage(input: Uint8Array, mime: string, options: Pre
     if (opaque) {
       for (const q of JPEG_LADDER) {
         const cand = await encode(fullW, fullH, 'image/jpeg', q)
-        if (consider(cand)) return { ...cand, changed: true }
+        if (consider(cand)) return { ...cand, changed: true, overBudget: false, fellBack: false }
       }
     }
 
@@ -314,7 +322,7 @@ export async function prepareImage(input: Uint8Array, mime: string, options: Pre
       if (Math.max(w, h) < MIN_EDGE) break
       // 透明图必须保 PNG；不透明图已试过 JPEG 阶梯，这里继续 JPEG 但降到最低档
       const cand = opaque ? await encode(w, h, 'image/jpeg', JPEG_LADDER[JPEG_LADDER.length - 1] as number) : await encode(w, h, 'image/png', 1)
-      if (consider(cand)) return { ...cand, changed: true }
+      if (consider(cand)) return { ...cand, changed: true, overBudget: false, fellBack: false }
     }
 
     if (!best) throw new Error('图片压缩失败：没有任何可用候选（原尺寸与缩像素都没产出结果）。')
@@ -325,7 +333,7 @@ export async function prepareImage(input: Uint8Array, mime: string, options: Pre
     }
 
     // 到这里说明「能压到的最小」仍超预算：把结果交出去，但标清楚（不得静默）
-    return { ...best, changed: true, overBudget: best.bytes.length > maxBytes }
+    return { ...best, changed: true, overBudget: best.bytes.length > maxBytes, fellBack: false }
   } finally {
     await page.close()
   }

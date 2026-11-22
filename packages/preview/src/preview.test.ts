@@ -30,8 +30,8 @@ describe('prepareImage：体积没超预算就一字节不动', () => {
     const fake = Buffer.concat([head, Buffer.alloc(1000, 7)])
     const r = await prepareImage(fake, 'image/png', { maxBytes: 900 * 1024 })
     expect(r.changed).toBe(false)
-    expect(r.fellBack).toBeUndefined()
-    expect(r.overBudget).toBeUndefined()
+    expect(r.fellBack).toBe(false)
+    expect(r.overBudget).toBe(false)
     expect(r.bytes.equals(fake)).toBe(true)
     expect(r.mimeType).toBe('image/png')
     // 关键：免压通道也不能报 0×0（否则与「未探测」混在一起）
