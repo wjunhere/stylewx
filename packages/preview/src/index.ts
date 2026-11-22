@@ -6,8 +6,12 @@
 import { chromium } from 'playwright'
 import type { Browser, Page } from 'playwright'
 import { contrastText, darken, lighten, mix } from '@stylewx/components'
-import { browserProbeSize, browserReencode } from './browser-image.js'
+import { browserHasAlpha, browserProbeSize, browserReencode } from './browser-image.js'
+import { readImageSize } from './image-size.js'
 import { renderMermaidToPng, closeMermaidPage } from './mermaid.js'
+
+export { readImageSize } from './image-size.js'
+export type { ImageSize } from './image-size.js'
 
 export interface PreviewOptions {
   /** 视口宽度（默认 390，即常见 iPhone 逻辑宽度）。 */
@@ -203,19 +207,20 @@ function escapeHtml(s: string): string {
 export interface PrepareImageOptions {
   /** 目标体积上限（字节），默认 900KB。**唯一**的动手条件：不超就一字节不动。 */
   maxBytes?: number
-  /** JPEG 质量，默认 82。 */
-  quality?: number
 }
 
 export interface PrepareImageResult {
   bytes: Buffer
   mimeType: string
+  /** 像素宽高；免压通道用文件头解析（不开浏览器），解析不出来才为 0。 */
   width: number
   height: number
   /** 是否真的重编过（用于提示）。 */
   changed: boolean
-  /** 超体积预算、但压不出比原图更小的结果 → 已回退到原图（此时称呼方要提醒使用者）。 */
+  /** 超体积预算、但压不出比原图更小的结果 → 已回退到原图（称呼方要提醒使用者）。 */
   fellBack?: boolean
+  /** 试到底仍然超过 `maxBytes` → 返回的是「能压到的最小结果」，**不代表已达标**（不得静默）。 */
+  overBudget?: boolean
 }
 
 /** 在浏览器里重编图片：drawImage 缩放后 toDataURL。 */
@@ -223,61 +228,96 @@ async function reencode(page: Page, dataUrl: string, w: number, h: number, type:
   return page.evaluate(browserReencode, { src: dataUrl, w, h, type, q })
 }
 
+/** 缩像素的底线：长边不小于这个值，再小就没必要了（宁可报 overBudget）。 */
+const MIN_EDGE = 800
+/** 保像素阶段的 JPEG 质量阶梯：从高往低试，进预算即停。
+ *  注意 canvas 的 quality 是 **0–1**，不是 0–100 —— 传 82 会被钳到 1（等于最高质量）。
+ *  实测踩过：把 0–100 的值直接交给 toDataURL，结果每一档都是最高质量，永远压不下来。 */
+const JPEG_LADDER = [0.88, 0.84, 0.8, 0.76, 0.72, 0.68]
+
 /**
- * 图片规范化：体积超预算时重编码压到预算内；压不出收益就原样返回。
+ * 图片规范化：体积超预算时压到预算内；压不出收益就原样返回。
  *
- * 规则（写在前面是因为它们都有理由）：
+ * 规则（按顺序执行，全部都有实测依据）：
  *  - GIF 永不碰 —— 重编码会丢动画；
- *  - **体积没超预算就一字节不动**。原先还有一个「最长边 > 1600 就缩」的独立触发，
- *    那个常量在文档里找不到任何平台依据，实测只是把 707KB 的取证截图砍成 922×1024
- *    （像素就是证据，读者在手机上再也认不出表头）。像素上限要加的话，得先有依据再单独加；
+ *  - **体积没超预算就一字节不动**，而且**不开浏览器**（宽高从文件头读）。
+ *    原先还有一个「最长边 > 1600 就缩」的独立触发，那个常量在文档里找不到平台依据，
+ *    实测只是把 707KB 的取证截图砍成 922×1024；
+ *  - 超预算时**先保像素**：不透明的图先试原尺寸转 JPEG（质量阶梯 0.88→0.68，逐档往下且不重复编码原图），
+ *    能进预算就停。实测 2400×2667 的截图在 q80 就能从 3.2MB 压到 858KB —— 比「缩到 786 宽」值太多，
+ *    截图的价值就是像素（786 宽的表头在手机上就是认不出）。阶梯一路探到 0.68 才动像素：
+ *    降 12KB 就把 2400 宽砍到 1920（丢 36% 像素）是本末倒置；
+ *  - 透明的图**不能**转 JPEG（透明底会压成黑块），只能留在 PNG 里缩像素；
+ *  - 保像素也进不了预算才逐档缩像素（长边不低于 `MIN_EDGE`）；
  *  - 压完反而比原图大（截图类 PNG 常见）就回退原图 —— 重编码不但没收益，还掉像素；
- *  - PNG 缩小后仍是 PNG（保透明），其余转 JPEG（照片场景体积差一个量级）。
+ *  - **压到底仍超预算是 `overBudget`，不是成功**。900KB 是本项目自定的软预算（微信素材库
+ *    远大于此），所以不选择抛错中断上传，但必须把这个事实交回调用方，不能静默。
  */
 export async function prepareImage(input: Uint8Array, mime: string, options: PrepareImageOptions = {}): Promise<PrepareImageResult> {
   const maxBytes = options.maxBytes ?? 900 * 1024
-  const quality = options.quality ?? 82
   const sourceMime = (mime || 'image/jpeg').toLowerCase()
   const buf = Buffer.from(input)
 
-  // 不超预算就不开浏览器 —— 这一步原本也会为「什么都不做」白起一个 Chromium。
+  // 不超预算（或 GIF）就不开浏览器，宽高从文件头读。
   if (sourceMime === 'image/gif' || buf.length <= maxBytes) {
-    return { bytes: buf, mimeType: sourceMime, width: 0, height: 0, changed: false }
+    const size = readImageSize(buf)
+    return { bytes: buf, mimeType: sourceMime, width: size?.width ?? 0, height: size?.height ?? 0, changed: false }
   }
 
   const browser = await getBrowser()
   const page = await browser.newPage()
   try {
     const dataUrl = `data:${sourceMime};base64,${buf.toString('base64')}`
-    const probe = await page.evaluate(browserProbeSize, dataUrl)
+    // 文件头解析不出来（少见格式/损坏）才交给浏览器量
+    const size = readImageSize(buf)
+    const probe = size ? { w: size.width, h: size.height } : await page.evaluate(browserProbeSize, dataUrl)
+    const fullW = Math.max(1, probe.w)
+    const fullH = Math.max(1, probe.h)
 
-    const keepPng = sourceMime === 'image/png'
-    let q = quality
-    // 从原尺寸起手：先试「不缩像素、只换编码参数」能不能进预算
-    let outW = probe.w
-    let outH = probe.h
-    let out = await reencode(page, dataUrl, outW, outH, keepPng ? 'image/png' : 'image/jpeg', q)
-    let bytes = Buffer.from(String(out).split(',')[1] ?? '', 'base64')
-
-    // 还超就逐档处理：JPEG 降质量，PNG 只能继续缩尺寸（保透明没有更便宜的降法）
-    for (let i = 0; bytes.length > maxBytes && i < 6; i++) {
-      if (keepPng) {
-        outW = Math.max(320, Math.round(outW * 0.8))
-        outH = Math.max(240, Math.round(outH * 0.8))
-        out = await reencode(page, dataUrl, outW, outH, 'image/png', q)
-      } else {
-        q = Math.max(45, q - 10)
-        out = await reencode(page, dataUrl, outW, outH, 'image/jpeg', q)
-      }
-      bytes = Buffer.from(String(out).split(',')[1] ?? '', 'base64')
+    const encode = async (w: number, h: number, type: string, q: number) => {
+      const out = await reencode(page, dataUrl, w, h, type, q)
+      return { bytes: Buffer.from(String(out).split(',')[1] ?? '', 'base64'), width: w, height: h, mimeType: type }
     }
+
+    // JPEG 无 alpha；其余（PNG/WebP）问浏览器。宁可误判成「有透明」也不能把透明压成黑底。
+    const opaque = sourceMime === 'image/jpeg' || !(await page.evaluate(browserHasAlpha, dataUrl))
+
+    type Candidate = { bytes: Buffer; width: number; height: number; mimeType: string }
+    let best: Candidate | undefined
+    const consider = (c: Candidate) => {
+      if (!best || c.bytes.length < best.bytes.length) best = c
+      return c.bytes.length <= maxBytes
+    }
+
+    // ① 保像素：原尺寸换编码（不透明 → JPEG 质量阶梯）
+    if (opaque) {
+      for (const q of JPEG_LADDER) {
+        const cand = await encode(fullW, fullH, 'image/jpeg', q)
+        if (consider(cand)) return { ...cand, changed: true }
+      }
+    }
+
+    // ② 保像素进不了预算，才缩像素（透明的留在 PNG，不透明的继续用 JPEG 最低档）
+    let w = fullW
+    let h = fullH
+    while (Math.max(w, h) > MIN_EDGE) {
+      w = Math.max(1, Math.round(w * 0.8))
+      h = Math.max(1, Math.round(h * 0.8))
+      if (Math.max(w, h) < MIN_EDGE) break
+      // 透明图必须保 PNG；不透明图已试过 JPEG 阶梯，这里继续 JPEG 但降到最低档
+      const cand = opaque ? await encode(w, h, 'image/jpeg', JPEG_LADDER[JPEG_LADDER.length - 1] as number) : await encode(w, h, 'image/png', 1)
+      if (consider(cand)) return { ...cand, changed: true }
+    }
+
+    if (!best) throw new Error('图片压缩失败：没有任何可用候选（原尺寸与缩像素都没产出结果）。')
 
     // 压不出收益就回退：掉像素换更大文件是纯亏
-    if (bytes.length >= buf.length) {
-      return { bytes: buf, mimeType: sourceMime, width: probe.w, height: probe.h, changed: false, fellBack: true }
+    if (best.bytes.length >= buf.length) {
+      return { bytes: buf, mimeType: sourceMime, width: fullW, height: fullH, changed: false, fellBack: true, overBudget: true }
     }
 
-    return { bytes, mimeType: keepPng ? 'image/png' : 'image/jpeg', width: outW, height: outH, changed: true }
+    // 到这里说明「能压到的最小」仍超预算：把结果交出去，但标清楚（不得静默）
+    return { ...best, changed: true, overBudget: best.bytes.length > maxBytes }
   } finally {
     await page.close()
   }

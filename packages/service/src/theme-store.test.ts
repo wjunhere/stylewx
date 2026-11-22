@@ -105,6 +105,9 @@ describe('theme-store 的来源标记（origins）', () => {
     const file = makeFile()
     // 模拟早期版本写出的文件：只有 themes，没有 origins
     writeFileSync(file, JSON.stringify({ themes: [validTheme] }, null, 2), 'utf8')
+    // 读取侧不能自作主张把「缺字段」补成 agent —— 否则存量主题会变成「可删」，
+    // 与删除侧「缺失即未知」正好相反（写入侧才默认 agent）
+    expect(listSavedThemes({ file }).origins[validTheme.name]).toBeUndefined()
     expect(catchCode(() => deleteTheme(validTheme.name, { file }))).toBe('theme_origin_unknown')
     expect(deleteTheme(validTheme.name, { file, allowUnknown: true }).deleted).toBe(validTheme.name)
     expect(listSavedThemes({ file }).themes).toHaveLength(0)

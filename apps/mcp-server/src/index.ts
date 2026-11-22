@@ -491,10 +491,12 @@ async function handleEditorApi(
       try {
         const raw = new Uint8Array(Buffer.from(data, 'base64'))
         // 体积超预算才动手；GIF 与不超预算的图一字节不动（像素优先，见 prepareImage 注释）
-        const prepared = await prepareImage(raw, mime, { maxBytes: 900 * 1024, quality: 82 })
+        const prepared = await prepareImage(raw, mime, { maxBytes: 900 * 1024 })
         const saved = saveImageAsset(prepared.bytes, prepared.mimeType)
         // 原图体积必须以**上传进来的字节**为准：用压缩后的字节算，会得出「707KB → 707KB」这种假提示
         const rawBytes = typeof b.rawBytes === 'number' && b.rawBytes > 0 ? b.rawBytes : raw.length
+        const kb = (v: number) => `${Math.round(v / 1024)}KB`
+        const dims = prepared.width ? `（${prepared.width}×${prepared.height}）` : ''
         return sendJson(res, {
           url: saved.urlPath,
           bytes: saved.bytes,
@@ -502,9 +504,9 @@ async function handleEditorApi(
           height: prepared.height,
           changed: prepared.changed,
           note: prepared.changed
-            ? `已压缩：${Math.round(rawBytes / 1024)}KB → ${Math.round(saved.bytes / 1024)}KB${prepared.width ? `（${prepared.width}×${prepared.height}）` : ''}`
+            ? `${prepared.overBudget ? '仍超预算，已压到可用最小' : '已压缩'}：${kb(rawBytes)} → ${kb(saved.bytes)}${dims}`
             : prepared.fellBack
-              ? `原图 ${Math.round(rawBytes / 1024)}KB 超过 900KB 预算，但压缩后反而更大，已保留原图（像素优先）`
+              ? `原图 ${kb(rawBytes)} 超过 900KB 预算，但压缩后反而更大，已保留原图（像素优先）`
               : '',
         })
       } catch (error) {

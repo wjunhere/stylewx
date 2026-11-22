@@ -23,6 +23,7 @@ declare const document: {
     getContext(kind: '2d'): {
       imageSmoothingQuality: 'low' | 'medium' | 'high'
       drawImage(img: unknown, dx: number, dy: number, dw: number, dh: number): void
+      getImageData(sx: number, sy: number, sw: number, sh: number): { data: Uint8ClampedArray }
     }
     toDataURL(type: string, quality?: number): string
   }
@@ -62,4 +63,30 @@ export async function browserReencode(args: ReencodeArgs): Promise<string> {
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(img, 0, 0, w, h)
   return canvas.toDataURL(type, q)
+}
+
+/**
+ * 有没有透明像素。
+ *
+ * 为什么要问：透明的图**不能**转 JPEG（透明底会被压成黑块），而「转 JPEG 保住像素」
+ * 恰好是截图类图唯一体面的降体积手段。所以在转格式之前必须知道有没有 alpha。
+ *
+ * 做法是降到 64px 再扫 alpha：源图里任何半透明边缘在缩小后仍会留下 <255 的值；
+ * 全不透明的图则处处是 255。宁可误判成「有透明」（留在 PNG），不能把透明压成黑底。
+ */
+export async function browserHasAlpha(src: string): Promise<boolean> {
+  const img = new Image()
+  img.src = src
+  await img.decode()
+  const scale = Math.min(1, 64 / Math.max(img.naturalWidth || 1, img.naturalHeight || 1))
+  const w = Math.max(1, Math.round((img.naturalWidth || 1) * scale))
+  const h = Math.max(1, Math.round((img.naturalHeight || 1) * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0, w, h)
+  const data = ctx.getImageData(0, 0, w, h).data
+  for (let i = 3; i < data.length; i += 4) if ((data[i] as number) < 255) return true
+  return false
 }

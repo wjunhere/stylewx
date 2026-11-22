@@ -19,8 +19,11 @@
 
 **图片管道（`prepareImage`）**
 - 唯一触发条件改成「体积超 `maxBytes`」：**不再**因为「最长边 > 1600」这个没有平台依据的常量砍像素；不超预算的图连浏览器都不起。
-- 压完比原图还大（截图类 PNG）就回退原图并标 `fellBack`，同时 `upload-image` 的原图体积提示改用上传字节计算（原来会显示「707KB → 707KB」）。
-- `PrepareImageOptions.maxEdge` 已移除（它的行为被上面这条取代）。
+- 超预算时**先保像素**：不透明的图先试原尺寸转 JPEG（质量阶梯 0.88→0.68），进预算就停；透明的留 PNG 缩像素（长边不低于 800）。
+- 压完比原图还大（截图类 PNG）就回退原图并标 `fellBack`；压到底仍超预算则标 `overBudget`（不再静默当成功）。
+- 免压通道用新增的 `readImageSize()`（PNG/GIF/JPEG/WebP 文件头解析，不启浏览器）报真宽高，不再返回 `0×0`。
+- `upload-image` 的原图体积提示改用上传字节计算（原来会显示「707KB → 707KB」）。
+- 破坏性变更：`PrepareImageOptions.maxEdge` 与 `quality` 已移除；`PrepareImageResult` 新增 `overBudget`。
 
 **主题库来源标记**
 - `themes.json` 新增旁挂的 `origins`（`agent` / `brand:<名字>`）；`deleteTheme` 拒绝删除品牌派生主题（`brand_apply` 会幂等补回），也拒绝删除没有标记的存量主题，除非显式 `allowUnknown`。
