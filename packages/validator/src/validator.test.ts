@@ -184,3 +184,86 @@ describe('parseHtml', () => {
     expect(root.children?.[0]?.type).toBe('element')
   })
 })
+
+/**
+ * 排版基线闸门。
+ *
+ * 为什么需要：schema 只管类型（lineHeight 0.8~4 都合法、fontSize 任意长度），
+ * 所以一个只会照 schema 生成主题的模型可以写出 `line-height: 1.1` + `font-size: 11px`
+ * 这种完全合法但没法读的东西。判据取自 36 套预置主题的实测区间
+ * （lineHeight 1.55~2.06 中位 1.7；fontSize 14~17px）。
+ *
+ * 分档原则：只有明显坏才 error，中间地带只警告 —— 硬拦「偏离预置区间」
+ * 会把刻意的极简风一起误伤。
+ */
+describe('排版基线（typography）', () => {
+  const wrap = (pStyle: string, rootStyle = 'font-size:15px') =>
+    `<section style="${rootStyle}"><p style="${pStyle}">正文</p><p style="${pStyle}">正文</p></section>`
+
+  it('行高 1.1（密排）→ error，且只报一次', () => {
+    const r = validateHtml(wrap('line-height:1.1;margin:0 0 16px'))
+    expect(issuesForRule(r, 'typography-line-height').length).toBe(1)
+    expect(issuesForRule(r, 'typography-line-height')[0]!.severity).toBe('error')
+    expect(r.pass).toBe(false)
+  })
+
+  it('行高 1.4（极简风）→ 只 warning，不阻断发布', () => {
+    const r = validateHtml(wrap('line-height:1.4;margin:0 0 16px'))
+    const hits = issuesForRule(r, 'typography-line-height')
+    expect(hits.length).toBe(1)
+    expect(hits[0]!.severity).toBe('warning')
+    expect(r.pass).toBe(true)
+  })
+
+  it('正文字号 12px → error；13.5px → 只 warning', () => {
+    const bad = validateHtml(wrap('line-height:1.75;margin:0 0 16px', 'font-size:12px'))
+    expect(issuesForRule(bad, 'typography-font-size')[0]!.severity).toBe('error')
+    const soft = validateHtml(wrap('line-height:1.75;margin:0 0 16px', 'font-size:13.5px'))
+    expect(issuesForRule(soft, 'typography-font-size')[0]!.severity).toBe('warning')
+    expect(soft.pass).toBe(true)
+  })
+
+  it('行高百分比 / px 都能换算成比值', () => {
+    const pct = validateHtml(wrap('line-height:110%;margin:0 0 16px'))
+    expect(issuesForRule(pct, 'typography-line-height')[0]!.severity).toBe('error')
+    const px = validateHtml(wrap('line-height:16px;margin:0 0 16px')) // 16/15 ≈ 1.07
+    expect(issuesForRule(px, 'typography-line-height')[0]!.severity).toBe('error')
+  })
+
+  it('字号 em 按父级字号换算（0.7em × 15px = 10.5px → error）', () => {
+    const r = validateHtml(wrap('font-size:0.7em;line-height:1.75;margin:0 0 16px'))
+    const hit = issuesForRule(r, 'typography-font-size')[0]!
+    expect(hit.severity).toBe('error')
+    expect(hit.message).toContain('10.5')
+  })
+
+  it('根节点给行高、p 自己不写 → 也能判到（继承链）', () => {
+    const r = validateHtml('<section style="font-size:15px;line-height:1.1"><p>甲</p><p>乙</p></section>')
+    expect(issuesForRule(r, 'typography-line-height').length).toBe(1)
+    expect(r.pass).toBe(false)
+  })
+
+  it('段落间距 3px → warning；16px → 无问题', () => {
+    const tight = validateHtml(wrap('line-height:1.75;margin:0 0 3px'))
+    expect(issuesForRule(tight, 'typography-block-spacing')[0]!.severity).toBe('warning')
+    const fine = validateHtml(wrap('line-height:1.75;margin:0 0 16px'))
+    expect(issuesForRule(fine, 'typography-block-spacing').length).toBe(0)
+  })
+
+  it('字距 0.2em → warning；0.04em → 无问题', () => {
+    const wide = validateHtml(wrap('line-height:1.75;letter-spacing:0.2em;margin:0 0 16px'))
+    expect(issuesForRule(wide, 'typography-letter-spacing')[0]!.severity).toBe('warning')
+    const fine = validateHtml(wrap('line-height:1.75;letter-spacing:0.04em;margin:0 0 16px'))
+    expect(issuesForRule(fine, 'typography-letter-spacing').length).toBe(0)
+  })
+
+  it('正常排版（1.75 行高 / 15px / 16px 段距）零排版问题', () => {
+    const r = validateHtml(wrap('line-height:1.75;letter-spacing:0.04em;margin:0 0 16px'))
+    expect(r.issues.filter((i) => i.rule.startsWith('typography-')).length).toBe(0)
+  })
+
+  it('h1/h2 的 tight 行高不误报（只查正文 p）', () => {
+    const r = validateHtml('<section style="font-size:15px"><h1 style="line-height:1.2">标题</h1><p style="line-height:1.75;margin:0 0 16px">正文</p></section>')
+    expect(r.issues.filter((i) => i.rule.startsWith('typography-')).length).toBe(0)
+  })
+})

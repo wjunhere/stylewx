@@ -125,6 +125,9 @@ function buildThemeSystemPrompt(baseTheme?: string): string {
 主题 JSON 必须严格符合给定的 JSON Schema。
 硬性约束：
 1. tokens 必须提供 primaryColor(十六进制)、textColor、fontSize(如 15px)、lineHeight(数字 0.8~4)、fontFamily、spacing.block。
+   **但 0.8~4 只是 schema 的类型边界，不是合理值**：中文正文 lineHeight 请用 1.6~1.9（推荐 1.75），
+   fontSize 用 15~16px，letterSpacing 用 0.02~0.06em，spacing.block 用 12~20px。
+   lineHeight < 1.3 或 fontSize < 13px 会被排版闸门判为 error 并阻断发布。
 2. blocks 包含 h1,h2,h3,p,blockquote,ul,ol,li,code,pre,img,figcaption,hr,a,strong 十六个对象；每个对象的键是 CSS 属性。
 3. 所有 CSS 属性必须在微信白名单内（禁止 position/transform/animation/transition/float/box-shadow/伪类/外部字体等，这些微信会过滤）。
 4. 值可以用 {{primaryColor}}、{{textColor}}、{{fontSize}}、{{spacing.block}}、{{lineHeight}} 等 token 引用。

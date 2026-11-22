@@ -42,6 +42,27 @@ const ALLOWED_IMAGE_HOSTS = ['mmbiz.qpic.cn', 'wx.qlogo.cn', 'mp.weixin.qq.com']
 /** 正文文本长度上限的软告警阈值（字符数）。 */
 const WORD_COUNT_WARNING = 30000
 
+/**
+ * 中文正文的排版基线。
+ *
+ * 判据来自 36 套预置主题的**实测区间**（lineHeight 1.55~2.06 中位 1.7；fontSize 14~17px），
+ * 不是拍脑袋定的数。schema 只管类型（lineHeight 0.8~4 都合法），所以一个只会照 schema
+ * 生成主题的模型可以写出 `line-height: 1.1` + `font-size: 11px` 这种完全合法但没法读的东西 ——
+ * 这一组就是那道闸门。
+ *
+ * 分档原则：**只有明显坏才 error**（挡住「没法读」），中间地带只警告。
+ * 代价是会放过刻意的极简风（比如故意 1.4 行距的短句排版），这是有意取舍 ——
+ * 硬拦「偏离预置区间」会把个性化设计一起误伤。
+ */
+const TYPOGRAPHY = {
+  lineHeight: { errorBelow: 1.3, warnBelow: 1.5, warnAbove: 2.2 },
+  fontSize: { errorBelow: 13, warnBelow: 14, warnAbove: 18 },
+  blockSpacing: { warnBelow: 8 },
+  letterSpacing: { warnAboveEm: 0.15 },
+} as const
+
+const TYPOGRAPHY_HINT = '中文正文建议：font-size 15–16px、line-height 1.6–1.9、letter-spacing 0.02–0.06em、段落间距 12–20px。'
+
 const FORBIDDEN_TAG_SUGGESTION = (tag: string): string =>
   `「${tag}」标签微信编辑器会过滤，无法保留。请删除，或改用更基础的排版结构（如引用、图片、段落）表达。`
 
@@ -118,9 +139,146 @@ interface WalkState {
   issues: ValidationIssue[]
   imageCount: number
   text: string
+  /** 排版类问题每个 rule 只报一次：50 段的文章不该出 50 条一样的警告。 */
+  typoReported: Set<string>
 }
 
-function walk(node: HastNode, location: string, state: WalkState): void {
+/** 从根节点继承下来的排版值（字号、行高比、字距 em）。 */
+interface Typography {
+  fontSizePx?: number
+  lineHeightRatio?: number
+  letterSpacingEm?: number
+}
+
+function pxOf(value: string, parentPx?: number): number | undefined {
+  const v = value.trim()
+  const px = /^(-?[\d.]+)px$/.exec(v)
+  if (px) return Number(px[1])
+  const em = /^(-?[\d.]+)em$/.exec(v)
+  if (em) return parentPx === undefined ? undefined : Number(em[1]) * parentPx
+  const pct = /^(-?[\d.]+)%$/.exec(v)
+  if (pct) return parentPx === undefined ? undefined : (Number(pct[1]) / 100) * parentPx
+  return undefined
+}
+
+function ratioOf(value: string, fontSizePx?: number): number | undefined {
+  const v = value.trim()
+  if (/^normal$/i.test(v)) return undefined // 交给浏览器默认值，不参与判断
+  const px = /^(-?[\d.]+)px$/.exec(v)
+  if (px) return fontSizePx ? Number(px[1]) / fontSizePx : undefined
+  const pct = /^(-?[\d.]+)%$/.exec(v)
+  if (pct) return Number(pct[1]) / 100
+  const num = /^(-?[\d.]+)$/.exec(v)
+  if (num) return Number(num[1])
+  return undefined
+}
+
+function emOf(value: string, fontSizePx?: number): number | undefined {
+  const v = value.trim()
+  const em = /^(-?[\d.]+)em$/.exec(v)
+  if (em) return Number(em[1])
+  const px = /^(-?[\d.]+)px$/.exec(v)
+  if (px) return fontSizePx ? Number(px[1]) / fontSizePx : undefined
+  const num = /^(-?[\d.]+)$/.exec(v)
+  if (num) return Number(num[1])
+  return undefined
+}
+
+/** 段落下边距：兼容 `margin-bottom` 与 `margin` 简写（1~4 个值）。 */
+function marginBottomPx(decls: Array<{ property: string; value: string }>, fontSizePx?: number): number | undefined {
+  const direct = decls.find((d) => d.property.toLowerCase() === 'margin-bottom')
+  if (direct) return pxOf(direct.value, fontSizePx)
+  const shorthand = decls.find((d) => d.property.toLowerCase() === 'margin')
+  if (!shorthand) return undefined
+  const parts = shorthand.value.trim().split(/\s+/)
+  // 1 值=四边；2 值=上下/左右；3 值=上/左右/下；4 值=上/右/下/左
+  const bottom = parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] : parts[2]
+  return bottom === undefined ? undefined : pxOf(bottom, fontSizePx)
+}
+
+function resolveTypography(node: HastNode, inherited: Typography): Typography {
+  const out: Typography = { ...inherited }
+  const styleValue = node.properties?.style
+  if (typeof styleValue !== 'string' || !styleValue.trim()) return out
+  for (const decl of parseStyleDeclarations(styleValue)) {
+    const prop = decl.property.toLowerCase()
+    if (prop === 'font-size') {
+      const px = pxOf(decl.value, out.fontSizePx)
+      if (px !== undefined) out.fontSizePx = px
+    } else if (prop === 'line-height') {
+      const ratio = ratioOf(decl.value, out.fontSizePx)
+      if (ratio !== undefined) out.lineHeightRatio = ratio
+    } else if (prop === 'letter-spacing') {
+      const em = emOf(decl.value, out.fontSizePx)
+      if (em !== undefined) out.letterSpacingEm = em
+    }
+  }
+  return out
+}
+
+/** 正文（`<p>`）排版检查：只判「明显坏」，每个 rule 最多报一次。 */
+function checkParagraphTypography(
+  node: HastNode,
+  typo: Typography,
+  state: WalkState,
+  tagLocation: string,
+): void {
+  const push = (rule: string, severity: 'error' | 'warning', message: string): void => {
+    if (state.typoReported.has(rule)) return
+    state.typoReported.add(rule)
+    state.issues.push({ rule, severity, message, suggestion: TYPOGRAPHY_HINT, location: tagLocation })
+  }
+
+  const { lineHeightRatio, fontSizePx, letterSpacingEm } = typo
+
+  if (lineHeightRatio !== undefined) {
+    const lh = Number(lineHeightRatio.toFixed(2))
+    if (lh < TYPOGRAPHY.lineHeight.errorBelow) {
+      push('typography-line-height', 'error', `正文行高仅 ${lh}，中文密排会挤成一团（< ${TYPOGRAPHY.lineHeight.errorBelow}）。`)
+    } else if (lh < TYPOGRAPHY.lineHeight.warnBelow || lh > TYPOGRAPHY.lineHeight.warnAbove) {
+      push(
+        'typography-line-height',
+        'warning',
+        `正文行高 ${lh} 偏离常见区间（${TYPOGRAPHY.lineHeight.warnBelow}–${TYPOGRAPHY.lineHeight.warnAbove}）。`,
+      )
+    }
+  }
+
+  if (fontSizePx !== undefined) {
+    const fs = Number(fontSizePx.toFixed(1))
+    if (fs < TYPOGRAPHY.fontSize.errorBelow) {
+      push('typography-font-size', 'error', `正文字号仅 ${fs}px，手机上难以阅读（< ${TYPOGRAPHY.fontSize.errorBelow}px）。`)
+    } else if (fs < TYPOGRAPHY.fontSize.warnBelow || fs > TYPOGRAPHY.fontSize.warnAbove) {
+      push(
+        'typography-font-size',
+        'warning',
+        `正文字号 ${fs}px 偏离常见区间（${TYPOGRAPHY.fontSize.warnBelow}–${TYPOGRAPHY.fontSize.warnAbove}px）。`,
+      )
+    }
+  }
+
+  if (letterSpacingEm !== undefined && letterSpacingEm > TYPOGRAPHY.letterSpacing.warnAboveEm) {
+    push(
+      'typography-letter-spacing',
+      'warning',
+      `正文字距 ${Number(letterSpacingEm.toFixed(3))}em 过宽（> ${TYPOGRAPHY.letterSpacing.warnAboveEm}em），会吃栏宽、字显散。`,
+    )
+  }
+
+  const styleValue = node.properties?.style
+  if (typeof styleValue === 'string' && styleValue.trim()) {
+    const bottom = marginBottomPx(parseStyleDeclarations(styleValue), fontSizePx)
+    if (bottom !== undefined && bottom < TYPOGRAPHY.blockSpacing.warnBelow) {
+      push(
+        'typography-block-spacing',
+        'warning',
+        `段落间距仅 ${Number(bottom.toFixed(1))}px（< ${TYPOGRAPHY.blockSpacing.warnBelow}px），段落之间没有呼吸。`,
+      )
+    }
+  }
+}
+
+function walk(node: HastNode, location: string, state: WalkState, inherited: Typography = {}): void {
   if (node.type === 'text') {
     state.text += node.value ?? ''
     return
@@ -129,6 +287,7 @@ function walk(node: HastNode, location: string, state: WalkState): void {
 
   const tag = node.tagName.toLowerCase()
   const tagLocation = `${location} > ${tag}`
+  const typo = resolveTypography(node, inherited)
 
   // 1. 禁止标签
   if (FORBIDDEN_TAGS.has(tag)) {
@@ -274,7 +433,10 @@ function walk(node: HastNode, location: string, state: WalkState): void {
     }
   }
 
-  // 4. 图片检查
+  // 4. 排版基线（只判「明显坏」，见 TYPOGRAPHY 注释）
+  if (tag === 'p') checkParagraphTypography(node, typo, state, tagLocation)
+
+  // 5. 图片检查
   if (tag === 'img') {
     state.imageCount += 1
     const src = node.properties.src
@@ -291,7 +453,7 @@ function walk(node: HastNode, location: string, state: WalkState): void {
 
   // 递归
   if (node.children) {
-    for (const child of node.children) walk(child, tagLocation, state)
+    for (const child of node.children) walk(child, tagLocation, state, typo)
   }
 }
 
@@ -306,7 +468,7 @@ export function parseHtml(html: string): HastNode {
  * 校验一段 HTML 是否可安全发布到微信公众号，返回结构化报告（恒不抛错，失败信息写入 issues）。
  */
 export function validateHtml(html: string): ValidationReport {
-  const state: WalkState = { issues: [], imageCount: 0, text: '' }
+  const state: WalkState = { issues: [], imageCount: 0, text: '', typoReported: new Set() }
   let root: HastNode
   try {
     root = parseHtml(html)
@@ -324,7 +486,7 @@ export function validateHtml(html: string): ValidationReport {
       ],
     }
   }
-  for (const child of root.children ?? []) walk(child, '(document)', state)
+  for (const child of root.children ?? []) walk(child, '(document)', state, {})
 
   // 5. 图片数量
   if (state.imageCount > 15) {
