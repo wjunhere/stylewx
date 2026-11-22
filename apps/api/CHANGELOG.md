@@ -1,5 +1,15 @@
 # @stylewx/api
 
+## 0.8.0
+
+### Patch Changes
+
+- Updated dependencies [0b7379f]
+- Updated dependencies [85191f3]
+  - @stylewx/theme@0.8.0
+  - @stylewx/service@0.8.0
+  - @stylewx/publisher@0.8.0
+
 ## 0.7.2
 
 ### Patch Changes

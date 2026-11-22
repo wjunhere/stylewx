@@ -1,5 +1,13 @@
 # @stylewx/core
 
+## 0.8.0
+
+### Patch Changes
+
+- Updated dependencies [0b7379f]
+  - @stylewx/theme@0.8.0
+  - @stylewx/components@0.8.0
+
 ## 0.7.2
 
 ### Patch Changes
