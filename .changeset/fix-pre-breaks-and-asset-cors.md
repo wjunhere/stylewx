@@ -22,6 +22,8 @@
 - 超预算时**先保像素**：不透明的图先试原尺寸转 JPEG（质量阶梯 0.88→0.68），进预算就停；透明的留 PNG 缩像素（长边不低于 800）。
 - 压完比原图还大（截图类 PNG）就回退原图并标 `fellBack`；压到底仍超预算则标 `overBudget`（不再静默当成功）。
 - 免压通道用新增的 `readImageSize()`（PNG/GIF/JPEG/WebP 文件头解析，不启浏览器）报真宽高，不再返回 `0×0`。
+- `upload-image` 的响应体透传 `overBudget` / `fellBack` / `jpegQuality`：这三个值存在的意义就是给调用方分支用，
+  只拼进 `note` 中文句子等于让人解析字符串。
 - `upload-image` 的原图体积提示改用上传字节计算（原来会显示「707KB → 707KB」）。
 - 破坏性变更：`PrepareImageOptions.maxEdge` 与 `quality` 已移除；`PrepareImageResult` 新增 `overBudget`。
 

@@ -221,6 +221,8 @@ export interface PrepareImageResult {
   fellBack?: boolean
   /** 试到底仍然超过 `maxBytes` → 返回的是「能压到的最小结果」，**不代表已达标**（不得静默）。 */
   overBudget?: boolean
+  /** 实际用的 JPEG 质量（0–1）；没走 JPEG 编码则为空。 */
+  jpegQuality?: number
 }
 
 /** 在浏览器里重编图片：drawImage 缩放后 toDataURL。 */
@@ -276,13 +278,19 @@ export async function prepareImage(input: Uint8Array, mime: string, options: Pre
 
     const encode = async (w: number, h: number, type: string, q: number) => {
       const out = await reencode(page, dataUrl, w, h, type, q)
-      return { bytes: Buffer.from(String(out).split(',')[1] ?? '', 'base64'), width: w, height: h, mimeType: type }
+      return {
+        bytes: Buffer.from(String(out).split(',')[1] ?? '', 'base64'),
+        width: w,
+        height: h,
+        mimeType: type,
+        jpegQuality: type === 'image/jpeg' ? q : undefined,
+      }
     }
 
     // JPEG 无 alpha；其余（PNG/WebP）问浏览器。宁可误判成「有透明」也不能把透明压成黑底。
     const opaque = sourceMime === 'image/jpeg' || !(await page.evaluate(browserHasAlpha, dataUrl))
 
-    type Candidate = { bytes: Buffer; width: number; height: number; mimeType: string }
+    type Candidate = { bytes: Buffer; width: number; height: number; mimeType: string; jpegQuality?: number }
     let best: Candidate | undefined
     const consider = (c: Candidate) => {
       if (!best || c.bytes.length < best.bytes.length) best = c

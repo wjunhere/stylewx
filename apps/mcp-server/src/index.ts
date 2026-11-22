@@ -503,6 +503,10 @@ async function handleEditorApi(
           width: prepared.width,
           height: prepared.height,
           changed: prepared.changed,
+          // 布尔值必须透传：调用方要据它们分支，不能让他去解析 note 里的中文
+          overBudget: Boolean(prepared.overBudget),
+          fellBack: Boolean(prepared.fellBack),
+          ...(prepared.jpegQuality ? { jpegQuality: prepared.jpegQuality } : {}),
           note: prepared.changed
             ? `${prepared.overBudget ? '仍超预算，已压到可用最小' : '已压缩'}：${kb(rawBytes)} → ${kb(saved.bytes)}${dims}`
             : prepared.fellBack
