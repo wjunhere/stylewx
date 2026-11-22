@@ -54,6 +54,23 @@ describe('front-matter（让 .md 自带 title / theme）', () => {
     expect(stringifyFrontMatter({}, '正文\n')).toBe('正文\n')
   })
 
+  it('markdown 里写「%file」当文件引用 → 直接报错，不落盘垃圾文件', () => {
+    // 实测有人传 markdown: "%file"，被原样写成 59 字节的垃圾文章，而工具报成功。
+    let caught: unknown
+    try {
+      saveArticle({ markdown: '%file', title: '垃圾' })
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as { error?: { code?: string } })?.error?.code).toBe('literal_file_placeholder')
+  })
+
+  it('正文里正常提到 file 字样不会被误拦', () => {
+    const r = saveArticle({ markdown: '这里讨论 file 与 filename，不是引用。\n', title: '正常正文' })
+    expect(readFileSync(r.path, 'utf8')).toContain('filename')
+    rmSync(r.path, { force: true })
+  })
+
   it('saveArticle 传 theme 时写入 front-matter，并把它附在 editorUrl 上', () => {
     const r = saveArticle({ markdown: '正文。\n', title: '往返测试', theme: 'dusk-convergence' })
     const raw = readFileSync(r.path, 'utf8')

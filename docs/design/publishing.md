@@ -414,6 +414,38 @@ DOM 里还会留一堆「查得到、画面上没有」的残留（弹窗、toas
 防线：`lib/chrome.mjs` 的 `ensureBrowser()` 拉起后会**把最小化的窗口恢复**，
 `wb('navigate')` 也会在页面 hidden 时往 stderr 打提醒。真被遮挡就把窗口放到可见处再跑。
 
+### 20.12 编辑器会静默改坏正文：四条实测（2026-11）
+
+这一层的共同特征：**本地预览全对，只有进后台才现形**，而且失败时不报错。
+所以判据都不能靠看，要靠注入前预处理 + 新页面读回。
+
+| 症状 | 原因 | 防线 |
+| --- | --- | --- |
+| 代码块所有行挤成一段 | 粘贴/保存时 `pre` 的 `white-space` 被剥，换行就丢了 | 注入前 `<pre>` 内换行 → `<br>`（`scripts/lib/wechat-html.mjs` `freezeCodeBlockBreaks`，只作用于注入的那份 HTML） |
+| 代码行被拉成「adb  shell  dumpsys」大空隙 | 正文容器默认 `text-align: justify` 继承进 `pre` | 编译器给 `pre` 兜一层 `text-align: left`（`compiler.ts` `withPreTextAlignFloor`，主题显式声明则不动） |
+| 保存「成功」但 URL 里没有 appmsgid | 保存时编辑器用 XHR 把外链图抓进素材库，`/editor/api/asset/` 没给 `Access-Control-Allow-Origin` → 被浏览器拦，且无错误浮层 | 该路由回 `*`；**判据只看 URL 里有没有 appmsgid**，浮层和 toast 都不算证据 |
+| 就地改写后 SVG 越积越多（1→2→3），或清空后 SVG 被丢 | `execCommand('delete')` 清不干净；`ctrl+A` + Backspace 清干净了，紧接着 `insertHTML` 又会丢 SVG | 别就地改写：改稿走 `--html` **新建**一篇（代价是草稿箱多一份，§29 允许） |
+
+读回体检（`verify-drafts.mjs`）为什么必须**新开页面**：还开着的编辑器标签读到的是保存中途状态
+（`svg=0`/`pre=0`），据此判「发布失败」会白重发一遍。脚本本身走 `navigate` + 独立会话 `wx-verify`，
+人肉核验时照这个做法来。
+
+读回时**别拿 `<br>` 总数当行数**：`<pre>` 里同时有我们焊的真换行和 ProseMirror 给每行补的
+`trailingBreak`，总数比实际行多（实测 `br=31`）。判行数看注入前那份 HTML，判存活才看读回。
+
+想用 `--dry-run` 看注入后的 DOM：加 `--keep-open`（不保存就不会有「中途状态」干扰，标签页留着），
+否则 dry-run 结束即关页，什么都看不到。
+
+**注入前的硬拦截**（已做成默认行为）：编辑器里已有内容就不注入、不保存，直接失败。
+量「空」时有一个坑 —— 空白稿并不空：编辑器会塞一个 `class` 含 `editor_content_placeholder`
+的占位 widget（文案「从这里开始写正文」）外加一个 `trailingBreak`。**不剔掉占位层，每篇新稿都会被
+当成「已有内容」而中止**（实测基线：1 section + 占位 8 字 + 1 trailingBreak）。
+注入后还要校对 `img`/`pre` 数量（DOM < 源 HTML 就中止）；`section` 不参与 —— ProseMirror 会
+合并/包裹相邻 section，数量本来就不一一对应。
+
+代码块还有一处**已知未修**的代价：行内前导空格会塌（要保住得写 `&nbsp;`，那会让读者复制代码时粘出
+一串不断行空格）。只有需要排版保真的代码块才值得逐行手改。
+
 ## 29. 草稿箱纪律（人的初版不能删）
 
 **一次排版会在草稿箱留下同名多份，这是正常的，不是要清理的垃圾**：

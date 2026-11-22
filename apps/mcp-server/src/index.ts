@@ -489,12 +489,12 @@ async function handleEditorApi(
       const mime = typeof b.mime === 'string' ? b.mime : 'image/jpeg'
       if (!data) return sendErr(res, { code: 'missing_content', message: '缺少图片内容。', hint: '请提供 base64 的 data 字段。' })
       try {
-        let bytes = new Uint8Array(Buffer.from(data, 'base64'))
-        // 压缩/缩放：GIF 会原样跳过；不需要处理的也原样返回，不做无损「洗一遍」
-        const prepared = await prepareImage(bytes, mime, { maxEdge: 1600, maxBytes: 900 * 1024, quality: 82 })
-        bytes = prepared.bytes
-        const saved = saveImageAsset(bytes, prepared.mimeType)
-        const rawBytes = typeof b.rawBytes === 'number' && b.rawBytes > 0 ? b.rawBytes : bytes.length
+        const raw = new Uint8Array(Buffer.from(data, 'base64'))
+        // 体积超预算才动手；GIF 与不超预算的图一字节不动（像素优先，见 prepareImage 注释）
+        const prepared = await prepareImage(raw, mime, { maxBytes: 900 * 1024, quality: 82 })
+        const saved = saveImageAsset(prepared.bytes, prepared.mimeType)
+        // 原图体积必须以**上传进来的字节**为准：用压缩后的字节算，会得出「707KB → 707KB」这种假提示
+        const rawBytes = typeof b.rawBytes === 'number' && b.rawBytes > 0 ? b.rawBytes : raw.length
         return sendJson(res, {
           url: saved.urlPath,
           bytes: saved.bytes,
@@ -503,7 +503,9 @@ async function handleEditorApi(
           changed: prepared.changed,
           note: prepared.changed
             ? `已压缩：${Math.round(rawBytes / 1024)}KB → ${Math.round(saved.bytes / 1024)}KB${prepared.width ? `（${prepared.width}×${prepared.height}）` : ''}`
-            : '',
+            : prepared.fellBack
+              ? `原图 ${Math.round(rawBytes / 1024)}KB 超过 900KB 预算，但压缩后反而更大，已保留原图（像素优先）`
+              : '',
         })
       } catch (error) {
         return respondErrorOrSend(res, error)
@@ -518,6 +520,11 @@ async function handleEditorApi(
         'Content-Type': found.mimeType,
         'Content-Length': String(found.bytes.length),
         'Cache-Control': 'public, max-age=31536000, immutable', // 文件名含随机段，内容不可变
+        // 微信后台保存草稿时会用 XHR 把外链图抓进素材库：页面在 mp.weixin.qq.com，图在
+        // localhost:3777，跨源。没有这个头，请求被浏览器直接拦掉 —— 而保存会「成功」返回，
+        // URL 里没有 appmsgid、也没有错误浮层，看起来像发上去了（实测 2026-11）。
+        // 图本来就是本机 3777 公开可读的随机文件名资源，放开 * 不扩大暴露面。
+        'Access-Control-Allow-Origin': '*',
       })
       res.end(Buffer.from(found.bytes))
       return

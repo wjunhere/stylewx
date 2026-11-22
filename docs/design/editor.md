@@ -8,6 +8,11 @@
 **主题库（复用 AI 主题）**
 - `@stylewx/service/theme-store.ts` 把自定义 / AI 生成主题持久化到用户级 `~/.stylewx/themes.json`
   （可用环境变量 `STYLEWX_THEMES_PATH` 覆盖）。仅允许出现在 service 层，因用到 Node fs；core/theme/validator 保持同构。
+- 文件形状是 `{ themes: [...], origins: { 主题名: 来源 } }`。`origins` 是**旁挂表**，不塞进主题对象：
+  主题会经 `export_theme` / 品牌包 / `validateTheme` 往返，多一个非 schema 字段就会被剥掉或被 schema 拒。
+  来源取值 `agent`（默认）与 `brand:<品牌名>`（品牌派生）；存量文件没有这张表 → 视为**未知**。
+- `deleteTheme` 两道门：`brand:` 开头的拒删（`brand_apply` 会幂等补回，删了会「复活」）；来历未知的也拒删，
+  除非显式传 `allowUnknown`。代价是：旧版本写入的主题不能直接删，要么手动编辑 themes.json（先备份），要么传这个开关。
 - `list_themes` 自动合并「预置 + 已存」主题（按名去重，预置优先）；`resolveTheme` 也能按**已存主题名**解析。
 - MCP 新增工具：`save_theme`（保存主题）、`list_saved_themes`（列出已存）、`export_theme`（导出完整 JSON 复用/分享）；
   `generate_theme` 增加 `save` 选项（AI 生成后直接存档）。
@@ -22,6 +27,18 @@
 
 **错误可读性**
 - `asServiceError` 能识别已符合 `{ error: { code, message, hint } }` 形状的对象并原样保留，避免被 `String` 成 `[object Object]` 掩盖真实原因。
+
+### 9.1 图片管道：体积超预算才动手，像素优先
+
+`POST /editor/api/upload-image` → `prepareImage`（`@stylewx/preview`）的规则只有一条触发条件：
+**上传字节超过 `maxBytes`（900KB）才重编码**；不超就一字节不动（连浏览器都不起）。
+
+为什么改掉旧的「最长边 > 1600 就缩」：`1600` 这个常量在仓库文档里**找不到任何平台依据**，
+实测只是把 707KB 的取证截图砍成 922×1024 —— 截图类图片的价值就是像素，读者在手机上认不出表头时，
+文件小一点毫无意义。真要做像素上限，先查到平台依据再单独加，别和体积预算混在一个常量里。
+
+压完仍比原图大（截图类 PNG 很常见）就**回退原图**并标 `fellBack`：掉像素换更大文件是纯亏。
+代价：超预算的图可能以原始体积进素材库（微信素材库本身远大于 900KB），页面会重一些，这是有意的取舍。
 
 ## 12. HTML 反向导入（可编辑闭环）
 

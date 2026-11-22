@@ -348,7 +348,7 @@ export function brandSave(input: unknown, opts?: BrandStoreOptions): BrandSaveRe
   // 的主题下拉读的是 themes.json —— 只写 profile 就会出现「agent 能用、人选不到」的不对称。
   // 实测踩过：hippie-youth 品牌建好了，主题库却没有它，编辑器里根本选不出来。
   // 主题名已在上面被强制对齐为品牌名，所以覆盖写入是幂等的。
-  const savedTheme = saveTheme(themeCheck.theme, { file: opts?.themesFile })
+  const savedTheme = saveTheme(themeCheck.theme, { file: opts?.themesFile, origin: `brand:${name}` })
 
   const existing = existsSync(profilePath(name, opts)) ? readProfile(name, opts) : undefined
   const profile: BrandProfile = {
@@ -476,7 +476,7 @@ export function brandApply(name: string, opts?: BrandStoreOptions): BrandApplyRe
   }
   // 同步主题进主题库：品牌可能是早期版本建的（那时只写 profile.json），
   // 或用户手改了 themes.json。这里幂等补齐，保证 brand_apply 之后编辑器一定能选到。
-  const theme = saveTheme(profile.theme, { file: opts?.themesFile }).theme
+  const theme = saveTheme(profile.theme, { file: opts?.themesFile, origin: `brand:${profile.name}` }).theme
   return { profile, theme, doc: readBrandDoc(name, opts), components: structuredClone(profile.components), syncedComponents: synced }
 }
 

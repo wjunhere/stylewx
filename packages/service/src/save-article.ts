@@ -134,6 +134,18 @@ export function saveArticle(params: SaveArticleParams): SaveArticleResult {
     throw serviceError('missing_content', '缺少文章内容。', '请提供 markdown 字段。')
   }
 
+  // 「以为是文件引用」的静默垃圾：save_article 只收 Markdown 全文，从不读文件。
+  // 实测有人传 markdown: "%file"，它被原样落盘成 59 字节的垃圾文件，而工具报成功 ——
+  // 报错比事后发现有篇字数莫名其妙的新文章便宜得多（铁律：fast-fail）。
+  const placeholder = /(^|\s)[%@]file(?![\w-])/.exec(params.markdown)
+  if (placeholder) {
+    throw serviceError(
+      'literal_file_placeholder',
+      `markdown 里出现了「${placeholder[0].trim()}」：save_article 不解析文件引用，不会去读文件。`,
+      '先用 read/file 工具把正文读出来，再整段传入 markdown；或先 render_preview 再传入结果。',
+    )
+  }
+
   const root = articlesRoot()
   // 输入本身可能已带 front-matter（比如二次保存）；先拆开，再决定写回去什么。
   const { meta: incomingMeta, body } = parseFrontMatter(params.markdown)

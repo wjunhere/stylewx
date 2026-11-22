@@ -88,16 +88,27 @@ for (const id of ids) {
   try {
     kwList = JSON.parse(decodeURIComponent(tagAttrs.keywords || '%5B%5D')).map((x) => x.label)
   } catch { kwList = [] }
-  const searchOk = r.search === 1 && r.placeholderLeft === 0 && !!tagAttrs.nickname && !!tagAttrs.headimg && kwList.length > 0 && r.searchBeforeEnd === true
-  const same = r.heads.length && r.ends.length && r.heads[0].slice(-1) === r.ends[0].slice(-1)
+  // 推荐搜索同一条原则：稿子里根本没这个组件（既无真标签、也无残留占位块）就别判它。
+  const hasSearch = r.search > 0 || r.placeholderLeft > 0
+  const searchOk = !hasSearch || (r.search === 1 && r.placeholderLeft === 0 && !!tagAttrs.nickname && !!tagAttrs.headimg && kwList.length > 0 && r.searchBeforeEnd === true)
+  // 只在一头一尾都存在时才比对字母：只放尾图（不用头图）是正常排版，不该报「不同字母」
+  const pairState = r.heads.length && r.ends.length
+    ? (r.heads[0].slice(-1) === r.ends[0].slice(-1) ? 'same' : 'diff')
+    : 'skip'
+  const same = pairState !== 'diff'
   const ok = same && r.svg > 0 && r.animate > 0 && searchOk && r.cover
   if (!ok) bad += 1
   console.log(`\n${ok ? '✓' : '✗'} appmsgid=${id}  《${r.title}》${r.foundEditor ? '' : '  ✗ 未找到编辑器（页面未加载？）'}`)
   console.log(`   正文 ${r.len} 字节 · leaf=${r.leaf} · svg=${r.svg} · animate=${r.animate}`)
-  console.log(`   头尾 = ${r.heads.join(',') || '-'} + ${r.ends.join(',') || '-'}  ${same ? '✓ 同字母' : '✗ 不同字母'}`)
-  console.log(`   推荐搜索：真标签 ${r.search} 个 · 残留占位块 ${r.placeholderLeft} · 在尾图之前 ${r.searchBeforeEnd === true ? '✓' : '✗'}`)
-  console.log(`     昵称 "${tagAttrs.nickname || '-'}" · 头像 ${tagAttrs.headimg ? tagAttrs.headimg.slice(0, 46) + '…' : '✗缺'}`)
-  console.log(`     关键词 ${kwList.length ? kwList.join(' / ') : '✗空'}  ${searchOk ? '✓' : '✗'}`)
+  const pairLabel = pairState === 'skip' ? '— 只有一头，跳过字母比对' : pairState === 'same' ? '✓ 同字母' : '✗ 不同字母'
+  console.log(`   头尾 = ${r.heads.join(',') || '-'} + ${r.ends.join(',') || '-'}  ${pairLabel}`)
+  console.log(hasSearch
+    ? `   推荐搜索：真标签 ${r.search} 个 · 残留占位块 ${r.placeholderLeft} · 在尾图之前 ${r.searchBeforeEnd === true ? '✓' : '✗'}`
+    : '   推荐搜索：未使用，跳过')
+  if (hasSearch) {
+    console.log(`     昵称 "${tagAttrs.nickname || '-'}" · 头像 ${tagAttrs.headimg ? tagAttrs.headimg.slice(0, 46) + '…' : '✗缺'}`)
+    console.log(`     关键词 ${kwList.length ? kwList.join(' / ') : '✗空'}  ${searchOk ? '✓' : '✗'}`)
+  }
   console.log(`   音乐标签 ${r.music} 个 · 封面 ${r.cover ? '✓ ' + r.cover : '✗ 未设'}`)
 }
 

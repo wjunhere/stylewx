@@ -62,6 +62,7 @@
  * 验证：`probe-wechat-search-widget.mjs --stage synth`、`probe-search-presubstitute.mjs`。
  */
 import { readFileSync, existsSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { getPresetTheme, validateTheme, completeThemeBlocks } from '@stylewx/theme'
 import { renderPreview } from '@stylewx/service'
@@ -75,6 +76,7 @@ import {
   chromeVersion,
   clickByLabel as bridgeClick,
 } from './lib/bridge.mjs'
+import { freezeCodeBlockBreaks } from './lib/wechat-html.mjs'
 
 // ---------------------------------------------------------------------------
 // 参数
@@ -190,9 +192,10 @@ async function buildHtml() {
 // 2. 主流程
 // ---------------------------------------------------------------------------
 const built = await buildHtml()
-let html = built.html
+const frozen = freezeCodeBlockBreaks(built.html)
+let html = frozen.html
 const title = built.title
-log('html', `正文 ${html.length} 字符 · 标题「${title}」`)
+log('html', `正文 ${html.length} 字符 · 标题「${title}」${frozen.blocks ? ` · 代码块 ${frozen.blocks} 个换行已焊死` : ''}`)
 
 // 2.0 推荐搜索：**注入前**预替换（见 substituteSearch 上方注释 —— 二次插入会落进 svg）
 // 注：真正的替换在 2.1 取到登录态、后台页面已打开之后做（账号昵称/头像优先从页面读）。
@@ -259,6 +262,38 @@ await evalJson(`(() => {
 })()`)
 
 // 2.3 写标题 + 正文
+//
+// 注入以前先量一遍编辑器里现有的东西。就地覆盖是**不可靠**的（实测：`execCommand('delete')`
+// 清不干净 → SVG 累积 1→2→3；改 Ctrl+A+Backspace 能清到 svg=0，但紧接着 insertHTML 又会丢 SVG），
+// 而静默半覆盖一篇人可能正在改的草稿，比「报错重来一次」糟得多。所以前置判空、不符就中止（铁律⑤）。
+const before = await evalJson(`(() => {
+  const pick = () => document.querySelector('.rich_media_content .ProseMirror')
+    || document.querySelector('.rich_media_content [contenteditable=true]');
+  const body = pick();
+  if (!body) return JSON.stringify({ err: '找不到正文编辑器' });
+  // 空白稿并不是真的空：编辑器会塞一个「从这里开始写正文」的占位 widget（contenteditable=false,
+  // class 带 editor_content_placeholder/ProseMirror-widget）。不把它剔掉，每一篇新稿都会
+  // 被当成「已有内容」而中止 —— 实测基线：1 section + 一个占位 widget（8 字）+ 一个 trailingBreak。
+  const clone = body.cloneNode(true);
+  clone.querySelectorAll('[class*=editor_content_placeholder], .ProseMirror-widget').forEach(e => e.remove());
+  return JSON.stringify({
+    sections: body.querySelectorAll('section').length,
+    svg: body.querySelectorAll('svg').length,
+    pre: body.querySelectorAll('pre').length,
+    img: body.querySelectorAll('img').length,
+    textLen: (clone.textContent || '').trim().length,
+  });
+})()`)
+if (before?.err) fail('注入前校验失败：' + before.err)
+log('clean', `编辑器现状：section ${before.sections} · svg ${before.svg} · pre ${before.pre} · img ${before.img} · 正文 ${before.textLen} 字`)
+if (before.textLen > 0 || before.pre > 0 || before.img > 0 || before.svg > 0) {
+  fail(
+    '编辑器里已经有内容，已中止注入（不覆盖、不保存）。\n' +
+      `   现状：正文 ${before.textLen} 字 · svg ${before.svg} · pre ${before.pre} · img ${before.img}\n` +
+      '   改稿请用 --html 新建一篇（代价是草稿箱多一份，§29 允许）；确需就地改，先在后台手工清空再跑。',
+  )
+}
+
 const injected = await evalJson(`(() => {
   const pick = () => document.querySelector('.rich_media_content .ProseMirror')
     || document.querySelector('.rich_media_content [contenteditable=true]');
@@ -290,11 +325,28 @@ const injected = await evalJson(`(() => {
     bodyText: (body.innerText || '').slice(0, 50),
     sections: body.querySelectorAll('section').length,
     styled: body.querySelectorAll('[style]').length,
-    imgs: body.querySelectorAll('img').length
+    imgs: body.querySelectorAll('img').length,
+    pres: body.querySelectorAll('pre').length
   });
 })()`)
 if (!injected?.ok) fail(`正文注入失败：${injected?.err ?? JSON.stringify(injected)}`)
-log('write', `标题${injected.titleSet ? '已填' : '未找到'} · ${injected.sections} section / ${injected.styled} 带样式节点 / ${injected.imgs} 图片`)
+log('write', `标题${injected.titleSet ? '已填' : '未找到'} · ${injected.sections} section / ${injected.styled} 带样式节点 / ${injected.imgs} 图片 / ${injected.pres} 代码块`)
+
+// 2.3.0 注入后计数校对：图片/代码块少了就是「内容静默丢失」，宁可中止也不入库。
+// `section` 不参与校对 —— ProseMirror 会合并/包裹相邻 section，数量本来就不一一对应。
+const expectCounts = {
+  img: (html.match(/<img/g) || []).length,
+  pre: (html.match(/<pre/g) || []).length,
+}
+for (const [key, expected] of Object.entries(expectCounts)) {
+  const got = key === 'img' ? injected.imgs : injected.pres
+  if (got < expected) {
+    fail(
+      `注入后 ${key} 少了：DOM ${got} < 源 HTML ${expected}。已中止，不保存（否则会静默丢内容）。\n` +
+        '  常见原因：编辑器里本来就有残留内容、或图片/代码块结构被编辑器吃掉。',
+    )
+  }
+}
 
 // 2.3.1 稳定等待：注入后立刻保存会被编辑器清洗掉 SVG（实测 2026-09，正式稿 svg=0 而探针稿存活）。
 // 等 ProseMirror 稳定，并【保存前读回 DOM 核对】SVG 数量，不对就重试等一轮。

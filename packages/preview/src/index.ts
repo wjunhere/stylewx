@@ -201,9 +201,7 @@ function escapeHtml(s: string): string {
 }
 
 export interface PrepareImageOptions {
-  /** 最长边上限（px），默认 1600。超出则等比缩小。 */
-  maxEdge?: number
-  /** 目标体积上限（字节），默认 900KB；仍超则逐档降质量重编。 */
+  /** 目标体积上限（字节），默认 900KB。**唯一**的动手条件：不超就一字节不动。 */
   maxBytes?: number
   /** JPEG 质量，默认 82。 */
   quality?: number
@@ -216,29 +214,34 @@ export interface PrepareImageResult {
   height: number
   /** 是否真的重编过（用于提示）。 */
   changed: boolean
+  /** 超体积预算、但压不出比原图更小的结果 → 已回退到原图（此时称呼方要提醒使用者）。 */
+  fellBack?: boolean
 }
 
-/**
- * 图片规范化：超过尺寸/体积上限的等比缩小并重编码。
- *
- * 规则（写在前面是因为它们都有理由）：
- *  - GIF 永不碰 —— 重编码会丢动画；
- *  - 尺寸和体积都在限内就原样返回，不做无损「洗一遍」（白白多一次有损压缩）；
- *  - PNG 缩小后仍是 PNG（保透明），其余转 JPEG（照片场景体积差一个量级）。
- */
 /** 在浏览器里重编图片：drawImage 缩放后 toDataURL。 */
 async function reencode(page: Page, dataUrl: string, w: number, h: number, type: string, q: number): Promise<string> {
   return page.evaluate(browserReencode, { src: dataUrl, w, h, type, q })
 }
 
+/**
+ * 图片规范化：体积超预算时重编码压到预算内；压不出收益就原样返回。
+ *
+ * 规则（写在前面是因为它们都有理由）：
+ *  - GIF 永不碰 —— 重编码会丢动画；
+ *  - **体积没超预算就一字节不动**。原先还有一个「最长边 > 1600 就缩」的独立触发，
+ *    那个常量在文档里找不到任何平台依据，实测只是把 707KB 的取证截图砍成 922×1024
+ *    （像素就是证据，读者在手机上再也认不出表头）。像素上限要加的话，得先有依据再单独加；
+ *  - 压完反而比原图大（截图类 PNG 常见）就回退原图 —— 重编码不但没收益，还掉像素；
+ *  - PNG 缩小后仍是 PNG（保透明），其余转 JPEG（照片场景体积差一个量级）。
+ */
 export async function prepareImage(input: Uint8Array, mime: string, options: PrepareImageOptions = {}): Promise<PrepareImageResult> {
-  const maxEdge = options.maxEdge ?? 1600
   const maxBytes = options.maxBytes ?? 900 * 1024
   const quality = options.quality ?? 82
   const sourceMime = (mime || 'image/jpeg').toLowerCase()
   const buf = Buffer.from(input)
 
-  if (sourceMime === 'image/gif') {
+  // 不超预算就不开浏览器 —— 这一步原本也会为「什么都不做」白起一个 Chromium。
+  if (sourceMime === 'image/gif' || buf.length <= maxBytes) {
     return { bytes: buf, mimeType: sourceMime, width: 0, height: 0, changed: false }
   }
 
@@ -248,36 +251,33 @@ export async function prepareImage(input: Uint8Array, mime: string, options: Pre
     const dataUrl = `data:${sourceMime};base64,${buf.toString('base64')}`
     const probe = await page.evaluate(browserProbeSize, dataUrl)
 
-    const scale = Math.min(1, maxEdge / Math.max(probe.w, probe.h))
-    const needsResize = scale < 1
-    const oversize = buf.length > maxBytes
-    if (!needsResize && !oversize) {
-      return { bytes: buf, mimeType: sourceMime, width: probe.w, height: probe.h, changed: false }
-    }
-
-    const outW = Math.max(1, Math.round(probe.w * scale))
-    const outH = Math.max(1, Math.round(probe.h * scale))
     const keepPng = sourceMime === 'image/png'
     let q = quality
-    let outW2 = outW
-    let outH2 = outH
+    // 从原尺寸起手：先试「不缩像素、只换编码参数」能不能进预算
+    let outW = probe.w
+    let outH = probe.h
     let out = await reencode(page, dataUrl, outW, outH, keepPng ? 'image/png' : 'image/jpeg', q)
     let bytes = Buffer.from(String(out).split(',')[1] ?? '', 'base64')
 
     // 还超就逐档处理：JPEG 降质量，PNG 只能继续缩尺寸（保透明没有更便宜的降法）
-    for (let i = 0; bytes.length > maxBytes && i < 4; i++) {
+    for (let i = 0; bytes.length > maxBytes && i < 6; i++) {
       if (keepPng) {
-        outW2 = Math.max(320, Math.round(outW2 * 0.8))
-        outH2 = Math.max(240, Math.round(outH2 * 0.8))
-        out = await reencode(page, dataUrl, outW2, outH2, 'image/png', q)
+        outW = Math.max(320, Math.round(outW * 0.8))
+        outH = Math.max(240, Math.round(outH * 0.8))
+        out = await reencode(page, dataUrl, outW, outH, 'image/png', q)
       } else {
         q = Math.max(45, q - 10)
-        out = await reencode(page, dataUrl, outW2, outH2, 'image/jpeg', q)
+        out = await reencode(page, dataUrl, outW, outH, 'image/jpeg', q)
       }
       bytes = Buffer.from(String(out).split(',')[1] ?? '', 'base64')
     }
 
-    return { bytes, mimeType: keepPng ? 'image/png' : 'image/jpeg', width: outW2, height: outH2, changed: true }
+    // 压不出收益就回退：掉像素换更大文件是纯亏
+    if (bytes.length >= buf.length) {
+      return { bytes: buf, mimeType: sourceMime, width: probe.w, height: probe.h, changed: false, fellBack: true }
+    }
+
+    return { bytes, mimeType: keepPng ? 'image/png' : 'image/jpeg', width: outW, height: outH, changed: true }
   } finally {
     await page.close()
   }

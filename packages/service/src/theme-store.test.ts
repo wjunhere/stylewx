@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PRESET_THEMES } from '@stylewx/theme'
@@ -75,5 +75,45 @@ describe('theme-store', () => {
   it('resolveTheme 支持完整主题对象', () => {
     const t = resolveTheme(validTheme)
     expect(t.name).toBe('测试主题-复用')
+  })
+})
+
+describe('theme-store 的来源标记（origins）', () => {
+  const catchCode = (fn: () => unknown): string | undefined => {
+    try {
+      fn()
+      return undefined
+    } catch (e) {
+      return (e as { error?: { code?: string } })?.error?.code
+    }
+  }
+
+  it('保存时默认记 agent，并在 listSavedThemes 里可读', () => {
+    const file = makeFile()
+    saveTheme(validTheme, { file })
+    expect(listSavedThemes({ file }).origins[validTheme.name]).toBe('agent')
+  })
+
+  it('品牌派生主题删不得（brand_apply 会幂等补回，删了会「复活」）', () => {
+    const file = makeFile()
+    saveTheme(validTheme, { file, origin: 'brand:hippie-youth' })
+    expect(catchCode(() => deleteTheme(validTheme.name, { file }))).toBe('theme_owned_by_brand')
+    expect(listSavedThemes({ file }).themes).toHaveLength(1)
+  })
+
+  it('没来源标记的存量主题默认拒删，显式 allowUnknown 才删（并清掉 origins 条目）', () => {
+    const file = makeFile()
+    // 模拟早期版本写出的文件：只有 themes，没有 origins
+    writeFileSync(file, JSON.stringify({ themes: [validTheme] }, null, 2), 'utf8')
+    expect(catchCode(() => deleteTheme(validTheme.name, { file }))).toBe('theme_origin_unknown')
+    expect(deleteTheme(validTheme.name, { file, allowUnknown: true }).deleted).toBe(validTheme.name)
+    expect(listSavedThemes({ file }).themes).toHaveLength(0)
+    expect(listSavedThemes({ file }).origins).toEqual({})
+  })
+
+  it('agent 主题照旧可删', () => {
+    const file = makeFile()
+    saveTheme(validTheme, { file })
+    expect(deleteTheme(validTheme.name, { file }).deleted).toBe(validTheme.name)
   })
 })

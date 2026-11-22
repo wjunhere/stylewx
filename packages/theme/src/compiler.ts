@@ -5,7 +5,7 @@
  */
 
 import { BLOCK_NAMES, EXTRA_BLOCK_NAMES, STYLEABLE_ELEMENTS } from './schema.js'
-import type { Theme } from './schema.js'
+import type { Theme, ThemeBlock } from './schema.js'
 import { resolveTokenReferences } from './tokens.js'
 import type { ThemeTokens } from './schema.js'
 
@@ -30,10 +30,23 @@ export function resolveDeclValue(value: string, tokens: ThemeTokens): string {
   )
 }
 
+/**
+ * 平台强制的底线样式：微信正文容器默认 `text-align: justify`，等宽字体的代码行会被
+ * 拉成「adb  shell  dumpsys  activity」这种大空隙（本地预览看不出来，进后台才现形）。
+ * 代码块左对齐是**平台事实**而不是设计选择 —— 所以主题没声明 `text-align` 时补上；
+ * 声明了就不动（真想让代码块居中/右对齐的主题，尊重它的写法）。
+ */
+function withPreTextAlignFloor(element: string, declarations: ThemeBlock | undefined): ThemeBlock | undefined {
+  if (element !== 'pre') return declarations
+  const base = declarations ?? {}
+  const declared = Object.keys(base).some((key) => key.toLowerCase() === 'text-align')
+  return declared ? base : { ...base, 'text-align': 'left' }
+}
+
 function buildBlockRules(theme: Theme): string[] {
   const rules: string[] = []
   for (const blockName of STYLEABLE_ELEMENTS) {
-    const declarations = theme.blocks[blockName]
+    const declarations = withPreTextAlignFloor(blockName, theme.blocks[blockName])
     if (!declarations) continue
     const entries = Object.entries(declarations)
     if (entries.length === 0) continue

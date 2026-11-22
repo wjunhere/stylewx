@@ -340,3 +340,19 @@ describe('主题的组件级样式覆盖（components）', () => {
     expect(json.properties && 'components' in json.properties).toBe(true)
   })
 })
+
+describe('pre 的 text-align 底线（微信正文容器默认 justify）', () => {
+  const base = getPresetTheme('tech-minimal')!
+
+  it('主题没声明 text-align 时，编译出的 pre 规则自带左对齐', () => {
+    const css = compileThemeToCss(base)
+    expect(css).toMatch(/pre \{[^}]*text-align: left;/)
+  })
+
+  it('主题显式声明 text-align 时不覆盖它', () => {
+    const theme = { ...base, blocks: { ...base.blocks, pre: { ...base.blocks.pre, 'text-align': 'center' } } }
+    const css = compileThemeToCss(theme)
+    expect(css).toMatch(/pre \{[^}]*text-align: center;/)
+    expect(css).not.toMatch(/pre \{[^}]*text-align: left;/)
+  })
+})
